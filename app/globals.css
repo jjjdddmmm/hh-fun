@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Inter:wght@100..900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Design system colors mapped to CSS variables */
+    --background: 0 0% 95%; /* neutral.lightest */
+    --foreground: 0 0% 0%; /* neutral.darkest */
+    --card: 0 0% 100%; /* neutral.white */
+    --card-foreground: 0 0% 0%; /* neutral.darkest */
+    --popover: 0 0% 100%; /* neutral.white */
+    --popover-foreground: 0 0% 0%; /* neutral.darkest */
+    --primary: 216 13% 25%; /* neutral.base */
+    --primary-foreground: 0 0% 100%; /* neutral.white */
+    --secondary: 0 0% 95%; /* neutral.lightest */
+    --secondary-foreground: 0 0% 0%; /* neutral.darkest */
+    --muted: 0 0% 95%; /* neutral.lightest */
+    --muted-foreground: 216 13% 25%; /* neutral.base */
+    --accent: 0 0% 95%; /* neutral.lightest */
+    --accent-foreground: 0 0% 0%; /* neutral.darkest */
+    --destructive: 5 85% 60%; /* cinnabar.base */
+    --destructive-foreground: 0 0% 100%; /* neutral.white */
+    --border: 0 0% 85%; /* neutral.lighter */
+    --input: 0 0% 85%; /* neutral.lighter */
+    --ring: 216 13% 25%; /* neutral.base */
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 7%; /* neutral.darker */
+    --foreground: 0 0% 95%; /* neutral.lightest */
+    --card: 0 0% 11%; /* neutral.dark */
+    --card-foreground: 0 0% 95%; /* neutral.lightest */
+    --popover: 0 0% 11%; /* neutral.dark */
+    --popover-foreground: 0 0% 95%; /* neutral.lightest */
+    --primary: 0 0% 95%; /* neutral.lightest */
+    --primary-foreground: 0 0% 11%; /* neutral.dark */
+    --secondary: 0 0% 18%; /* neutral.darker */
+    --secondary-foreground: 0 0% 95%; /* neutral.lightest */
+    --muted: 0 0% 18%; /* neutral.darker */
+    --muted-foreground: 0 0% 74%; /* neutral.lighter */
+    --accent: 0 0% 18%; /* neutral.darker */
+    --accent-foreground: 0 0% 95%; /* neutral.lightest */
+    --destructive: 0 62% 30%; /* cinnabar.dark */
+    --destructive-foreground: 0 0% 95%; /* neutral.lightest */
+    --border: 0 0% 18%; /* neutral.darker */
+    --input: 0 0% 18%; /* neutral.darker */
+    --ring: 0 0% 95%; /* neutral.lightest */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Black Han Sans', sans-serif;
+  }
+
+  p, span, div {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  /* Enhanced interactions */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  button,
+  input,
+  textarea,
+  select,
+  a {
+    transition: all 0.2s ease-in-out;
+  }
+}
