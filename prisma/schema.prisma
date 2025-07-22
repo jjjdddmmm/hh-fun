@@ -24,6 +24,8 @@ model User {
 model Property {
   id                     String             @id @default(cuid())
   userId                 String
+  
+  // === EXISTING CORE FIELDS ===
   address                String
   city                   String
   state                  String
@@ -48,6 +50,55 @@ model Property {
   mlsNumber              String?
   mlsUrl                 String?
   images                 Json?
+  
+  // === BATCHDATA INTELLIGENCE FIELDS ===
+  
+  // Financial Intelligence (Hot Fields - Frequently Queried)
+  lastSalePrice          BigInt?            // Previous sale amount
+  lastSaleDate           DateTime?          // When last sold  
+  estimatedValue         BigInt?            // BatchData AVM valuation
+  equityAmount           BigInt?            // Current equity position
+  equityPercent          Decimal?           // Equity as percentage
+  mortgageBalance        BigInt?            // Remaining loan amount
+  
+  // Market & Timing Intelligence  
+  daysOnMarket           Int?               // Current listing duration
+  marketTrend            String?            // "hot", "warm", "cold", "declining"
+  demandLevel            String?            // "high", "medium", "low"  
+  pricePerSqft           Int?               // For quick comparison
+  
+  // Owner Intelligence (Critical for Lead Generation)
+  ownerName              String?            // Current owner name
+  ownerOccupied          Boolean?           // Owner lives in property
+  absenteeOwner          Boolean?           // Owner lives elsewhere
+  ownershipLength        Int?               // Years owned (motivation indicator)
+  ownerPhone             String?            // Contact information
+  ownerEmail             String?            // Contact information
+  
+  // Investment Signals (High-Value Targeting)
+  highEquity             Boolean?           // Significant equity position
+  cashBuyer              Boolean?           // Previous cash purchase
+  distressedProperty     Boolean?           // Any distress indicators
+  foreclosureStatus      String?            // "pre-foreclosure", "auction", "none"  
+  fixAndFlipPotential    Boolean?           // Renovation opportunity
+  
+  // Rental Analysis
+  estimatedRent          BigInt?            // Monthly rental estimate
+  rentToValueRatio       Decimal?           // Rent as % of value (monthly)
+  capRate                Decimal?           // Capitalization rate
+  
+  // JSON Fields (Warm Data - Occasionally Accessed)
+  quickLists             Json?              // All BatchData flags
+  buildingFeatures       Json?              // Property features
+  neighborhoodData       Json?              // Area demographics
+  priceHistory           Json?              // Historical pricing
+  marketAnalytics        Json?              // Market context
+  
+  // Data Freshness Tracking
+  batchDataLastUpdated   DateTime?          // When BatchData was fetched
+  batchDataCost          Decimal?           // Cost of last API call
+  
+  // === EXISTING METADATA ===
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   deletedAt              DateTime?
@@ -55,6 +106,20 @@ model Property {
   analyses               PropertyAnalysis[]
   timeline               Timeline?
 
+  // === STRATEGIC INDEXES FOR PERFORMANCE ===
+  @@index([userId])
+  @@index([zipCode])
+  @@index([highEquity])
+  @@index([distressedProperty])
+  @@index([absenteeOwner])
+  @@index([lastSaleDate])
+  @@index([daysOnMarket])
+  @@index([ownershipLength])
+  @@index([foreclosureStatus])
+  @@index([equityPercent])
+  @@index([cashBuyer])
+  @@index([marketTrend, zipCode])
+  
   @@map("properties")
 }
 

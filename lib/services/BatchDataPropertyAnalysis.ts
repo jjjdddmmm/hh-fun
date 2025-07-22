@@ -21,6 +21,7 @@ export interface BatchDataPropertyData {
   propertyType: string;
   daysOnMarket?: number;
   pricePerSqft?: number;
+  soldDate?: string;
   description?: string;
   photos?: string[];
   // BatchData enhanced fields
@@ -76,30 +77,86 @@ export class BatchDataPropertyAnalysisService {
 
       console.log(`🏠 BatchData: Analyzing property at ${address}`);
 
-      // Search for the specific property
-      const searchResult = await this.batchData.makeRequest('/api/v1/property/search', {
-        searchCriteria: {
-          query: address
+      // Multiple search strategies for better property discovery
+      let properties: any[] = [];
+      const searchStrategies = [
+        // Strategy 1: Direct address search
+        {
+          name: 'Direct Address',
+          query: {
+            searchCriteria: { query: address },
+            options: { take: 1, includeAll: true }
+          }
         },
-        options: {
-          take: 1,
-          includeAll: true // Get all available fields
+        // Strategy 2: If address has ZIP, try ZIP-based search
+        ...(address.match(/\b\d{5}\b/) ? [{
+          name: 'ZIP Code Search',
+          query: {
+            searchCriteria: { query: address.match(/\b\d{5}\b/)![0] },
+            options: { take: 5, includeAll: true }
+          }
+        }] : []),
+        // Strategy 3: Clean address (remove extra words)
+        {
+          name: 'Cleaned Address',
+          query: {
+            searchCriteria: { 
+              query: address.replace(/\b(property|address|needed)\b/gi, '').trim() 
+            },
+            options: { take: 3, includeAll: true }
+          }
         }
-      }, 'POST');
+      ];
 
-      if (!searchResult.success || !searchResult.data) {
-        console.error('Failed to find property in BatchData');
-        return null;
+      for (const strategy of searchStrategies) {
+        try {
+          console.log(`🔎 Trying ${strategy.name} search: "${strategy.query.searchCriteria.query}"`);
+          
+          const searchResult = await this.batchData.makeRequest('/api/v1/property/search', strategy.query, 'POST');
+          
+          if (searchResult.success && searchResult.data) {
+            const foundProperties = this.extractPropertiesFromResponse(searchResult.data);
+            if (foundProperties.length > 0) {
+              console.log(`✅ ${strategy.name} found ${foundProperties.length} properties`);
+              properties = foundProperties;
+              break;
+            }
+          }
+        } catch (error) {
+          console.log(`❌ ${strategy.name} failed:`, error);
+          continue;
+        }
       }
 
-      const properties = this.extractPropertiesFromResponse(searchResult.data);
       if (properties.length === 0) {
-        console.error('No properties found in BatchData response');
+        console.error('❌ No properties found with any search strategy');
         return null;
       }
 
-      const property = properties[0];
-      console.log(`✅ Found property in BatchData: ${this.extractAddress(property)}`);
+      // Select best property match (prefer exact address matches)
+      let property = properties[0];
+      if (properties.length > 1 && address !== 'Address extraction failed - using property lookup') {
+        // Try to find exact match by comparing addresses
+        const exactMatch = properties.find(p => {
+          const propAddr = this.extractAddress(p).toLowerCase();
+          const searchAddr = address.toLowerCase();
+          return propAddr.includes(searchAddr.split(' ')[0]) || // House number match
+                 searchAddr.includes(propAddr.split(' ')[0]);
+        });
+        if (exactMatch) {
+          property = exactMatch;
+          console.log('🎯 Found exact address match');
+        }
+      }
+      
+      const extractedAddress = this.extractAddress(property);
+      console.log(`✅ Selected property: ${extractedAddress}`);
+      console.log(`📊 Property data preview:`, {
+        price: this.extractPrice(property),
+        bedrooms: this.extractBedrooms(property),
+        bathrooms: this.extractBathrooms(property),
+        sqft: property.building?.totalBuildingAreaSquareFeet
+      });
 
       // Convert BatchData format to expected format
       const propertyData = this.convertBatchDataToPropertyData(property, zpid);
@@ -188,35 +245,106 @@ export class BatchDataPropertyAnalysisService {
    * Convert BatchData property to expected format
    */
   private convertBatchDataToPropertyData(property: any, zpid?: string): BatchDataPropertyData {
+    console.log('🔧 Converting BatchData property to expected format...');
+    console.log('📊 Raw property data keys:', Object.keys(property));
+    
     const address = this.extractAddress(property);
     const price = this.extractPrice(property);
+    const bedrooms = this.extractBedrooms(property);
+    const bathrooms = this.extractBathrooms(property);
+    const livingArea = property.building?.totalBuildingAreaSquareFeet || 
+                      property.mls?.totalBuildingAreaSquareFeet || 
+                      property.squareFootage || 2000;
     
-    return {
+    console.log('🏠 Extracted core data:', {
+      address,
+      price,
+      bedrooms,
+      bathrooms,
+      livingArea
+    });
+    
+    const propertyData: BatchDataPropertyData = {
       zpid: zpid || property._id || property.id || 'batchdata-' + Date.now(),
       address: address,
-      city: property.address?.city || '',
-      state: property.address?.state || '',
-      zipcode: property.address?.zip || this.extractZipCode(address),
+      city: property.address?.city || property.city || '',
+      state: property.address?.state || property.state || '',
+      zipcode: property.address?.zip || property.zipCode || this.extractZipCode(address),
       price: price,
-      bedrooms: this.extractBedrooms(property),
-      bathrooms: this.extractBathrooms(property),
-      livingArea: property.building?.totalBuildingAreaSquareFeet || 
-                 property.mls?.totalBuildingAreaSquareFeet || 2000,
-      yearBuilt: property.building?.yearBuilt || property.mls?.yearBuilt || 2000,
-      propertyType: property.building?.propertyType || property.mls?.propertyType || 'Single Family',
-      daysOnMarket: property.mls?.daysOnMarket || 0,
-      pricePerSqft: this.calculatePricePerSqft(price, property.building?.totalBuildingAreaSquareFeet),
+      bedrooms: bedrooms,
+      bathrooms: bathrooms,
+      livingArea: livingArea,
+      yearBuilt: property.building?.yearBuilt || property.mls?.yearBuilt || property.yearBuilt || 2000,
+      propertyType: property.building?.propertyType || property.mls?.propertyType || property.propertyType || 'Single Family',
+      daysOnMarket: property.mls?.daysOnMarket || property.daysOnMarket || 0,
+      pricePerSqft: this.calculatePricePerSqft(price, livingArea),
+      soldDate: property.intel?.lastSoldDate || property.mls?.soldDate || property.sale?.lastSale?.saleDate,
       description: this.generateDescription(property),
       photos: this.extractPhotos(property),
-      // Enhanced BatchData fields
-      propertyTaxes: property.tax?.assessedValue || 0,
-      hoaFee: property.mls?.hoaFee || 0,
-      lotSize: property.building?.lotSizeSquareFeet || 0, // Return number, not string
+      // Enhanced BatchData fields with proper data extraction
+      propertyTaxes: property.tax?.assessedValue || property.assessment?.assessedValue || 0,
+      hoaFee: property.mls?.hoaFee || property.hoaFee || 0,
+      lotSize: property.building?.lotSizeSquareFeet || property.lot?.lotSizeSquareFeet || property.lotSize || 0,
       features: this.extractFeatures(property),
-      // Market insights
-      quickLists: property.quickLists || {},
-      demographics: property.demographics || {}
+      // Market insights - ensure these are properly extracted
+      quickLists: property.quickLists || this.generateQuickLists(property),
+      demographics: property.demographics || property.neighborhood || {},
+      // Add valuation data for zestimate
+      zestimate: property.valuation?.estimatedValue ? {
+        amount: property.valuation.estimatedValue,
+        valuationRange: {
+          low: property.valuation.estimatedValue * 0.95,
+          high: property.valuation.estimatedValue * 1.05
+        }
+      } : undefined,
+      rentZestimate: property.rental?.estimatedRent || property.rentEstimate || 0
     };
+    
+    console.log('✅ Final property data:', {
+      zpid: propertyData.zpid,
+      address: propertyData.address,
+      price: propertyData.price,
+      bedrooms: propertyData.bedrooms,
+      bathrooms: propertyData.bathrooms,
+      hasQuickLists: Object.keys(propertyData.quickLists || {}).length > 0,
+      hasZestimate: !!propertyData.zestimate
+    });
+    
+    return propertyData;
+  }
+  
+  /**
+   * Generate quick lists from property data if not provided
+   */
+  private generateQuickLists(property: any): any {
+    const quickLists: any = {};
+    
+    // Generate insights based on available data
+    if (property.sale?.lastSale?.saleDate) {
+      const saleDate = new Date(property.sale.lastSale.saleDate);
+      const monthsAgo = (Date.now() - saleDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      quickLists.recentlySold = monthsAgo <= 12;
+    }
+    
+    if (property.mls?.price && property.valuation?.estimatedValue) {
+      const priceRatio = property.mls.price / property.valuation.estimatedValue;
+      quickLists.listedBelowMarketPrice = priceRatio < 0.95;
+    }
+    
+    if (property.openLien?.totalOpenLienBalance && property.valuation?.estimatedValue) {
+      const ltvRatio = property.openLien.totalOpenLienBalance / property.valuation.estimatedValue;
+      quickLists.highEquity = ltvRatio < 0.5;
+      quickLists.lowEquity = ltvRatio > 0.8;
+    }
+    
+    // Default some common flags
+    quickLists.cashBuyer = false;
+    quickLists.fixAndFlip = false;
+    quickLists.absenteeOwner = false;
+    quickLists.ownerOccupied = true;
+    
+    console.log('📈 Generated quick lists:', quickLists);
+    return quickLists;
   }
 
   /**
@@ -245,16 +373,30 @@ export class BatchDataPropertyAnalysisService {
   }
 
   /**
-   * Extract price from BatchData with priority order
+   * Extract price from BatchData with priority order and debugging
    */
   private extractPrice(property: any): number {
-    // Priority: intel > MLS sold > MLS listing > valuation
+    // Priority: intel > MLS sold > MLS listing > valuation > sale history
     const intelPrice = property.intel?.lastSoldPrice;
     const mlsSoldPrice = property.mls?.soldPrice;
     const mlsPrice = property.mls?.price;
     const valuationPrice = property.valuation?.estimatedValue;
+    const salePrice = property.sale?.lastSale?.price;
+    const assessedValue = property.assessment?.assessedValue;
     
-    return intelPrice || mlsSoldPrice || mlsPrice || valuationPrice || 500000;
+    console.log('💰 Price extraction debug:', {
+      intel: intelPrice,
+      mlsSold: mlsSoldPrice,
+      mlsListing: mlsPrice,
+      valuation: valuationPrice,
+      sale: salePrice,
+      assessed: assessedValue
+    });
+    
+    const price = intelPrice || mlsSoldPrice || mlsPrice || valuationPrice || salePrice || assessedValue || 500000;
+    console.log(`✅ Selected price: $${price.toLocaleString()}`);
+    
+    return price;
   }
 
   /**

@@ -1,5 +1,6 @@
 import { prisma } from '../prisma';
 import { ZillowPropertyData } from '../zillow-api';
+import { BatchDataPropertyData } from './BatchDataPropertyAnalysis';
 
 export interface CreatePropertyInput {
   userId: string;
@@ -124,9 +125,139 @@ export class PropertyService {
       updateData.rentZestimate = BigInt(Math.round(zillowData.rentZestimate * 100));
     }
 
+    // === ADD BATCHDATA INTELLIGENCE FIELDS ===
+    this.addBatchDataFields(updateData, zillowData);
+
     return await prisma.property.update({
       where: { id: propertyId },
       data: updateData
+    });
+  }
+
+  /**
+   * Extract and populate BatchData intelligence fields
+   */
+  private addBatchDataFields(updateData: any, data: any) {
+    console.log('📈 Adding BatchData intelligence fields...');
+    console.log('📊 Available data fields:', Object.keys(data));
+    // Financial Intelligence Fields
+    if (data.quickLists?.lastSoldPrice || data.intel?.lastSoldPrice) {
+      updateData.lastSalePrice = BigInt(Math.round((data.quickLists?.lastSoldPrice || data.intel?.lastSoldPrice) * 100));
+    }
+    if (data.quickLists?.lastSoldDate || data.intel?.lastSoldDate) {
+      updateData.lastSaleDate = new Date(data.quickLists?.lastSoldDate || data.intel?.lastSoldDate);
+    }
+    if (data.zestimate?.amount) {
+      updateData.estimatedValue = BigInt(Math.round(data.zestimate.amount * 100));
+    }
+    if (data.valuation?.equityAmount) {
+      updateData.equityAmount = BigInt(Math.round(data.valuation.equityAmount * 100));
+    }
+    if (data.valuation?.equityPercent) {
+      updateData.equityPercent = data.valuation.equityPercent;
+    }
+    if (data.openLien?.totalOpenLienBalance) {
+      updateData.mortgageBalance = BigInt(Math.round(data.openLien.totalOpenLienBalance * 100));
+    }
+
+    // Market & Timing Intelligence
+    if (data.daysOnMarket) {
+      updateData.daysOnMarket = data.daysOnMarket;
+    }
+    if (data.marketTrend) {
+      updateData.marketTrend = data.marketTrend;
+    }
+    if (data.demandLevel) {
+      updateData.demandLevel = data.demandLevel;
+    }
+    if (data.pricePerSqft || (data.price && data.livingArea)) {
+      updateData.pricePerSqft = data.pricePerSqft || Math.round(data.price / data.livingArea);
+    }
+
+    // Owner Intelligence (Critical for Lead Generation)
+    if (data.owner?.name) {
+      updateData.ownerName = data.owner.name;
+    }
+    if (data.quickLists?.ownerOccupied !== undefined) {
+      updateData.ownerOccupied = data.quickLists.ownerOccupied;
+    }
+    if (data.quickLists?.absenteeOwner !== undefined) {
+      updateData.absenteeOwner = data.quickLists.absenteeOwner;
+    }
+    if (data.owner?.ownershipLength) {
+      updateData.ownershipLength = data.owner.ownershipLength;
+    }
+    if (data.owner?.phone) {
+      updateData.ownerPhone = data.owner.phone;
+    }
+    if (data.owner?.email) {
+      updateData.ownerEmail = data.owner.email;
+    }
+
+    // Investment Signals
+    if (data.quickLists?.highEquity !== undefined) {
+      updateData.highEquity = data.quickLists.highEquity;
+    }
+    if (data.quickLists?.cashBuyer !== undefined) {
+      updateData.cashBuyer = data.quickLists.cashBuyer;
+    }
+    if (data.quickLists?.distressedProperty !== undefined) {
+      updateData.distressedProperty = data.quickLists.distressedProperty;
+    }
+    if (data.foreclosure?.status) {
+      updateData.foreclosureStatus = data.foreclosure.status;
+    }
+    if (data.quickLists?.fixAndFlip !== undefined) {
+      updateData.fixAndFlipPotential = data.quickLists.fixAndFlip;
+    }
+
+    // Rental Analysis
+    if (data.rentZestimate) {
+      updateData.estimatedRent = BigInt(Math.round(data.rentZestimate * 100));
+    }
+    if (data.rental?.rentToValueRatio) {
+      updateData.rentToValueRatio = data.rental.rentToValueRatio;
+    }
+    if (data.rental?.capRate) {
+      updateData.capRate = data.rental.capRate;
+    }
+
+    // JSON Fields (Rich Data)
+    if (data.quickLists && Object.keys(data.quickLists).length > 0) {
+      updateData.quickLists = JSON.stringify(data.quickLists);
+    }
+    if (data.features || data.building) {
+      const features = {
+        pool: data.building?.pool || data.features?.pool || false,
+        fireplaceCount: data.building?.fireplaceCount || 0,
+        garageParkingSpaces: data.building?.garageParkingSpaceCount || 0,
+        centralAir: data.building?.centralAir || false,
+        condition: data.building?.condition || 'unknown',
+        lotSizeSquareFeet: data.building?.lotSizeSquareFeet || data.lotSize || 0
+      };
+      updateData.buildingFeatures = JSON.stringify(features);
+    }
+    if (data.demographics) {
+      updateData.neighborhoodData = JSON.stringify(data.demographics);
+    }
+    if (data.priceHistory) {
+      updateData.priceHistory = JSON.stringify(data.priceHistory);
+    }
+    if (data.marketAnalytics) {
+      updateData.marketAnalytics = JSON.stringify(data.marketAnalytics);
+    }
+
+    // Data Freshness Tracking
+    updateData.batchDataLastUpdated = new Date();
+    updateData.batchDataCost = 0.46; // Standard BatchData property lookup cost
+
+    console.log(`📊 Enhanced BatchData fields populated for property update`);
+    console.log('🔍 Updated fields preview:', {
+      hasFinancialData: !!(updateData.lastSalePrice || updateData.estimatedValue),
+      hasOwnerData: !!(updateData.ownerName || updateData.ownerOccupied !== undefined),
+      hasInvestmentSignals: !!(updateData.highEquity !== undefined || updateData.cashBuyer !== undefined),
+      hasMarketData: !!(updateData.marketTrend || updateData.daysOnMarket),
+      hasJsonFields: !!(updateData.quickLists || updateData.buildingFeatures)
     });
   }
 
