@@ -19,6 +19,7 @@ export interface RentcastComparable {
   propertyType: string; // Property type for filtering
   isSold: boolean; // Whether this is a sold property vs active listing
   priceSource: 'sold' | 'estimate' | 'listing'; // Track whether price is from sale, estimate, or listing
+  batchDataInsights?: any; // Optional BatchData-specific insights
 }
 
 export interface RentcastCompsResponse {
