@@ -121,6 +121,8 @@ export interface BatchDataResponse<T> {
     timestamp: string;
     dataSource: string;
     confidence: number;
+    propertiesReturned?: number;
+    estimatedCost?: number;
   };
 }
 
