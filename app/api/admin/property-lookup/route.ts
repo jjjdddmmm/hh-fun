@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
 }
 
 function analyzePropertyFields(property: any): any {
-  const analysis = {
+  const analysis: any = {
     totalFields: 0,
     fieldsBySection: {},
     dataCompleteness: {},
@@ -192,8 +192,8 @@ function analyzePropertyFields(property: any): any {
   const sections = ['address', 'building', 'mls', 'valuation', 'sale', 'owner', 'quickLists', 'deedHistory', 'demographics'];
   
   sections.forEach(section => {
-    if (property[section]) {
-      const sectionData = property[section];
+    if ((property as any)[section]) {
+      const sectionData = (property as any)[section];
       const fields = getAllFieldPaths(sectionData, section);
       analysis.fieldsBySection[section] = {
         fieldCount: fields.length,
