@@ -344,7 +344,7 @@ export class BatchDataComparablesService {
         similarity: property.similarityScore || property.confidenceScore || 85,
         propertyType: this.normalizePropertyType(property.building?.propertyType || property.mls?.propertyType || property.propertyType),
         isSold: !!soldDate,
-        priceSource: soldDate ? 'sold' : (property.mls?.price ? 'listing' : 'valuation'),
+        priceSource: soldDate ? 'sold' : (property.mls?.price ? 'listing' : 'estimate'),
         // Enhanced BatchData insights
         batchDataInsights: insights
       };
