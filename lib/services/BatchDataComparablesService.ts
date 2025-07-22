@@ -154,7 +154,7 @@ export class BatchDataComparablesService {
         
         const result = await this.batchData.makeRequest(
           config.endpoint,
-          config.body || config.params,
+          config.body,
           config.method as 'GET' | 'POST'
         );
 
