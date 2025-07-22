@@ -13,9 +13,17 @@ export class BatchDataService {
   private apiKey: string;
   private baseUrl: string;
 
-  constructor() {
-    this.apiKey = process.env.BATCH_DATA_API_KEY || '';
-    this.baseUrl = 'https://api.batchdata.com'; // Base URL - we'll discover the right endpoints
+  constructor(useProduction: boolean = false) {
+    // Allow easy switching between sandbox and production
+    if (useProduction) {
+      this.apiKey = process.env.BATCH_DATA_PRODUCTION_API_KEY || '';
+      console.log('🏭 Using BatchData PRODUCTION API');
+    } else {
+      this.apiKey = process.env.BATCH_DATA_SANDBOX_API_KEY || process.env.BATCH_DATA_API_KEY || '';
+      console.log('🧪 Using BatchData SANDBOX API');
+    }
+    
+    this.baseUrl = 'https://api.batchdata.com';
     
     if (!this.apiKey) {
       console.warn('BatchData API key not found in environment variables');
@@ -24,7 +32,8 @@ export class BatchDataService {
 
   async makeRequest<T>(
     endpoint: string,
-    params?: Record<string, any>
+    params?: Record<string, any>,
+    method: 'GET' | 'POST' = 'GET'
   ): Promise<BatchDataResponse<T>> {
     if (!this.apiKey) {
       return {
@@ -36,28 +45,42 @@ export class BatchDataService {
     try {
       const url = new URL(`${this.baseUrl}${endpoint}`);
       
-      // Add query parameters
-      if (params) {
+      // Debug logging
+      console.log(`🔐 BatchData request to ${endpoint} with API key ending in: ...${this.apiKey?.slice(-4) || 'MISSING'}`);
+      
+      const requestOptions: RequestInit = {
+        method,
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      };
+
+      if (method === 'GET' && params) {
+        // Add query parameters for GET requests
         Object.entries(params).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
             url.searchParams.append(key, String(value));
           }
         });
+      } else if (method === 'POST' && params) {
+        // Add body for POST requests
+        requestOptions.body = JSON.stringify(params);
+        console.log(`📤 Request body:`, JSON.stringify(params).substring(0, 200) + '...');
       }
 
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(url.toString(), requestOptions);
 
       if (!response.ok) {
-        throw new Error(`BatchData API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.log(`❌ BatchData API error: ${response.status} ${response.statusText} - ${errorText}`);
+        throw new Error(`BatchData API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
+
+      // Track API usage for cost monitoring
+      await this.trackUsage(endpoint, params, data);
 
       return {
         success: true,
@@ -66,7 +89,9 @@ export class BatchDataService {
           requestId: response.headers.get('x-request-id') || '',
           timestamp: new Date().toISOString(),
           dataSource: 'BatchData',
-          confidence: 85 // Default confidence, may be provided by API
+          confidence: 85, // Default confidence, may be provided by API
+          propertiesReturned: this.countProperties(data),
+          estimatedCost: this.estimateCost(data)
         }
       };
     } catch (error) {
@@ -194,5 +219,57 @@ export class BatchDataService {
       neighborhood,
       confidence
     };
+  }
+
+  /**
+   * Track BatchData API usage for cost monitoring
+   */
+  private async trackUsage(endpoint: string, params: any, response: any): Promise<void> {
+    try {
+      const propertiesCount = this.countProperties(response);
+      const estimatedCost = this.estimateCost(response);
+
+      // Log usage (you could also save to database)
+      console.log(`📊 BatchData Usage: ${endpoint} - ${propertiesCount} properties - ~$${estimatedCost.toFixed(2)}`);
+
+      // TODO: Save to database for proper tracking
+      // await prisma.batchDataUsage.create({
+      //   data: {
+      //     endpoint,
+      //     propertiesCount,
+      //     estimatedCost,
+      //     timestamp: new Date(),
+      //     params: JSON.stringify(params)
+      //   }
+      // });
+    } catch (error) {
+      console.warn('Failed to track BatchData usage:', error);
+    }
+  }
+
+  /**
+   * Count properties returned in response
+   */
+  private countProperties(response: any): number {
+    if (Array.isArray(response)) return response.length;
+    
+    const properties = (
+      response?.results?.properties ||
+      response?.data?.results?.properties ||
+      response?.data?.properties ||
+      response?.properties ||
+      []
+    );
+    
+    return Array.isArray(properties) ? properties.length : 0;
+  }
+
+  /**
+   * Estimate cost based on properties returned
+   */
+  private estimateCost(response: any): number {
+    const propertiesCount = this.countProperties(response);
+    const costPerProperty = 0.46; // Updated to actual cost observed: 46¢ per property
+    return propertiesCount * costPerProperty;
   }
 }

@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
     let compsData = null;
     let batchDataResults = null;
     
-    // Test BatchData in parallel (non-blocking)
+    // BatchData testing with sandbox (cost-controlled)
     if (batchDataAPI) {
-      console.log('🧪 Testing BatchData API in parallel...');
+      console.log('🧪 Testing BatchData API with sandbox (safe for development)...');
       batchDataAPI.getComparables(
         streetAddress,
         zipCode,
@@ -66,9 +66,12 @@ export async function POST(request: NextRequest) {
         0.5,
         property.propertyType || undefined
       ).then(result => {
-        console.log('📊 BatchData test result:', result ? `${result.comparables.length} comparables` : 'failed');
+        console.log('📊 BatchData sandbox test result:', result ? `${result.comparables.length} comparables` : 'failed');
+        if (result && result.comparables.length > 0) {
+          console.log('✅ Sample BatchData comparable:', result.comparables[0]);
+        }
       }).catch(error => {
-        console.log('⚠️ BatchData test error:', error.message);
+        console.log('⚠️ BatchData sandbox test error:', error.message);
       });
     }
 

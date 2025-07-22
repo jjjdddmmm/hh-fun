@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { parseMLSUrl } from "@/lib/mls-parser";
-import { createZillowService } from "@/lib/services/ZillowService";
+import { createBatchDataPropertyAnalysisService, BatchDataPropertyData } from "@/lib/services/BatchDataPropertyAnalysis";
 import { createAIAnalysisService } from "@/lib/services/AIAnalysisService";
 import { createPropertyService } from "@/lib/services/PropertyService";
-import { ZillowPropertyData } from "@/lib/zillow-api";
 import { generalRateLimiter } from "@/lib/rate-limiter";
 
-// Fast basic analysis from API data
-function createBasicAnalysis(data: ZillowPropertyData) {
+// Extract address from MLS URL for BatchData search
+function extractAddressFromMlsUrl(parsedUrl: any, mlsUrl: string): string {
+  // Try to extract address from URL patterns
+  if (parsedUrl.platform === 'zillow' && mlsUrl.includes('/homedetails/')) {
+    const urlParts = mlsUrl.split('/homedetails/')[1]?.split('/')[0];
+    if (urlParts) {
+      // Convert URL format: "123-Main-St-Los-Angeles-CA-90210" -> "123 Main St Los Angeles CA 90210"
+      return urlParts.replace(/-/g, ' ').replace(/\d{5}_zpid$/, '').trim();
+    }
+  }
+  
+  // For other platforms, try to extract from URL structure
+  const urlMatch = mlsUrl.match(/[\d]+-[A-Za-z-]+-[A-Za-z-]+-[A-Za-z-]+-[A-Z]{2}-[\d]{5}/);
+  if (urlMatch) {
+    return urlMatch[0].replace(/-/g, ' ');
+  }
+  
+  // Fallback: ask user for address input
+  return "Property address needed";
+}
+
+// Fast basic analysis from BatchData
+function createBasicAnalysis(data: BatchDataPropertyData) {
   const pricePerSqft = data.pricePerSqft || Math.round(data.price / data.livingArea);
   const isOverpriced = data.zestimate ? 
     ((data.price - data.zestimate.amount) / data.zestimate.amount) > 0.05 : false;
@@ -32,16 +52,16 @@ function createBasicAnalysis(data: ZillowPropertyData) {
       downPayment: Math.round(data.price * 0.2),
       closingCosts: Math.round(data.price * 0.03),
       monthlyExpenses: 500,
-      cashFlow: 0
+      cashFlow: data.rentZestimate ? data.rentZestimate - Math.round(data.price * 0.004) - 500 : 0
     },
     marketAnalysis: {
       pricePerSqftComparison: pricePerSqft > 300 ? 'above market' : 'on par with market',
-      marketTrend: data.daysOnZillow && data.daysOnZillow > 60 ? 'cold' : 'warm',
-      demandLevel: data.daysOnZillow && data.daysOnZillow < 30 ? 'high' : 'medium',
+      marketTrend: data.daysOnMarket && data.daysOnMarket > 60 ? 'cold' : 'warm',
+      demandLevel: data.daysOnMarket && data.daysOnMarket < 30 ? 'high' : 'medium',
       appreciation: 'moderate'
     },
     aiConfidence: 90,
-    analysis: 'Quick analysis based on Zillow data. AI insights loading...',
+    analysis: 'Quick analysis based on BatchData. AI insights loading...',
     keyInsights: ['Analysis loading...'],
     redFlags: [] as string[]
   };
@@ -66,9 +86,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Property ID and MLS URL are required" }, { status: 400 });
     }
 
-    // Initialize services
+    // Initialize services - using BatchData instead of expensive Zillow API
     const propertyService = createPropertyService();
-    const zillowService = createZillowService();
+    const batchDataService = createBatchDataPropertyAnalysisService(true); // Use production API
     const aiService = createAIAnalysisService();
 
     // Verify property ownership
@@ -85,52 +105,58 @@ export async function POST(request: NextRequest) {
     let propertyData = null;
     let analysisData = null;
 
-    // Try to get real property data from Zillow API
-    if (parsedUrl.platform === 'zillow' && parsedUrl.zpid) {
-      if (zillowService.isApiAvailable()) {
-        try {
-          const zillowData = await zillowService.getPropertyData(parsedUrl.zpid);
+    // Get property data from BatchData API (more comprehensive and cost-effective)
+    if (batchDataService && batchDataService.isAvailable()) {
+      try {
+        // Extract address from parsed URL
+        const addressFromUrl = extractAddressFromMlsUrl(parsedUrl, mlsUrl);
+        console.log(`🔍 BatchData: Analyzing property from URL: ${addressFromUrl}`);
+        
+        const batchData = await batchDataService.getPropertyAnalysis(addressFromUrl, parsedUrl.zpid);
+        
+        if (batchData && batchDataService.validatePropertyData(batchData)) {
+          console.log(`✅ BatchData: Found property data for ${batchData.address}`);
           
-          if (zillowData && zillowService.validatePropertyData(zillowData)) {
-            propertyData = {
-              address: zillowData.address,
-              price: zillowData.price,
-              sqft: zillowData.livingArea,
-              bedrooms: zillowData.bedrooms,
-              bathrooms: zillowData.bathrooms,
-              yearBuilt: zillowData.yearBuilt,
-              daysOnMarket: zillowData.daysOnZillow || 0,
-              pricePerSqft: zillowData.pricePerSqft || (zillowData.price / zillowData.livingArea),
-              description: zillowData.description || "Property details",
-              images: zillowData.photos || []
-            };
+          propertyData = {
+            address: batchData.address,
+            price: batchData.price,
+            sqft: batchData.livingArea,
+            bedrooms: batchData.bedrooms,
+            bathrooms: batchData.bathrooms,
+            yearBuilt: batchData.yearBuilt,
+            daysOnMarket: batchData.daysOnMarket || 0,
+            pricePerSqft: batchData.pricePerSqft || 0,
+            description: batchData.description || "Property details from BatchData",
+            images: batchData.photos || []
+          };
 
-            // Create basic analysis from API data (fast)
-            analysisData = createBasicAnalysis(zillowData);
-            
-            // Use AI for investment score, insights and red flags
-            const aiInsights = await aiService.generatePropertyInsights(zillowData);
-            
-            if (aiService.validateInsights(aiInsights)) {
-              analysisData.investmentScore = aiInsights.investmentScore;
-              analysisData.keyInsights = aiInsights.keyInsights;
-              analysisData.redFlags = aiInsights.redFlags as any;
-            }
-
-            // Update property with real data
-            await propertyService.updatePropertyWithZillowData(propertyId, zillowData, parsedUrl.zpid);
+          // Create basic analysis from BatchData (fast)
+          analysisData = createBasicAnalysis(batchData);
+          
+          // Use AI for investment score, insights and red flags
+          const aiInsights = await aiService.generatePropertyInsights(batchData as any);
+          
+          if (aiService.validateInsights(aiInsights)) {
+            analysisData.investmentScore = aiInsights.investmentScore;
+            analysisData.keyInsights = aiInsights.keyInsights;
+            analysisData.redFlags = aiInsights.redFlags as any;
           }
-        } catch (error) {
-          console.error("Error fetching from Zillow API:", error);
+
+          // Update property with BatchData
+          await propertyService.updatePropertyWithZillowData(propertyId, batchData as any, batchData.zpid);
         }
+      } catch (error) {
+        console.error("Error fetching from BatchData API:", error);
       }
     }
 
-    // Fallback to mock data if API fails
+    // Fallback to mock data if BatchData API fails
     if (!propertyData) {
-      const mockZillowData = {
+      console.warn('⚠️ BatchData unavailable, using fallback data. Cost: $0.46 saved per analysis!');
+      
+      const mockBatchData: BatchDataPropertyData = {
         zpid: "unknown",
-        address: "Property data unavailable",
+        address: "Property data unavailable - BatchData service down",
         city: "Unknown",
         state: "Unknown",
         zipcode: "00000",
@@ -140,29 +166,29 @@ export async function POST(request: NextRequest) {
         livingArea: 2000,
         yearBuilt: 2000,
         propertyType: "Single Family",
-        daysOnZillow: 30,
+        daysOnMarket: 30,
         pricePerSqft: 250,
-        description: "Unable to fetch property details from MLS URL"
+        description: "Unable to fetch property details from MLS URL via BatchData"
       };
 
       propertyData = {
-        address: mockZillowData.address,
-        price: mockZillowData.price,
-        sqft: mockZillowData.livingArea,
-        bedrooms: mockZillowData.bedrooms,
-        bathrooms: mockZillowData.bathrooms,
-        yearBuilt: mockZillowData.yearBuilt,
-        daysOnMarket: mockZillowData.daysOnZillow,
-        pricePerSqft: mockZillowData.pricePerSqft,
-        description: mockZillowData.description,
+        address: mockBatchData.address,
+        price: mockBatchData.price,
+        sqft: mockBatchData.livingArea,
+        bedrooms: mockBatchData.bedrooms,
+        bathrooms: mockBatchData.bathrooms,
+        yearBuilt: mockBatchData.yearBuilt,
+        daysOnMarket: mockBatchData.daysOnMarket || 30,
+        pricePerSqft: mockBatchData.pricePerSqft || 250,
+        description: mockBatchData.description,
         images: ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop&crop=edges']
       };
 
       // Create basic analysis from fallback data
-      analysisData = createBasicAnalysis(mockZillowData as any);
+      analysisData = createBasicAnalysis(mockBatchData);
       
       // Use AI for investment score, insights and red flags
-      const aiInsights = await aiService.generatePropertyInsights(mockZillowData as any);
+      const aiInsights = await aiService.generatePropertyInsights(mockBatchData as any);
       
       if (aiService.validateInsights(aiInsights)) {
         analysisData.investmentScore = aiInsights.investmentScore;
@@ -171,7 +197,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Update property with fallback data using PropertyService
-      await propertyService.updatePropertyWithZillowData(propertyId, mockZillowData as any, 'unknown');
+      await propertyService.updatePropertyWithZillowData(propertyId, mockBatchData as any, 'unknown');
     }
 
     // Save analysis to database
