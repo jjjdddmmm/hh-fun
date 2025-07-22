@@ -139,7 +139,9 @@ export async function POST(request: NextRequest) {
 
     const successfulResult = results.find(r => r.success && r.propertiesFound > 0);
     if (successfulResult && successfulResult.data) {
-      const properties = successfulResult.data.results?.properties || [];
+      // Type cast to handle dynamic BatchData response structure
+      const responseData = successfulResult.data as any;
+      const properties = responseData.results?.properties || responseData.properties || [];
       if (properties.length > 0) {
         sampleProperty = properties[0];
         
