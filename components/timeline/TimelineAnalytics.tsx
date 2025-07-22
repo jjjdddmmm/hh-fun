@@ -4,6 +4,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionHeader } from "@/components/ui/section-header";
 import { TrendingUp, DollarSign, Clock, CheckCircle } from "lucide-react";
 import { TimelineWithRelations, TimelineProgressStats, TimelineCostSummary } from "@/lib/types/timeline";
 
@@ -102,7 +103,7 @@ export function TimelineAnalytics({ timeline, analytics }: TimelineAnalyticsProp
         <CardContent>
           <div className="text-center py-12">
             <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Analytics Coming Soon</h3>
+            <SectionHeader className="text-lg mb-2">Analytics Coming Soon</SectionHeader>
             <p className="text-gray-600">
               Detailed timeline analytics and insights will be available here.
             </p>

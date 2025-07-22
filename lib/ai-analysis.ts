@@ -206,8 +206,13 @@ Respond with JSON only:
       
       return { investmentScore: 50, keyInsights: ['Property analysis completed'], redFlags: [] };
     } catch (error) {
-      console.error('AI Insights Error:', error);
-      return { investmentScore: 50, keyInsights: ['Unable to generate insights'], redFlags: [] };
+      console.error('❌ AI Insights Error for property:', propertyData.address, {
+        error: error instanceof Error ? error.message : String(error),
+        propertyId: propertyData.zpid,
+        hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      return { investmentScore: 50, keyInsights: ['Unable to generate insights - check logs'], redFlags: ['AI analysis temporarily unavailable'] };
     }
   }
 
@@ -234,7 +239,13 @@ Respond with JSON only:
       
       throw new Error('Invalid response format from AI');
     } catch (error) {
-      console.error('AI Analysis Error:', error);
+      console.error('❌ AI Full Analysis Error for property:', propertyData.address, {
+        error: error instanceof Error ? error.message : String(error),
+        propertyId: propertyData.zpid,
+        hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      console.warn('🔄 Using fallback analysis for property:', propertyData.address);
       return this.fallbackAnalysis(propertyData);
     }
   }
@@ -656,6 +667,35 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
     const isOverpriced = propertyData.zestimate ? 
       ((propertyData.price - propertyData.zestimate.amount) / propertyData.zestimate.amount) > 0.05 : false;
     
+    // Calculate a more realistic investment score based on property characteristics
+    let investmentScore = 50; // Base score
+    
+    // Adjust based on price vs zestimate
+    if (propertyData.zestimate) {
+      const priceDifference = (propertyData.price - propertyData.zestimate.amount) / propertyData.zestimate.amount;
+      if (priceDifference < -0.1) investmentScore += 20; // Great deal
+      else if (priceDifference < -0.05) investmentScore += 10; // Good deal
+      else if (priceDifference > 0.1) investmentScore -= 20; // Overpriced
+      else if (priceDifference > 0.05) investmentScore -= 10; // Slightly overpriced
+    }
+    
+    // Adjust based on property age
+    const propertyAge = new Date().getFullYear() - propertyData.yearBuilt;
+    if (propertyAge < 10) investmentScore += 10; // Newer property
+    else if (propertyAge > 50) investmentScore -= 10; // Older property
+    
+    // Adjust based on days on market
+    if (propertyData.daysOnZillow) {
+      if (propertyData.daysOnZillow > 90) investmentScore -= 15; // Stale listing
+      else if (propertyData.daysOnZillow > 60) investmentScore -= 5; // Extended market time
+      else if (propertyData.daysOnZillow < 7) investmentScore += 5; // Fresh listing
+    }
+    
+    // Ensure score stays within bounds
+    investmentScore = Math.max(1, Math.min(100, investmentScore));
+    
+    console.warn('🔄 Using calculated fallback investment score:', investmentScore, 'for property:', propertyData.address);
+    
     return {
       marketValue: {
         low: propertyData.zestimate?.valuationRange.low || propertyData.price * 0.95,
@@ -670,7 +710,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
         `${propertyData.daysOnZillow && propertyData.daysOnZillow > 60 ? 'Extended time on market' : 'Recent listing'}`
       ],
       redFlags: isOverpriced ? ['Price above market estimate'] : [],
-      investmentScore: isOverpriced ? 40 : 65,
+      investmentScore: investmentScore,
       negotiationStrategy: {
         suggestedOffer: propertyData.price * 0.97,
         tactics: ['Market comparison', 'Inspection contingency'],

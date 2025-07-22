@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SectionHeader } from "@/components/ui/section-header";
 import { Home, Plus, TrendingUp, DollarSign, MapPin, Square, Bed, Bath, AlertCircle, Loader2, X, ExternalLink, Users, Trash2, RefreshCw, Hammer, PartyPopper, Handshake, Calendar } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AppNavigation from "@/components/app-navigation";
+import AppFooter from "@/components/app-footer";
 
 interface Property {
   id: string;
@@ -80,6 +82,134 @@ const getRecommendationColor = (recommendation: string) => {
   }
 };
 
+// Calculate property-specific score breakdown
+const calculateScoreBreakdown = (property: Property) => {
+  if (!property.data || !property.analysis) {
+    return {
+      marketPricing: { score: 10, maxScore: 20, description: 'Insufficient data' },
+      propertyCondition: { score: 7, maxScore: 15, description: 'Analysis pending' },
+      locationValue: { score: 10, maxScore: 20, description: 'Data unavailable' },
+      cashFlowPotential: { score: 7, maxScore: 15, description: 'Needs analysis' }
+    };
+  }
+
+  const { data, analysis } = property;
+  
+  // Market Pricing Score (0-20 points)
+  let marketPricingScore = 10; // Base score
+  let marketPricingDesc = 'Market positioning analysis';
+  
+  if (analysis.marketValue) {
+    const priceDifference = (data.price - analysis.marketValue.estimated) / analysis.marketValue.estimated;
+    if (priceDifference < -0.1) {
+      marketPricingScore = 20; // Significantly underpriced
+      marketPricingDesc = 'Excellent value - below market estimate';
+    } else if (priceDifference < -0.05) {
+      marketPricingScore = 18; // Moderately underpriced
+      marketPricingDesc = 'Good value - competitively priced';
+    } else if (priceDifference < 0.05) {
+      marketPricingScore = 15; // Fair market price
+      marketPricingDesc = 'Fair market pricing';
+    } else if (priceDifference < 0.1) {
+      marketPricingScore = 10; // Slightly overpriced
+      marketPricingDesc = 'Slightly above market estimate';
+    } else {
+      marketPricingScore = 5; // Significantly overpriced
+      marketPricingDesc = 'Above market pricing';
+    }
+  }
+  
+  // Property Condition Score (0-15 points)
+  let propertyConditionScore = 7; // Base score
+  let propertyConditionDesc = 'Standard condition for age';
+  
+  const propertyAge = new Date().getFullYear() - data.yearBuilt;
+  if (propertyAge < 5) {
+    propertyConditionScore = 15;
+    propertyConditionDesc = 'Excellent - newly built';
+  } else if (propertyAge < 15) {
+    propertyConditionScore = 13;
+    propertyConditionDesc = 'Very good - modern construction';
+  } else if (propertyAge < 30) {
+    propertyConditionScore = 10;
+    propertyConditionDesc = 'Good condition for age';
+  } else {
+    propertyConditionScore = 7;
+    propertyConditionDesc = 'Established property';
+  }
+  
+  // Location Value Score (0-20 points)
+  let locationValueScore = 10; // Base score
+  let locationValueDesc = 'Standard neighborhood';
+  
+  // Use market analysis data if available
+  if (analysis.marketAnalysis) {
+    const demandLevel = analysis.marketAnalysis.demandLevel;
+    const appreciation = analysis.marketAnalysis.appreciation;
+    
+    if (demandLevel === 'high' && appreciation === 'strong') {
+      locationValueScore = 20;
+      locationValueDesc = 'Excellent location fundamentals';
+    } else if (demandLevel === 'high' || appreciation === 'strong') {
+      locationValueScore = 16;
+      locationValueDesc = 'Strong neighborhood fundamentals';
+    } else if (demandLevel === 'medium' && appreciation === 'moderate') {
+      locationValueScore = 13;
+      locationValueDesc = 'Good location potential';
+    } else {
+      locationValueScore = 8;
+      locationValueDesc = 'Average location metrics';
+    }
+  }
+  
+  // Cash Flow Potential Score (0-15 points)
+  let cashFlowScore = 7; // Base score
+  let cashFlowDesc = 'Standard rental potential';
+  
+  if (analysis.financialProjection && analysis.financialProjection.cashFlow !== undefined) {
+    const cashFlow = analysis.financialProjection.cashFlow;
+    if (cashFlow > 500) {
+      cashFlowScore = 15;
+      cashFlowDesc = 'Excellent cash flow potential';
+    } else if (cashFlow > 200) {
+      cashFlowScore = 12;
+      cashFlowDesc = 'Good rental yield expected';
+    } else if (cashFlow > 0) {
+      cashFlowScore = 9;
+      cashFlowDesc = 'Positive cash flow potential';
+    } else if (cashFlow > -200) {
+      cashFlowScore = 6;
+      cashFlowDesc = 'Break-even to slight loss';
+    } else {
+      cashFlowScore = 3;
+      cashFlowDesc = 'Negative cash flow expected';
+    }
+  }
+  
+  return {
+    marketPricing: { 
+      score: marketPricingScore, 
+      maxScore: 20, 
+      description: marketPricingDesc 
+    },
+    propertyCondition: { 
+      score: propertyConditionScore, 
+      maxScore: 15, 
+      description: propertyConditionDesc 
+    },
+    locationValue: { 
+      score: locationValueScore, 
+      maxScore: 20, 
+      description: locationValueDesc 
+    },
+    cashFlowPotential: { 
+      score: cashFlowScore, 
+      maxScore: 15, 
+      description: cashFlowDesc 
+    }
+  };
+};
+
 export default function PropertyAnalysisPage() {
   const { user } = useUser();
   const router = useRouter();
@@ -109,6 +239,16 @@ export default function PropertyAnalysisPage() {
   const [customStrategy, setCustomStrategy] = useState<string | null>(null);
   const [generatingStrategy, setGeneratingStrategy] = useState(false);
   const [creatingTimeline, setCreatingTimeline] = useState<string | null>(null);
+  const [dealMakerAnalysis, setDealMakerAnalysis] = useState<any>(null);
+  const [showDealMaker, setShowDealMaker] = useState(false);
+  const [dealMakerLoading, setDealMakerLoading] = useState(false);
+  const [buyerProfile, setBuyerProfile] = useState({
+    maxBudget: '',
+    downPaymentAvailable: '',
+    creditScore: '',
+    firstTimeBuyer: false,
+    investmentGoals: 'primary'
+  });
 
   // Load user's properties
   useEffect(() => {
@@ -307,49 +447,68 @@ export default function PropertyAnalysisPage() {
 
   const generateCustomStrategy = async () => {
     
-    if (!selectedProperty) {
-      console.error('No property selected');
+    if (!selectedProperty || !wizardData.maxBudget || !wizardData.preferredPrice) {
+      console.error('Property or budget information missing');
       return;
     }
     
     setGeneratingStrategy(true);
     try {
-      const contingencyList = Object.entries(wizardData.contingencies)
-        .filter(([_, enabled]) => enabled)
-        .map(([key, _]) => key.replace(/([A-Z])/g, ' $1').toLowerCase());
-      
-      const response = await fetch('/api/custom-strategy', {
+      const response = await fetch('/api/deal-maker', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          property: selectedProperty.data,
-          budget: {
-            max: parseFloat(wizardData.maxBudget) || 0,
-            preferred: parseFloat(wizardData.preferredPrice) || 0,
-            downPayment: parseFloat(wizardData.downPayment) || 0
-          },
-          timeline: {
-            closing: wizardData.closingTimeline,
-            moveIn: wizardData.moveInFlexibility
-          },
-          contingencies: contingencyList,
-          analysis: selectedProperty.analysis, // Pass the full property analysis
-          comparables: comparables // Pass comparable sales data if available
+          propertyId: selectedProperty.id,
+          buyerProfile: {
+            maxBudget: parseInt(wizardData.maxBudget),
+            downPaymentAvailable: parseInt(wizardData.downPayment) || Math.round(parseInt(wizardData.preferredPrice) * 0.2),
+            creditScore: undefined, // We don't collect credit score in the wizard
+            firstTimeBuyer: false, // We don't collect this in the wizard
+            investmentGoals: 'primary' // Default to primary residence
+          }
         })
       });
       
       if (response.ok) {
         const data = await response.json();
-        setCustomStrategy(data.strategy);
+        setDealMakerAnalysis(data.negotiationAnalysis);
+        
+        // Create a formatted strategy text for the existing UI
+        const analysis = data.negotiationAnalysis;
+        const strategyText = `🏠 RECOMMENDED OFFER: $${analysis.recommendedOffer.amount.toLocaleString()}
+Confidence Level: ${analysis.recommendedOffer.confidence}%
+
+📊 ALTERNATIVE STRATEGIES:
+• Aggressive: $${analysis.alternativeOffers.aggressive.amount.toLocaleString()} (${analysis.alternativeOffers.aggressive.successProbability}% success rate)
+• Moderate: $${analysis.alternativeOffers.moderate.amount.toLocaleString()} (${analysis.alternativeOffers.moderate.successProbability}% success rate)
+• Conservative: $${analysis.alternativeOffers.conservative.amount.toLocaleString()} (${analysis.alternativeOffers.conservative.successProbability}% success rate)
+
+🎯 SELLER MOTIVATION: ${analysis.sellerMotivation.level.toUpperCase()}
+${analysis.sellerMotivation.indicators.map((indicator: string) => `• ${indicator}`).join('\n')}
+
+💡 NEGOTIATION STRATEGIES:
+${analysis.negotiationStrategies.map((strategy: any) => `
+${strategy.strategy}:
+${strategy.talkingPoints.map((point: string) => `• ${point}`).join('\n')}
+Leverage: ${strategy.leverage.join(', ')}
+`).join('\n')}
+
+${analysis.hiddenOpportunities.length > 0 ? `✅ OPPORTUNITIES:
+${analysis.hiddenOpportunities.map((opp: string) => `• ${opp}`).join('\n')}` : ''}
+
+${analysis.dealBreakers.length > 0 ? `⚠️ DEAL BREAKERS:
+${analysis.dealBreakers.map((breaker: string) => `• ${breaker}`).join('\n')}` : ''}`;
+
+        setCustomStrategy(strategyText);
       } else {
-        console.error('Failed to generate custom strategy');
-        setCustomStrategy('Unable to generate custom strategy at this time. Please try again later.');
+        console.error('Failed to generate Deal Maker strategy');
+        setCustomStrategy('Unable to generate negotiation strategy at this time. Please try again later.');
       }
     } catch (error) {
-      console.error('Error generating strategy:', error);
-      setCustomStrategy('Unable to generate custom strategy at this time. Please try again later.');
+      console.error('Error generating Deal Maker strategy:', error);
+      setCustomStrategy('Unable to generate negotiation strategy at this time. Please try again later.');
     } finally {
       setGeneratingStrategy(false);
     }
@@ -487,6 +646,46 @@ export default function PropertyAnalysisPage() {
     }
   };
 
+  const runDealMakerAnalysis = async () => {
+    if (!selectedProperty || !buyerProfile.maxBudget || !buyerProfile.downPaymentAvailable) {
+      alert('Please fill in your budget and down payment amount');
+      return;
+    }
+
+    setDealMakerLoading(true);
+    try {
+      const response = await fetch('/api/deal-maker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: selectedProperty.id,
+          buyerProfile: {
+            maxBudget: parseInt(buyerProfile.maxBudget),
+            downPaymentAvailable: parseInt(buyerProfile.downPaymentAvailable),
+            creditScore: buyerProfile.creditScore ? parseInt(buyerProfile.creditScore) : undefined,
+            firstTimeBuyer: buyerProfile.firstTimeBuyer,
+            investmentGoals: buyerProfile.investmentGoals
+          }
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setDealMakerAnalysis(result.negotiationAnalysis);
+          setShowDealMaker(true);
+        }
+      } else {
+        alert('Failed to analyze negotiation strategy');
+      }
+    } catch (error) {
+      console.error('Error running Deal Maker:', error);
+      alert('Error analyzing property');
+    } finally {
+      setDealMakerLoading(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-white flex items-center justify-center">
@@ -561,9 +760,9 @@ export default function PropertyAnalysisPage() {
                       <div className="text-3xl font-bold text-[#020B0A]">{selectedProperty?.analysis?.investmentScore}</div>
                     </div>
                     <div>
-                      <h2 className="text-2xl font-ds-heading text-[#5C1B10] tracking-[-0.01em] mb-1">Investment Score Analysis</h2>
-                      <h3 className="text-lg font-ds-heading text-[#5C1B10] tracking-[-0.01em] mb-1">{selectedProperty?.data?.address}</h3>
-                      <p className="font-ds-body text-[#020B0A] opacity-80 leading-[150%]">Detailed breakdown of factors affecting this property's investment potential</p>
+                      <SectionHeader className="text-2xl text-[#5C1B10] mb-1">Investment Score Analysis</SectionHeader>
+                      <SectionHeader className="text-lg text-[#5C1B10] mb-1">{selectedProperty?.data?.address}</SectionHeader>
+                      <p className="font-ds-body text-[#020B0A] opacity-80 leading-[150%]">Detailed breakdown of factors affecting this property&apos;s investment potential</p>
                     </div>
                   </div>
                   <Button
@@ -634,13 +833,17 @@ export default function PropertyAnalysisPage() {
             </div>
           )}
           
-          {showInvestmentScore && selectedProperty?.analysis && (
-            <div className="space-y-6">
+          {showInvestmentScore && selectedProperty?.analysis && (() => {
+            const scoreBreakdown = calculateScoreBreakdown(selectedProperty);
+            return (
+              <div className="space-y-6">
 
               {/* Score Breakdown */}
               <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-lg font-ds-heading text-[#5C1B10] tracking-[-0.01em]">Score Breakdown</CardTitle>
+                  <CardTitle className="text-lg">
+                    <SectionHeader className="text-[#5C1B10]">Score Breakdown</SectionHeader>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -648,48 +851,76 @@ export default function PropertyAnalysisPage() {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="font-ds-body font-medium text-[#020B0A]">Market Pricing</span>
-                        <span className="font-ds-body font-bold text-[#5C1B10]">18/20</span>
+                        <span className="font-ds-body font-bold text-[#5C1B10]">
+                          {scoreBreakdown.marketPricing.score}/{scoreBreakdown.marketPricing.maxScore}
+                        </span>
                       </div>
                       <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                        <div className="bg-[#5C1B10] h-3 rounded-full" style={{width: '90%'}}></div>
+                        <div 
+                          className="bg-[#5C1B10] h-3 rounded-full" 
+                          style={{width: `${(scoreBreakdown.marketPricing.score / scoreBreakdown.marketPricing.maxScore) * 100}%`}}
+                        ></div>
                       </div>
-                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">Competitively priced for the area</p>
+                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
+                        {scoreBreakdown.marketPricing.description}
+                      </p>
                     </div>
 
                     {/* Property Condition */}
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="font-ds-body font-medium text-[#020B0A]">Property Condition</span>
-                        <span className="font-ds-body font-bold text-[#5C1B10]">14/15</span>
+                        <span className="font-ds-body font-bold text-[#5C1B10]">
+                          {scoreBreakdown.propertyCondition.score}/{scoreBreakdown.propertyCondition.maxScore}
+                        </span>
                       </div>
                       <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                        <div className="bg-[#5C1B10] h-3 rounded-full" style={{width: '93%'}}></div>
+                        <div 
+                          className="bg-[#5C1B10] h-3 rounded-full" 
+                          style={{width: `${(scoreBreakdown.propertyCondition.score / scoreBreakdown.propertyCondition.maxScore) * 100}%`}}
+                        ></div>
                       </div>
-                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">Excellent condition for age</p>
+                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
+                        {scoreBreakdown.propertyCondition.description}
+                      </p>
                     </div>
 
                     {/* Location Value */}
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="font-ds-body font-medium text-[#020B0A]">Location Value</span>
-                        <span className="font-ds-body font-bold text-[#5C1B10]">16/20</span>
+                        <span className="font-ds-body font-bold text-[#5C1B10]">
+                          {scoreBreakdown.locationValue.score}/{scoreBreakdown.locationValue.maxScore}
+                        </span>
                       </div>
                       <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                        <div className="bg-[#5C1B10] h-3 rounded-full" style={{width: '80%'}}></div>
+                        <div 
+                          className="bg-[#5C1B10] h-3 rounded-full" 
+                          style={{width: `${(scoreBreakdown.locationValue.score / scoreBreakdown.locationValue.maxScore) * 100}%`}}
+                        ></div>
                       </div>
-                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">Strong neighborhood fundamentals</p>
+                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
+                        {scoreBreakdown.locationValue.description}
+                      </p>
                     </div>
 
                     {/* Cash Flow Potential */}
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="font-ds-body font-medium text-[#020B0A]">Cash Flow Potential</span>
-                        <span className="font-ds-body font-bold text-[#5C1B10]">12/15</span>
+                        <span className="font-ds-body font-bold text-[#5C1B10]">
+                          {scoreBreakdown.cashFlowPotential.score}/{scoreBreakdown.cashFlowPotential.maxScore}
+                        </span>
                       </div>
                       <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                        <div className="bg-[#5C1B10] h-3 rounded-full" style={{width: '80%'}}></div>
+                        <div 
+                          className="bg-[#5C1B10] h-3 rounded-full" 
+                          style={{width: `${(scoreBreakdown.cashFlowPotential.score / scoreBreakdown.cashFlowPotential.maxScore) * 100}%`}}
+                        ></div>
                       </div>
-                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">Moderate rental yield expected</p>
+                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
+                        {scoreBreakdown.cashFlowPotential.description}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -698,9 +929,9 @@ export default function PropertyAnalysisPage() {
               {/* Key Positive Factors */}
               <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="flex items-center text-base font-ds-heading text-[#5C1B10] tracking-[-0.01em]">
-                    <TrendingUp className="h-5 w-5 mr-2" />
-                    Key Positive Factors
+                  <CardTitle className="flex items-center text-base">
+                    <TrendingUp className="h-5 w-5 mr-2 text-[#5C1B10]" />
+                    <SectionHeader className="text-base text-[#5C1B10]">Key Positive Factors</SectionHeader>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -719,9 +950,9 @@ export default function PropertyAnalysisPage() {
               {selectedProperty.analysis.redFlags.length > 0 && (
                 <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
                   <CardHeader>
-                    <CardTitle className="flex items-center text-base font-ds-heading text-[#5C1B10] tracking-[-0.01em]">
-                      <AlertCircle className="h-5 w-5 mr-2" />
-                      Red Flags & Concerns
+                    <CardTitle className="flex items-center text-base">
+                      <AlertCircle className="h-5 w-5 mr-2 text-[#5C1B10]" />
+                      <SectionHeader className="text-base text-[#5C1B10]">Red Flags & Concerns</SectionHeader>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -740,9 +971,9 @@ export default function PropertyAnalysisPage() {
               {/* Market Context */}
               <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="flex items-center text-base font-ds-heading text-[#5C1B10] tracking-[-0.01em]">
+                  <CardTitle className="flex items-center text-base">
                     <TrendingUp className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                    Market Context & Trends
+                    <SectionHeader className="text-base text-[#5C1B10]">Market Context & Trends</SectionHeader>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -792,8 +1023,286 @@ export default function PropertyAnalysisPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          )}
+
+              {/* Deal Maker Negotiation Strategy */}
+              {!showDealMaker && (
+                <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-base">
+                      <Handshake className="h-5 w-5 mr-2 text-[#5C1B10]" />
+                      <SectionHeader className="text-base text-[#5C1B10]">Deal Maker: Negotiation Strategy</SectionHeader>
+                    </CardTitle>
+                    <CardDescription className="font-ds-body text-[#020B0A] opacity-80">
+                      Let&apos;s get you that home you didn&apos;t know you could afford
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-[#020B0A]">Maximum Budget</label>
+                          <Input
+                            type="number"
+                            placeholder="500000"
+                            value={buyerProfile.maxBudget}
+                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, maxBudget: e.target.value }))}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#020B0A]">Down Payment Available</label>
+                          <Input
+                            type="number"
+                            placeholder="100000"
+                            value={buyerProfile.downPaymentAvailable}
+                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, downPaymentAvailable: e.target.value }))}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#020B0A]">Credit Score (Optional)</label>
+                          <Input
+                            type="number"
+                            placeholder="720"
+                            value={buyerProfile.creditScore}
+                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, creditScore: e.target.value }))}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-[#020B0A]">Investment Goals</label>
+                          <select
+                            value={buyerProfile.investmentGoals}
+                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, investmentGoals: e.target.value }))}
+                            className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
+                          >
+                            <option value="primary">Primary Residence</option>
+                            <option value="rental">Rental Property</option>
+                            <option value="flip">Fix & Flip</option>
+                            <option value="vacation">Vacation Home</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="firstTimeBuyer"
+                          checked={buyerProfile.firstTimeBuyer}
+                          onChange={(e) => setBuyerProfile(prev => ({ ...prev, firstTimeBuyer: e.target.checked }))}
+                          className="rounded"
+                        />
+                        <label htmlFor="firstTimeBuyer" className="text-sm font-medium text-[#020B0A]">
+                          First Time Home Buyer
+                        </label>
+                      </div>
+                      <Button
+                        onClick={runDealMakerAnalysis}
+                        disabled={dealMakerLoading}
+                        className="w-full bg-[#5C1B10] hover:bg-[#4A160C] text-white"
+                      >
+                        {dealMakerLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Analyzing Negotiation Strategy...
+                          </>
+                        ) : (
+                          <>
+                            <Handshake className="h-4 w-4 mr-2" />
+                            Run Deal Maker Analysis
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Deal Maker Results */}
+              {showDealMaker && dealMakerAnalysis && (
+                <Card className="shadow-lg border-2 border-[#5C1B10] bg-white rounded-2xl">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center text-base">
+                        <Handshake className="h-5 w-5 mr-2 text-[#5C1B10]" />
+                        <SectionHeader className="text-base text-[#5C1B10]">Deal Maker Negotiation Strategy</SectionHeader>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowDealMaker(false);
+                          setDealMakerAnalysis(null);
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Recommended Offer */}
+                    <div className="p-6 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl">
+                      <div className="text-center space-y-2">
+                        <h3 className="text-lg font-semibold text-[#5C1B10]">Recommended Offer</h3>
+                        <div className="text-3xl font-bold text-[#020B0A]">
+                          ${dealMakerAnalysis.recommendedOffer.amount.toLocaleString()}
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-sm text-[#020B0A] opacity-80">Confidence:</span>
+                          <div className="flex items-center">
+                            <div className="w-32 bg-[#D9DADA] rounded-full h-2">
+                              <div
+                                className="bg-[#5C1B10] h-2 rounded-full"
+                                style={{ width: `${dealMakerAnalysis.recommendedOffer.confidence}%` }}
+                              />
+                            </div>
+                            <span className="ml-2 text-sm font-medium">{dealMakerAnalysis.recommendedOffer.confidence}%</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {dealMakerAnalysis.recommendedOffer.reasoning.map((reason: string, idx: number) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0" />
+                            <span className="text-sm">{reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Alternative Offers */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
+                        <h4 className="font-medium text-[#5C1B10] mb-2">Aggressive</h4>
+                        <div className="text-xl font-bold">${dealMakerAnalysis.alternativeOffers.aggressive.amount.toLocaleString()}</div>
+                        <div className="text-sm text-[#020B0A] opacity-80 mt-1">
+                          Success Rate: {dealMakerAnalysis.alternativeOffers.aggressive.successProbability}%
+                        </div>
+                      </div>
+                      <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
+                        <h4 className="font-medium text-[#5C1B10] mb-2">Moderate</h4>
+                        <div className="text-xl font-bold">${dealMakerAnalysis.alternativeOffers.moderate.amount.toLocaleString()}</div>
+                        <div className="text-sm text-[#020B0A] opacity-80 mt-1">
+                          Success Rate: {dealMakerAnalysis.alternativeOffers.moderate.successProbability}%
+                        </div>
+                      </div>
+                      <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
+                        <h4 className="font-medium text-[#5C1B10] mb-2">Conservative</h4>
+                        <div className="text-xl font-bold">${dealMakerAnalysis.alternativeOffers.conservative.amount.toLocaleString()}</div>
+                        <div className="text-sm text-[#020B0A] opacity-80 mt-1">
+                          Success Rate: {dealMakerAnalysis.alternativeOffers.conservative.successProbability}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Seller Motivation */}
+                    <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
+                      <h4 className="font-medium text-[#5C1B10] mb-3">Seller Motivation Analysis</h4>
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="text-sm">Motivation Level:</span>
+                        <Badge className={`${
+                          dealMakerAnalysis.sellerMotivation.level === 'high' ? 'bg-green-100 text-green-800' :
+                          dealMakerAnalysis.sellerMotivation.level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {dealMakerAnalysis.sellerMotivation.level.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {dealMakerAnalysis.sellerMotivation.indicators.map((indicator: string, idx: number) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0" />
+                            <span className="text-sm">{indicator}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Negotiation Strategies */}
+                    {dealMakerAnalysis.negotiationStrategies.map((strategy: any, idx: number) => (
+                      <div key={idx} className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
+                        <h4 className="font-medium text-[#5C1B10] mb-3">{strategy.strategy}</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h5 className="text-sm font-medium mb-2">Talking Points</h5>
+                            <ul className="space-y-1">
+                              {strategy.talkingPoints.map((point: string, i: number) => (
+                                <li key={i} className="text-sm flex items-start gap-2">
+                                  <span className="text-[#5C1B10]">•</span>
+                                  <span>{point}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <h5 className="text-sm font-medium mb-2">Leverage Points</h5>
+                            <ul className="space-y-1">
+                              {strategy.leverage.map((point: string, i: number) => (
+                                <li key={i} className="text-sm flex items-start gap-2">
+                                  <span className="text-[#5C1B10]">•</span>
+                                  <span>{point}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        {strategy.risks.length > 0 && (
+                          <div className="mt-3">
+                            <h5 className="text-sm font-medium mb-2 text-red-700">Risks</h5>
+                            <ul className="space-y-1">
+                              {strategy.risks.map((risk: string, i: number) => (
+                                <li key={i} className="text-sm flex items-start gap-2">
+                                  <span className="text-red-600">!</span>
+                                  <span>{risk}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Hidden Opportunities */}
+                    {dealMakerAnalysis.hiddenOpportunities.length > 0 && (
+                      <div className="p-4 bg-green-50 border-2 border-green-200 rounded-2xl">
+                        <h4 className="font-medium text-green-800 mb-3 flex items-center">
+                          <TrendingUp className="h-4 w-4 mr-2" />
+                          Hidden Opportunities
+                        </h4>
+                        <ul className="space-y-2">
+                          {dealMakerAnalysis.hiddenOpportunities.map((opp: string, idx: number) => (
+                            <li key={idx} className="text-sm flex items-start gap-2">
+                              <span className="text-green-600">✓</span>
+                              <span>{opp}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Deal Breakers */}
+                    {dealMakerAnalysis.dealBreakers.length > 0 && (
+                      <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl">
+                        <h4 className="font-medium text-red-800 mb-3 flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                          Deal Breakers
+                        </h4>
+                        <ul className="space-y-2">
+                          {dealMakerAnalysis.dealBreakers.map((breaker: string, idx: number) => (
+                            <li key={idx} className="text-sm flex items-start gap-2">
+                              <span className="text-red-600">×</span>
+                              <span>{breaker}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+              </div>
+            );
+          })()}
           
           {comparables && selectedProperty && (
             <div className="space-y-6">
@@ -957,7 +1466,7 @@ export default function PropertyAnalysisPage() {
                   
                   {/* Market Value Range */}
                   <div>
-                    <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3">Market Value Range</h3>
+                    <SectionHeader className="text-[#5C1B10] mb-3">Market Value Range</SectionHeader>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="text-center p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
                         <div className="text-xl font-bold font-ds-body text-[#5C1B10]">
@@ -982,7 +1491,7 @@ export default function PropertyAnalysisPage() {
 
                   {/* Market Insights Grid */}
                   <div>
-                    <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3">Market Insights</h3>
+                    <SectionHeader className="text-[#5C1B10] mb-3">Market Insights</SectionHeader>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
                         <div className="flex items-center gap-2 mb-2">
@@ -1041,7 +1550,7 @@ export default function PropertyAnalysisPage() {
                   {/* Sarah's Assessment */}
                   <div className="p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                      <h3 className="font-semibold font-ds-heading text-[#5C1B10]">Sarah's Assessment</h3>
+                      <h3 className="font-semibold font-ds-heading text-[#5C1B10]">Sarah&apos;s Assessment</h3>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <div className="text-xs font-ds-body text-[#020B0A] opacity-70">Confidence Level</div>
@@ -1145,56 +1654,132 @@ export default function PropertyAnalysisPage() {
                   {activeOfferTab === 'strategy' && (
                     <div className="space-y-6">
                       
-                      {/* Suggested Offer Range */}
-                      <div className="p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                        <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-2">Sarah's Suggested Offer Range</h3>
-                        <div className="flex items-center justify-between">
-                          <div className="text-center">
-                            <div className="text-lg font-bold font-ds-body text-[#5C1B10]">
-                              {formatPrice(selectedProperty.analysis.negotiationStrategy.suggestedOffer * 0.95)}
-                            </div>
-                            <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Conservative</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xl font-bold font-ds-body text-[#5C1B10]">
-                              {formatPrice(selectedProperty.analysis.negotiationStrategy.suggestedOffer)}
-                            </div>
-                            <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Recommended</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold font-ds-body text-[#5C1B10]">
-                              {formatPrice(selectedProperty.analysis.negotiationStrategy.suggestedOffer * 1.05)}
-                            </div>
-                            <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Aggressive</div>
-                          </div>
+                      {!dealMakerAnalysis && (
+                        <div className="text-center py-8">
+                          <p className="text-sm font-ds-body text-[#020B0A] opacity-80 mb-4">
+                            Use the Offer Wizard to get AI-powered negotiation strategies based on your budget
+                          </p>
+                          <button
+                            onClick={() => setActiveOfferTab('wizard')}
+                            className="px-6 py-3 bg-[#5C1B10] text-[#F2F2F2] rounded-2xl border-2 border-[#020B0A] hover:bg-[#020B0A] hover:text-[#FAD9D4] transition-all duration-200 font-ds-body font-medium shadow-lg"
+                          >
+                            Go to Offer Wizard
+                          </button>
                         </div>
-                      </div>
+                      )}
 
-                      {/* Negotiation Tactics */}
-                      <div>
-                        <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3">Local Market Tactics</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {selectedProperty.analysis.negotiationStrategy.tactics.map((tactic, index) => (
-                            <div key={index} className="flex items-start gap-2 p-3 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                              <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                              <span className="text-sm font-ds-body text-[#020B0A]">{tactic}</span>
+                      {dealMakerAnalysis && (
+                        <>
+                          {/* Suggested Offer Range */}
+                          <div className="p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                            <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-2">AI Suggested Offer Range</h3>
+                            <div className="flex items-center justify-between">
+                              <div className="text-center">
+                                <div className="text-lg font-bold font-ds-body text-[#5C1B10]">
+                                  ${dealMakerAnalysis.alternativeOffers.aggressive.amount.toLocaleString()}
+                                </div>
+                                <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Aggressive</div>
+                                <div className="text-xs font-ds-body text-[#020B0A] opacity-60">
+                                  {dealMakerAnalysis.alternativeOffers.aggressive.successProbability}% success
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xl font-bold font-ds-body text-[#5C1B10]">
+                                  ${dealMakerAnalysis.recommendedOffer.amount.toLocaleString()}
+                                </div>
+                                <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Recommended</div>
+                                <div className="text-xs font-ds-body text-[#020B0A] opacity-60">
+                                  {dealMakerAnalysis.recommendedOffer.confidence}% confidence
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold font-ds-body text-[#5C1B10]">
+                                  ${dealMakerAnalysis.alternativeOffers.conservative.amount.toLocaleString()}
+                                </div>
+                                <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Conservative</div>
+                                <div className="text-xs font-ds-body text-[#020B0A] opacity-60">
+                                  {dealMakerAnalysis.alternativeOffers.conservative.successProbability}% success
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Seller Motivation */}
+                          <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                            <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3 flex items-center">
+                              Seller Motivation: 
+                              <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                                dealMakerAnalysis.sellerMotivation.level === 'high' ? 'bg-green-100 text-green-800' :
+                                dealMakerAnalysis.sellerMotivation.level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {dealMakerAnalysis.sellerMotivation.level.toUpperCase()}
+                              </span>
+                            </h3>
+                            <div className="space-y-2">
+                              {dealMakerAnalysis.sellerMotivation.indicators.map((indicator: string, index: number) => (
+                                <div key={index} className="flex items-start gap-2">
+                                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
+                                  <span className="text-sm font-ds-body text-[#020B0A]">{indicator}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Negotiation Strategies */}
+                          {dealMakerAnalysis.negotiationStrategies.map((strategy: any, stratIndex: number) => (
+                            <div key={stratIndex}>
+                              <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3">{strategy.strategy}</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                <div>
+                                  <h4 className="text-sm font-medium font-ds-body text-[#5C1B10] mb-2">Talking Points</h4>
+                                  {strategy.talkingPoints.map((point: string, index: number) => (
+                                    <div key={index} className="flex items-start gap-2 p-3 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg mb-2">
+                                      <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
+                                      <span className="text-sm font-ds-body text-[#020B0A]">{point}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-medium font-ds-body text-[#5C1B10] mb-2">Your Leverage</h4>
+                                  {strategy.leverage.map((point: string, index: number) => (
+                                    <div key={index} className="flex items-start gap-2 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg mb-2">
+                                      <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
+                                      <span className="text-sm font-ds-body text-[#020B0A]">{point}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              {strategy.risks.length > 0 && (
+                                <div className="p-3 bg-red-50 border-2 border-red-200 rounded-2xl">
+                                  <h4 className="text-sm font-medium font-ds-body text-red-800 mb-2">Risks to Consider</h4>
+                                  {strategy.risks.map((risk: string, index: number) => (
+                                    <div key={index} className="flex items-start gap-2 mb-1">
+                                      <span className="text-red-600 mt-1">!</span>
+                                      <span className="text-sm font-ds-body text-red-700">{risk}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
-                        </div>
-                      </div>
 
-                      {/* Your Leverage Points */}
-                      <div>
-                        <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3">Your Leverage Points</h3>
-                        <div className="space-y-2">
-                          {selectedProperty.analysis.negotiationStrategy.leverage.map((point, index) => (
-                            <div key={index} className="flex items-start gap-2 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                              <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                              <span className="text-sm font-ds-body text-[#020B0A]">{point}</span>
+                          {/* Hidden Opportunities */}
+                          {dealMakerAnalysis.hiddenOpportunities.length > 0 && (
+                            <div className="p-4 bg-green-50 border-2 border-green-200 rounded-2xl">
+                              <h3 className="font-semibold font-ds-heading text-green-800 mb-3">Hidden Opportunities</h3>
+                              <div className="space-y-2">
+                                {dealMakerAnalysis.hiddenOpportunities.map((opp: string, index: number) => (
+                                  <div key={index} className="flex items-start gap-2">
+                                    <span className="text-green-600 mt-1">✓</span>
+                                    <span className="text-sm font-ds-body text-green-700">{opp}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          )}
+                        </>
+                      )}
 
                     </div>
                   )}
@@ -1984,6 +2569,7 @@ export default function PropertyAnalysisPage() {
           </Card>
         )}
       </div>
+      <AppFooter />
     </div>
   );
 }

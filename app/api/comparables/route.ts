@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { createRentcastAPI } from "@/lib/rentcast-api";
+import { createBatchDataComparablesService } from "@/lib/services/BatchDataComparablesService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,9 +28,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
     }
 
-    // Initialize Rentcast API
+    // Initialize BatchData API with RentCast fallback
+    const batchDataAPI = createBatchDataComparablesService();
     const rentcastAPI = createRentcastAPI();
-    if (!rentcastAPI) {
+    
+    if (!batchDataAPI && !rentcastAPI) {
       return NextResponse.json({ error: "Comparables service unavailable" }, { status: 503 });
     }
 
@@ -45,10 +48,36 @@ export async function POST(request: NextRequest) {
       streetAddress = fullAddress.replace(/, [A-Z]{2} \d{5}(?:-\d{4})?$/, '').trim();
     }
     
-    // Log the exact property data being used for search
+    console.log(`🔍 Searching comparables for: ${streetAddress}, ${zipCode}`);
 
-    // Fetch comparables with same property type
-    const compsData = await rentcastAPI.getComparables(
+    // SAFE IMPLEMENTATION: Keep RentCast as primary, test BatchData in parallel
+    let compsData = null;
+    let batchDataResults = null;
+    
+    // Test BatchData in parallel (non-blocking)
+    if (batchDataAPI) {
+      console.log('🧪 Testing BatchData API in parallel...');
+      batchDataAPI.getComparables(
+        streetAddress,
+        zipCode,
+        property.bedrooms || undefined,
+        property.bathrooms ? Number(property.bathrooms) : undefined,
+        property.squareFootage || undefined,
+        0.5,
+        property.propertyType || undefined
+      ).then(result => {
+        console.log('📊 BatchData test result:', result ? `${result.comparables.length} comparables` : 'failed');
+      }).catch(error => {
+        console.log('⚠️ BatchData test error:', error.message);
+      });
+    }
+
+    // Primary flow: Use RentCast (unchanged)
+    if (!rentcastAPI) {
+      return NextResponse.json({ error: "Comparables service unavailable" }, { status: 503 });
+    }
+
+    compsData = await rentcastAPI.getComparables(
       streetAddress,
       zipCode,
       property.bedrooms || undefined,
@@ -74,7 +103,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           data: expandedComps,
-          searchRadius: 1.0
+          searchRadius: 1.0,
+          dataSource: 'RentCast'
         });
       }
     }
@@ -82,7 +112,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: compsData || { comparables: [], stats: {} },
-      searchRadius: 0.5
+      searchRadius: 0.5,
+      dataSource: 'RentCast'
     });
 
   } catch (error) {

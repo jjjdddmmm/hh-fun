@@ -455,7 +455,7 @@ export class RentcastAPI {
     console.log(`Filtered to recent sales (last 3 years): ${beforeDateFilter} -> ${comparables.length} (removed ${beforeDateFilter - comparables.length} old sales)`);
     
     // Debug: Log all unique property types found in comparables
-    const uniquePropertyTypes = [...new Set(comparables.map(comp => comp.propertyType))];
+    const uniquePropertyTypes = Array.from(new Set(comparables.map(comp => comp.propertyType)));
     console.log('Unique property types in comparables:', uniquePropertyTypes);
     
     // Filter by property type if specified

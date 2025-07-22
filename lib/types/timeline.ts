@@ -152,6 +152,7 @@ export interface DefaultTimelineStep {
   isRequired: boolean;
   estimatedCost?: number; // In dollars
   externalUrl?: string;
+  dependencies?: string[]; // Step titles that must be completed first
 }
 
 export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
@@ -174,6 +175,7 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     icon: "FileText",
     priority: StepPriority.HIGH,
     isRequired: true,
+    dependencies: ["Offer Accepted"],
   },
   {
     title: "Submit Earnest Money",
@@ -185,6 +187,7 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     priority: StepPriority.HIGH,
     isRequired: true,
     estimatedCost: 5000, // Typical earnest money amount
+    dependencies: ["Purchase Contract Review"],
   },
   {
     title: "Submit Mortgage Application",
@@ -206,6 +209,7 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     priority: StepPriority.HIGH,
     isRequired: true,
     estimatedCost: 500, // Typical inspection cost
+    dependencies: ["Purchase Contract Review"],
   },
   {
     title: "Property Appraisal",
@@ -217,6 +221,7 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     priority: StepPriority.HIGH,
     isRequired: true,
     estimatedCost: 400, // Typical appraisal cost
+    dependencies: ["Purchase Contract Review"],
   },
   {
     title: "Inspection Issues Resolution",
@@ -227,6 +232,7 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     icon: "Wrench",
     priority: StepPriority.MEDIUM,
     isRequired: false, // Only if inspection reveals issues
+    dependencies: ["Schedule Home Inspection"],
   },
   {
     title: "Mortgage Underwriting",
@@ -237,6 +243,7 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     icon: "Shield",
     priority: StepPriority.CRITICAL,
     isRequired: true,
+    dependencies: ["Submit Mortgage Application"],
   },
   {
     title: "Final Walkthrough",
@@ -247,6 +254,7 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     icon: "Eye",
     priority: StepPriority.HIGH,
     isRequired: true,
+    dependencies: ["Inspection Issues Resolution"],
   },
   {
     title: "Closing Day",
@@ -258,8 +266,49 @@ export const DEFAULT_TIMELINE_STEPS: DefaultTimelineStep[] = [
     priority: StepPriority.CRITICAL,
     isRequired: true,
     estimatedCost: 3000, // Typical closing costs estimate
+    dependencies: [
+      "Offer Accepted",
+      "Purchase Contract Review", 
+      "Submit Earnest Money",
+      "Submit Mortgage Application",
+      "Schedule Home Inspection",
+      "Property Appraisal",
+      "Inspection Issues Resolution",
+      "Mortgage Underwriting",
+      "Final Walkthrough"
+    ],
   },
 ];
+
+// ============================================================================
+// DEPENDENCY UTILITIES
+// ============================================================================
+
+export function checkStepDependencies(
+  step: TimelineStepWithRelations,
+  allSteps: TimelineStepWithRelations[]
+): { canComplete: boolean; missingDependencies: string[] } {
+  // Find the default step configuration for this step
+  const defaultStep = DEFAULT_TIMELINE_STEPS.find(ds => ds.title === step.title);
+  
+  if (!defaultStep?.dependencies || defaultStep.dependencies.length === 0) {
+    return { canComplete: true, missingDependencies: [] };
+  }
+
+  const missingDependencies: string[] = [];
+  
+  for (const depTitle of defaultStep.dependencies) {
+    const dependentStep = allSteps.find(s => s.title === depTitle);
+    if (!dependentStep?.isCompleted) {
+      missingDependencies.push(depTitle);
+    }
+  }
+
+  return {
+    canComplete: missingDependencies.length === 0,
+    missingDependencies
+  };
+}
 
 // ============================================================================
 // UTILITY TYPES & FUNCTIONS

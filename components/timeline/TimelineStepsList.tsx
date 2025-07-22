@@ -3,10 +3,11 @@
 
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SectionHeader } from "@/components/ui/section-header";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,18 +28,34 @@ import {
   Eye,
   Loader2
 } from "lucide-react";
-import { TimelineWithRelations, StepStatus, StepCategory, StepPriority } from "@/lib/types/timeline";
+import { TimelineWithRelations, StepStatus, StepCategory, StepPriority, checkStepDependencies } from "@/lib/types/timeline";
+import { StepCompletionModal } from "./StepCompletionModal";
 
 interface TimelineStepsListProps {
   timeline: TimelineWithRelations;
   onStepUpdate: (stepId: string, updates: any) => void;
+  onRefreshTimeline?: () => Promise<void>;
 }
 
-export function TimelineStepsList({ timeline, onStepUpdate }: TimelineStepsListProps) {
+export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }: TimelineStepsListProps) {
   const [selectedStep, setSelectedStep] = useState<string | null>(null);
   const [editingStep, setEditingStep] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [newNote, setNewNote] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState<string | null>(null);
+  const [editingNote, setEditingNote] = useState<string | null>(null);
+  const [editedNoteText, setEditedNoteText] = useState('');
+  const [isNotesLoading, setIsNotesLoading] = useState<string | null>(null);
+  const [completionModal, setCompletionModal] = useState<{
+    isOpen: boolean;
+    step: any | null;
+    isEarlyCompletion: boolean;
+  }>({
+    isOpen: false,
+    step: null,
+    isEarlyCompletion: false
+  });
+
 
   const getStatusIcon = (status: StepStatus, isCompleted: boolean) => {
     if (isCompleted || status === StepStatus.COMPLETED) {
@@ -112,40 +129,43 @@ export function TimelineStepsList({ timeline, onStepUpdate }: TimelineStepsListP
     return new Date(date).toLocaleDateString();
   };
 
-  const updateStepStatus = async (stepId: string, isCompleted: boolean) => {
+  const updateStepStatus = async (stepId: string, isCompleted: boolean, isEarlyCompletion: boolean = false) => {
     try {
       setIsUpdating(stepId);
 
-      // Optimistic update - update UI immediately
-      onStepUpdate(stepId, {
+      const requestBody: any = {
         isCompleted,
-        actualEndDate: isCompleted ? new Date().toISOString() : null,
-        status: isCompleted ? StepStatus.COMPLETED : StepStatus.PENDING,
-      });
+        isEarlyCompletion, // Re-add this for early completion support
+      };
 
-      // Update server in background
+      // Only include actualEndDate when completing, not when marking incomplete
+      if (isCompleted) {
+        requestBody.actualEndDate = new Date().toISOString();
+      }
+
+      // Update server first - database is source of truth
       const response = await fetch(`/api/timeline/steps/${stepId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          isCompleted,
-          actualEndDate: isCompleted ? new Date().toISOString() : null,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        // Revert optimistic update on error
-        onStepUpdate(stepId, {
-          isCompleted: !isCompleted,
-          actualEndDate: null,
-          status: !isCompleted ? StepStatus.COMPLETED : StepStatus.PENDING,
-        });
-        throw new Error('Failed to update step');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Failed to update step: ${errorData.error || response.statusText}`);
       }
+
+      // Server updated successfully - refresh UI with fresh database data
+      // This ensures current step advancement is reflected immediately
+      if (onRefreshTimeline) {
+        await onRefreshTimeline();
+      }
+      
     } catch (error) {
       console.error('Error updating step:', error);
+      // TODO: Show user-friendly error message
     } finally {
       setIsUpdating(null);
     }
@@ -155,11 +175,9 @@ export function TimelineStepsList({ timeline, onStepUpdate }: TimelineStepsListP
     if (!newNote.trim()) return;
 
     try {
-      // Optimistic update - add note immediately to UI
-      onStepUpdate(stepId, {
-        notes: newNote,
-      });
-
+      setIsNotesLoading(stepId);
+      
+      // Update server first - database is source of truth
       const response = await fetch(`/api/timeline/steps/${stepId}`, {
         method: 'PUT',
         headers: {
@@ -171,16 +189,233 @@ export function TimelineStepsList({ timeline, onStepUpdate }: TimelineStepsListP
       });
 
       if (!response.ok) {
-        // Revert optimistic update on error
-        onStepUpdate(stepId, {
-          notes: '', // Reset to empty (we don't track the old value)
-        });
         throw new Error('Failed to add note');
       }
 
+      // Clear the input field and close add mode
       setNewNote('');
+      setIsAddingNote(null);
+      setSelectedStep(null);
+
+      // Refresh UI with fresh database data
+      if (onRefreshTimeline) {
+        await onRefreshTimeline();
+      }
+      
     } catch (error) {
       console.error('Error adding note:', error);
+      // TODO: Show user-friendly error message
+    } finally {
+      setIsNotesLoading(null);
+    }
+  };
+
+  const updateStepNote = async (stepId: string) => {
+    if (!editedNoteText.trim()) return;
+
+    try {
+      setIsNotesLoading(stepId);
+      
+      const response = await fetch(`/api/timeline/steps/${stepId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notes: editedNoteText,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update note');
+      }
+
+      // Exit edit mode
+      setEditingNote(null);
+      setEditedNoteText('');
+
+      // Refresh UI with fresh database data
+      if (onRefreshTimeline) {
+        await onRefreshTimeline();
+      }
+      
+    } catch (error) {
+      console.error('Error updating note:', error);
+      // TODO: Show user-friendly error message
+    } finally {
+      setIsNotesLoading(null);
+    }
+  };
+
+  const deleteStepNote = async (stepId: string) => {
+    try {
+      setIsNotesLoading(stepId);
+      
+      const response = await fetch(`/api/timeline/steps/${stepId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notes: null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete note');
+      }
+
+      // Close the expanded section since note no longer exists
+      setSelectedStep(null);
+
+      // Refresh UI with fresh database data
+      if (onRefreshTimeline) {
+        await onRefreshTimeline();
+      }
+      
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      // TODO: Show user-friendly error message
+    } finally {
+      setIsNotesLoading(null);
+    }
+  };
+
+  const handleNotesButtonClick = (step: any) => {
+    if (selectedStep === step.id) {
+      // Close the expanded section and reset states
+      setSelectedStep(null);
+      setIsAddingNote(null);
+      setEditingNote(null);
+      setNewNote('');
+      setEditedNoteText('');
+    } else if (step.notes) {
+      // If notes exist, just open the view
+      setSelectedStep(step.id);
+      setIsAddingNote(null);
+      setEditingNote(null);
+    } else {
+      // If no notes exist, open in add mode
+      setSelectedStep(step.id);
+      setIsAddingNote(step.id);
+      setEditingNote(null);
+    }
+  };
+
+  const startEditingNote = (stepId: string, currentNote: string) => {
+    setEditingNote(stepId);
+    setEditedNoteText(currentNote);
+  };
+
+  const cancelEditingNote = () => {
+    setEditingNote(null);
+    setEditedNoteText('');
+  };
+
+  const cancelAddingNote = () => {
+    setIsAddingNote(null);
+    setNewNote('');
+    setSelectedStep(null);
+  };
+
+  const openCompletionModal = (step: any, isEarlyCompletion: boolean = false) => {
+    setCompletionModal({
+      isOpen: true,
+      step,
+      isEarlyCompletion
+    });
+  };
+
+  const closeCompletionModal = () => {
+    setCompletionModal({
+      isOpen: false,
+      step: null,
+      isEarlyCompletion: false
+    });
+  };
+
+  const handleStepCompletion = async (data: {
+    actualCost?: number;
+    documents: File[];
+  }) => {
+    if (!completionModal.step) return;
+
+    try {
+      // Set loading state for the modal
+      setIsUpdating(completionModal.step.id);
+      // Upload documents to Cloudinary first (if any)
+      let uploadedDocuments: any[] = [];
+      if (data.documents.length > 0) {
+        const uploadPromises = data.documents.map(async (file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('stepId', completionModal.step!.id);
+          formData.append('timelineId', timeline.id);
+          formData.append('stepCategory', completionModal.step!.category);
+          formData.append('fileName', file.name);
+
+          const uploadResponse = await fetch('/api/timeline/documents/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json().catch(() => ({ error: 'Upload failed' }));
+            throw new Error(`Failed to upload ${file.name}: ${errorData.error || 'Unknown error'}`);
+          }
+
+          return await uploadResponse.json();
+        });
+
+        try {
+          const uploadResults = await Promise.all(uploadPromises);
+          uploadedDocuments = uploadResults.map(result => result.document);
+        } catch (uploadError) {
+          console.error('Document upload error:', uploadError);
+          throw new Error(`Document upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+        }
+      }
+
+      // Complete the step with actual cost
+      const requestBody: any = {
+        isCompleted: true,
+        isEarlyCompletion: completionModal.isEarlyCompletion,
+        actualEndDate: new Date().toISOString(),
+      };
+
+      // Add actual cost if provided (convert to cents for database)
+      if (data.actualCost) {
+        requestBody.actualCost = Math.round(data.actualCost * 100);
+      }
+
+      const response = await fetch(`/api/timeline/steps/${completionModal.step.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to complete step');
+      }
+
+      // Close modal first
+      closeCompletionModal();
+      
+      // Small delay to ensure database is updated, then refresh
+      setTimeout(async () => {
+        if (onRefreshTimeline) {
+          await onRefreshTimeline();
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error completing step:', error);
+      // TODO: Show user-friendly error message
+    } finally {
+      // Clear loading state
+      setIsUpdating(null);
     }
   };
 
@@ -192,218 +427,351 @@ export function TimelineStepsList({ timeline, onStepUpdate }: TimelineStepsListP
 
   return (
     <div className="space-y-6">
-      {/* Progress Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Timeline Progress</CardTitle>
-              <CardDescription>
-                {completedSteps} of {totalSteps} steps completed
-              </CardDescription>
-            </div>
-            <Button
-              size="sm"
-              style={{ backgroundColor: '#5C1B10', color: 'white' }}
-              onClick={() => {
-                // Handle add step
-              }}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Step
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Progress value={progressPercentage} className="h-3" />
-          <p className="text-sm text-gray-600 mt-2">
-            {Math.round(progressPercentage)}% complete
-          </p>
-        </CardContent>
-      </Card>
-
       {/* Steps List */}
       <div className="space-y-4">
         {steps
           .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((step, index) => (
-            <Card 
-              key={step.id} 
-              className={`transition-all duration-200 ${
-                step.isCompleted ? 'bg-green-50' : 
-                step.status === StepStatus.CURRENT ? 'bg-blue-50' :
-                step.isBlocked ? 'bg-red-50' : 'bg-white'
-              }`}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start space-x-4">
-                  {/* Step Icon */}
-                  <div className="flex-shrink-0 mt-1">
-                    {getStatusIcon(step.status, step.isCompleted)}
-                  </div>
-
-                  {/* Main Content */}
-                  <div className="flex-1 min-w-0">
-                    {/* Header */}
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {step.title}
-                          </h3>
-                          <Badge className={getStatusColor(step.status, step.isCompleted)}>
-                            {step.isCompleted ? 'Completed' : step.status.replace('_', ' ')}
-                          </Badge>
-                          <Badge className={getCategoryColor(step.category)}>
-                            {step.category}
-                          </Badge>
-                          {step.priority !== StepPriority.MEDIUM && (
-                            <Flag className={`h-4 w-4 ${getPriorityColor(step.priority)}`} />
-                          )}
-                        </div>
-                        <p className="text-gray-600 mb-3">{step.description}</p>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedStep(selectedStep === step.id ? null : step.id)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Details
-                        </Button>
-                        {!step.isCompleted && (
-                          <Button
-                            size="sm"
-                            onClick={() => updateStepStatus(step.id, true)}
-                            disabled={isUpdating === step.id}
-                            style={{ backgroundColor: '#5C1B10', color: 'white' }}
-                          >
-                            {isUpdating === step.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4 mr-1" />
+          .map((step, index) => {
+            const dayStart = step.daysFromStart;
+            const dayEnd = step.daysFromStart + step.estimatedDuration;
+            const dependencyCheck = checkStepDependencies(step, steps);
+            const isBlocked = !dependencyCheck.canComplete && !step.isCompleted;
+            
+            return (
+              <Card 
+                key={step.id} 
+                className={`transition-all duration-200 border-2 ${
+                  step.isCompleted ? 'bg-gray-50 opacity-40' : 
+                  step.status === StepStatus.CURRENT ? 'bg-red-50' :
+                  isBlocked ? 'bg-gray-50 border-gray-300' : ''
+                }`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start space-x-4">
+                    {/* Center Content */}
+                    <div className="flex-1 min-w-0 pl-4">
+                      {/* Step Header with Icon and Title */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            {/* Step Status Icon */}
+                            <div className="flex-shrink-0">
+                              {step.status === StepStatus.CURRENT ? (
+                                <Clock className="h-5 w-5 text-blue-500" />
+                              ) : (
+                                getStatusIcon(step.status, step.isCompleted)
+                              )}
+                            </div>
+                            
+                            {/* Step Title */}
+                            <SectionHeader className="text-lg">
+                              {step.title}
+                            </SectionHeader>
+                            
+                            {/* Category Badge */}
+                            <Badge className={getCategoryColor(step.category)}>
+                              {step.category}
+                            </Badge>
+                            
+                            {/* Document Count Indicator */}
+                            {step.documents && step.documents.length > 0 && (
+                              <div className="flex items-center space-x-1 bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                                <FileText className="h-3 w-3" />
+                                <span>{step.documents.length}</span>
+                              </div>
                             )}
-                            Complete
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Step Details */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        Due: {formatDate(step.scheduledDate) || 'Not set'}
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-1" />
-                        Duration: {step.estimatedDuration} day{step.estimatedDuration !== 1 ? 's' : ''}
-                      </div>
-                      {step.estimatedCost && (
-                        <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 mr-1" />
-                          Est: {formatCurrency(step.estimatedCost)}
-                        </div>
-                      )}
-                      {(step.documents?.length || 0) > 0 && (
-                        <div className="flex items-center">
-                          <FileText className="h-4 w-4 mr-1" />
-                          {step.documents?.length || 0} document{(step.documents?.length || 0) !== 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Expanded Details */}
-                    {selectedStep === step.id && (
-                      <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
-                        {/* Notes */}
-                        {step.notes && (
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-2">Notes</h4>
-                            <p className="text-gray-600">{step.notes}</p>
                           </div>
-                        )}
+                          
+                          {/* Description */}
+                          <p className="text-gray-600 mb-4">{step.description}</p>
+                        </div>
+                      </div>
 
-                        {/* Add Note */}
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-2">Add Note</h4>
-                          <div className="flex space-x-2">
-                            <Textarea
-                              placeholder="Add a note about this step..."
-                              value={newNote}
-                              onChange={(e) => setNewNote(e.target.value)}
-                              className="flex-1"
-                              rows={2}
-                            />
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-2">
+                        {step.status === StepStatus.CURRENT ? (
+                          // Current step buttons
+                          <>
                             <Button
-                              onClick={() => addStepNote(step.id)}
-                              disabled={!newNote.trim()}
-                              style={{ backgroundColor: '#5C1B10', color: 'white' }}
+                              size="sm"
+                              onClick={() => openCompletionModal(step, false)}
+                              disabled={isUpdating === step.id || isBlocked}
+                              style={{ 
+                                backgroundColor: isBlocked ? '#D1D5DB' : '#5C1B10', 
+                                color: 'white',
+                                opacity: isBlocked ? 0.5 : 1
+                              }}
                             >
-                              Add
+                              {isUpdating === step.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                              )}
+                              {isBlocked ? 'Dependencies Required' : 'Mark Complete'}
                             </Button>
-                          </div>
-                        </div>
-
-                        {/* External Link */}
-                        {step.externalUrl && (
-                          <div>
+                            
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => window.open(step.externalUrl!, '_blank')}
+                              onClick={() => handleNotesButtonClick(step)}
                             >
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              View Resource
+                              <FileText className="h-4 w-4 mr-1" />
+                              {step.notes ? 'View Notes' : 'Add Notes'}
                             </Button>
-                          </div>
+                          </>
+                        ) : !step.isCompleted ? (
+                          // Future step buttons
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => openCompletionModal(step, true)}
+                              disabled={isUpdating === step.id || isBlocked}
+                              style={{ 
+                                backgroundColor: isBlocked ? '#D1D5DB' : '#5C1B10', 
+                                color: 'white',
+                                opacity: isBlocked ? 0.5 : 1
+                              }}
+                            >
+                              {isUpdating === step.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                              ) : (
+                                <Clock className="h-4 w-4 mr-1" />
+                              )}
+                              {isBlocked ? 'Dependencies Required' : 'Complete Early'}
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleNotesButtonClick(step)}
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              {step.notes ? 'View Notes' : 'Add Notes'}
+                            </Button>
+                          </>
+                        ) : (
+                          // Completed step buttons
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateStepStatus(step.id, false, false)}
+                              disabled={isUpdating === step.id}
+                            >
+                              {isUpdating === step.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                              ) : (
+                                <Circle className="h-4 w-4 mr-1" />
+                              )}
+                              Mark Incomplete
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleNotesButtonClick(step)}
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              {step.notes ? 'View Notes' : 'Add Notes'}
+                            </Button>
+                          </>
                         )}
+                      </div>
 
-                        {/* Comments */}
-                        {(step.comments?.length || 0) > 0 && (
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-2">Comments</h4>
-                            <div className="space-y-2">
-                              {step.comments?.slice(0, 3).map((comment) => (
-                                <div key={comment.id} className="p-3 bg-white rounded border">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-medium">{comment.authorName}</span>
-                                    <span className="text-xs text-gray-500">
-                                      {formatDate(comment.createdAt)}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm text-gray-600">{comment.content}</p>
+                      {/* Expanded Details */}
+                      {selectedStep === step.id && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
+                          {/* Existing Notes */}
+                          {step.notes && !isAddingNote && (
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-medium text-gray-900">Notes</h4>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => startEditingNote(step.id, step.notes || '')}
+                                    disabled={isNotesLoading === step.id}
+                                    style={{ borderColor: '#E5E7EB', color: '#6B7280' }}
+                                    className="hover:bg-gray-50 hover:border-gray-300"
+                                  >
+                                    {isNotesLoading === step.id ? (
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Edit2 className="h-3 w-3 mr-1" />
+                                    )}
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => deleteStepNote(step.id)}
+                                    disabled={isNotesLoading === step.id}
+                                    style={{ borderColor: '#FCA5A5', color: '#DC2626' }}
+                                    className="hover:bg-red-50 hover:border-red-300"
+                                  >
+                                    {isNotesLoading === step.id ? (
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      'Delete'
+                                    )}
+                                  </Button>
                                 </div>
-                              ))}
-                              {(step.comments?.length || 0) > 3 && (
-                                <p className="text-sm text-gray-500">
-                                  +{(step.comments?.length || 0) - 3} more comments
-                                </p>
+                              </div>
+                              {editingNote === step.id ? (
+                                <div className="flex space-x-2">
+                                  <Textarea
+                                    value={editedNoteText}
+                                    onChange={(e) => setEditedNoteText(e.target.value)}
+                                    className="flex-1"
+                                    rows={3}
+                                  />
+                                  <div className="flex flex-col space-y-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => updateStepNote(step.id)}
+                                      disabled={!editedNoteText.trim() || isNotesLoading === step.id}
+                                      style={{ backgroundColor: '#5C1B10', color: 'white' }}
+                                    >
+                                      {isNotesLoading === step.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                      ) : null}
+                                      Save
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={cancelEditingNote}
+                                      disabled={isNotesLoading === step.id}
+                                      style={{ borderColor: '#E5E7EB', color: '#6B7280' }}
+                                      className="hover:bg-gray-50 hover:border-gray-300"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-gray-600">{step.notes}</p>
                               )}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          )}
 
-                    {/* Block Reason */}
-                    {step.isBlocked && step.blockReason && (
-                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                        <div className="flex items-center">
-                          <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
-                          <span className="text-sm font-medium text-red-800">Blocked:</span>
+                          {/* Add Note Form - Only show when in add mode */}
+                          {isAddingNote === step.id && (
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2">Add Note</h4>
+                              <div className="flex space-x-2">
+                                <Textarea
+                                  placeholder="Add a note about this step..."
+                                  value={newNote}
+                                  onChange={(e) => setNewNote(e.target.value)}
+                                  className="flex-1"
+                                  rows={3}
+                                  autoFocus
+                                />
+                                <div className="flex flex-col space-y-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => addStepNote(step.id)}
+                                    disabled={!newNote.trim() || isNotesLoading === step.id}
+                                    style={{ backgroundColor: '#5C1B10', color: 'white' }}
+                                  >
+                                    {isNotesLoading === step.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                    ) : null}
+                                    Add
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={cancelAddingNote}
+                                    disabled={isNotesLoading === step.id}
+                                    style={{ borderColor: '#E5E7EB', color: '#6B7280' }}
+                                    className="hover:bg-gray-50 hover:border-gray-300"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* External Link */}
+                          {step.externalUrl && (
+                            <div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(step.externalUrl!, '_blank')}
+                              >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                View Resource
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Comments */}
+                          {(step.comments?.length || 0) > 0 && (
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2">Comments</h4>
+                              <div className="space-y-2">
+                                {step.comments?.slice(0, 3).map((comment) => (
+                                  <div key={comment.id} className="p-3 bg-white rounded border">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-sm font-medium">{comment.authorName}</span>
+                                      <span className="text-xs text-gray-500">
+                                        {formatDate(comment.createdAt)}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{comment.content}</p>
+                                  </div>
+                                ))}
+                                {(step.comments?.length || 0) > 3 && (
+                                  <p className="text-sm text-gray-500">
+                                    +{(step.comments?.length || 0) - 3} more comments
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-sm text-red-700 mt-1">{step.blockReason}</p>
+                      )}
+
+                      {/* Dependency Blocking */}
+                      {isBlocked && dependencyCheck.missingDependencies.length > 0 && (
+                        <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded">
+                          <div className="flex items-center">
+                            <AlertCircle className="h-4 w-4 text-gray-600 mr-2" />
+                            <span className="text-sm font-medium text-gray-800">
+                              Dependencies Required: {dependencyCheck.missingDependencies.join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Block Reason */}
+                      {step.isBlocked && step.blockReason && (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
+                          <div className="flex items-center">
+                            <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
+                            <span className="text-sm font-medium text-red-800">Blocked:</span>
+                          </div>
+                          <p className="text-sm text-red-700 mt-1">{step.blockReason}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Side - Day Indicator */}
+                    <div className="flex-shrink-0 text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        Day {dayStart} - {dayEnd}
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
       </div>
 
       {/* Empty State */}
@@ -411,7 +779,7 @@ export function TimelineStepsList({ timeline, onStepUpdate }: TimelineStepsListP
         <Card>
           <CardContent className="text-center py-12">
             <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Steps Yet</h3>
+            <SectionHeader className="text-lg mb-2">No Steps Yet</SectionHeader>
             <p className="text-gray-600 mb-4">
               Get started by adding your first timeline step.
             </p>
@@ -427,6 +795,15 @@ export function TimelineStepsList({ timeline, onStepUpdate }: TimelineStepsListP
           </CardContent>
         </Card>
       )}
+
+      {/* Step Completion Modal */}
+      <StepCompletionModal
+        step={completionModal.step}
+        isOpen={completionModal.isOpen}
+        onClose={closeCompletionModal}
+        onComplete={handleStepCompletion}
+        isLoading={isUpdating === completionModal.step?.id}
+      />
     </div>
   );
 }

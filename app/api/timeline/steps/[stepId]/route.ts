@@ -121,14 +121,31 @@ export async function PUT(
     // Update timeline step
     const step = await timelineService.updateTimelineStep(userId, stepId, validatedInput);
 
+    // Serialize BigInt fields for JSON response (including nested documents)
+    const serializedStep = {
+      ...step,
+      estimatedCost: step.estimatedCost ? Number(step.estimatedCost) / 100 : null,
+      actualCost: step.actualCost ? Number(step.actualCost) / 100 : null,
+      documents: step.documents?.map(doc => ({
+        ...doc,
+        fileSize: Number(doc.fileSize) // Convert BigInt to number
+      })) || []
+    };
+
     return NextResponse.json({
       success: true,
-      step,
+      step: serializedStep,
       message: 'Timeline step updated successfully'
     });
 
   } catch (error) {
+    console.error('=== ERROR IN STEP UPDATE ===');
+    console.error('Error type:', error?.constructor?.name);
+    console.error('Error message:', (error as any)?.message);
+    console.error('Full error:', error);
+
     if (error instanceof ZodError) {
+      console.error('Zod validation errors:', error.errors);
       return NextResponse.json(
         { 
           success: false, 
@@ -151,7 +168,7 @@ export async function PUT(
     console.error('Timeline step PUT error:', error);
     
     return NextResponse.json(
-      { success: false, error: 'Internal server error' }, 
+      { success: false, error: `Internal server error: ${(error as any)?.message || 'Unknown error'}` }, 
       { status: 500 }
     );
   }

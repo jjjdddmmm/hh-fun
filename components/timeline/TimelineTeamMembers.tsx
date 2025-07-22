@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SectionHeader } from "@/components/ui/section-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -216,7 +217,7 @@ export function TimelineTeamMembers({ timeline, onTeamUpdate }: TimelineTeamMemb
               </CardDescription>
             </div>
             <Dialog open={isAddingMember} onOpenChange={setIsAddingMember}>
-              <DialogTrigger asChild>
+              <DialogTrigger>
                 <Button
                   style={{ backgroundColor: '#5C1B10', color: 'white' }}
                   onClick={() => {
@@ -439,7 +440,7 @@ export function TimelineTeamMembers({ timeline, onTeamUpdate }: TimelineTeamMemb
                           <div className="flex items-center space-x-2 mb-1">
                             <h4 className="font-medium">{member.name}</h4>
                             {member.isPrimary && (
-                              <Crown className="h-4 w-4 text-yellow-500" title="Primary contact" />
+                              <Crown className="h-4 w-4 text-yellow-500" />
                             )}
                             {member.rating && (
                               <div className="flex items-center">
@@ -540,7 +541,7 @@ export function TimelineTeamMembers({ timeline, onTeamUpdate }: TimelineTeamMemb
         <Card>
           <CardContent className="text-center py-12">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Team Members Yet</h3>
+            <SectionHeader className="text-lg mb-2">No Team Members Yet</SectionHeader>
             <p className="text-gray-600 mb-4">
               Add professionals to your home buying team for easy reference and communication.
             </p>

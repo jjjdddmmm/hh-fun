@@ -43,7 +43,7 @@ function createBasicAnalysis(data: ZillowPropertyData) {
     aiConfidence: 90,
     analysis: 'Quick analysis based on Zillow data. AI insights loading...',
     keyInsights: ['Analysis loading...'],
-    redFlags: []
+    redFlags: [] as string[]
   };
 }
 
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
             if (aiService.validateInsights(aiInsights)) {
               analysisData.investmentScore = aiInsights.investmentScore;
               analysisData.keyInsights = aiInsights.keyInsights;
-              analysisData.redFlags = aiInsights.redFlags;
+              analysisData.redFlags = aiInsights.redFlags as any;
             }
 
             // Update property with real data

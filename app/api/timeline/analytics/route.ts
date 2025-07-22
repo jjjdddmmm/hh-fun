@@ -14,16 +14,13 @@ const analyticsQuerySchema = z.object({
   timelineId: z.string().min(1, 'Timeline ID is required'),
   includeProgress: z.string()
     .optional()
-    .transform((val) => val === 'false' ? false : true)
-    .default(true),
+    .transform((val) => val === 'false' ? false : true),
   includeCosts: z.string()
     .optional()
-    .transform((val) => val === 'false' ? false : true)
-    .default(true),
+    .transform((val) => val === 'false' ? false : true),
   includeTimeline: z.string()
     .optional()
-    .transform((val) => val === 'true' ? true : false)
-    .default(false),
+    .transform((val) => val === 'true' ? true : false),
 });
 
 // ============================================================================
@@ -85,16 +82,15 @@ export async function GET(request: NextRequest) {
 
     // Get basic timeline info if requested
     if (validatedQuery.includeTimeline) {
-      analytics.timeline = await timelineService.getTimelineByPropertyId(
-        userId,
-        '', // We need the timeline ID, not property ID
-        false
-      );
+      // For now, skip including timeline data as we don't have the property ID
+      // This is just analytics data
+      analytics.timeline = null;
     }
 
+    // Don't serialize analytics data - it's already processed to dollars
     return NextResponse.json({
       success: true,
-      analytics: serializeData(analytics)
+      analytics: analytics
     });
 
   } catch (error) {

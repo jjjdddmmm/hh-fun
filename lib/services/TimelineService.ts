@@ -189,15 +189,15 @@ export class TimelineService {
             zipCode: true,
           }
         },
-        steps: {
-          include: includeSteps ? {
-            documents: includeDocuments,
+        steps: includeSteps ? {
+          include: {
+            documents: true, // Always include documents for step counts
             comments: includeDocuments ? {
               orderBy: { createdAt: 'desc' }
             } : false
-          } : false,
+          },
           orderBy: { sortOrder: 'asc' }
-        },
+        } : false,
         documents: includeDocuments,
         teamMembers: includeTeamMembers ? {
           where: { isActive: true },
@@ -361,39 +361,116 @@ export class TimelineService {
     await this.verifyTimelineOwnership(userId, step.timelineId);
 
     // Handle completion logic
+    const { isEarlyCompletion, ...dataToUpdate } = input; // Extract isEarlyCompletion, don't save to DB
     const updateData: any = {
-      ...input,
+      ...dataToUpdate,
       updatedAt: new Date(),
     };
 
     if (input.actualCost !== undefined) {
-      updateData.actualCost = input.actualCost ? BigInt(input.actualCost * 100) : null;
+      updateData.actualCost = input.actualCost ? BigInt(input.actualCost) : null;
     }
 
-    // Auto-set status based on completion
-    if (input.isCompleted === true && !input.status) {
-      updateData.status = StepStatus.COMPLETED;
-      updateData.actualEndDate = input.actualEndDate || new Date();
-    } else if (input.isCompleted === false && step.status === StepStatus.COMPLETED) {
-      updateData.status = StepStatus.CURRENT;
-      updateData.actualEndDate = null;
-    }
+    // Handle step completion and current step advancement in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Auto-set status based on completion
+      if (input.isCompleted === true && !input.status) {
+        updateData.status = StepStatus.COMPLETED;
+        updateData.actualEndDate = input.actualEndDate || new Date();
+      } else if (input.isCompleted === false) {
+        updateData.status = StepStatus.UPCOMING; // Will be corrected later by current step logic
+        updateData.actualEndDate = null;
+      }
 
-    const updatedStep = await prisma.timelineStep.update({
-      where: { id: stepId },
-      data: updateData,
-      include: {
-        documents: true,
-        comments: {
-          orderBy: { createdAt: 'desc' }
+      // Update the current step
+      const updatedStep = await tx.timelineStep.update({
+        where: { id: stepId },
+        data: updateData,
+        include: {
+          documents: true,
+          comments: {
+            orderBy: { createdAt: 'desc' }
+          }
+        }
+      });
+
+      // Handle current step advancement based on completion type
+      if (input.isCompleted === true) {
+        if (isEarlyCompletion === true) {
+          // Early completion: mark step as completed but don't advance current step pointer
+          // The step is completed out of sequence, so we keep the current step where it is
+        } else {
+          // Normal completion: advance the current step pointer
+          // Find the next incomplete step in sort order
+          const nextIncompleteStep = await tx.timelineStep.findFirst({
+            where: {
+              timelineId: step.timelineId,
+              isCompleted: false,
+              sortOrder: {
+                gt: step.sortOrder
+              }
+            },
+            orderBy: {
+              sortOrder: 'asc'
+            }
+          });
+
+          if (nextIncompleteStep) {
+            // Set the next step as current
+            await tx.timelineStep.update({
+              where: { id: nextIncompleteStep.id },
+              data: { status: StepStatus.CURRENT }
+            });
+
+            // Set all other incomplete steps (except the new current one) as upcoming
+            await tx.timelineStep.updateMany({
+              where: {
+                timelineId: step.timelineId,
+                isCompleted: false,
+                id: { not: nextIncompleteStep.id }
+              },
+              data: { status: StepStatus.UPCOMING }
+            });
+          }
+        }
+      } else if (input.isCompleted === false) {
+        // Mark step incomplete: find earliest UPCOMING step and make it CURRENT
+        // First, set all non-completed steps to UPCOMING
+        await tx.timelineStep.updateMany({
+          where: {
+            timelineId: step.timelineId,
+            isCompleted: false
+          },
+          data: { status: StepStatus.UPCOMING }
+        });
+
+        // Find the earliest incomplete step (by sortOrder) to become CURRENT
+        const earliestIncompleteStep = await tx.timelineStep.findFirst({
+          where: {
+            timelineId: step.timelineId,
+            isCompleted: false
+          },
+          orderBy: {
+            sortOrder: 'asc'
+          }
+        });
+
+        // Set the earliest incomplete step as CURRENT
+        if (earliestIncompleteStep) {
+          await tx.timelineStep.update({
+            where: { id: earliestIncompleteStep.id },
+            data: { status: StepStatus.CURRENT }
+          });
         }
       }
+
+      return updatedStep;
     });
 
     // Update timeline progress
     await this.updateTimelineProgress(step.timelineId);
 
-    return updatedStep as TimelineStepWithRelations;
+    return result as TimelineStepWithRelations;
   }
 
   /**
@@ -489,6 +566,60 @@ export class TimelineService {
         ...(stepId && { stepId })
       },
       orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  /**
+   * Create document record (for Cloudinary uploads)
+   */
+  async createDocument(
+    userId: string,
+    input: {
+      timelineId: string;
+      stepId?: string;
+      fileName: string;
+      originalName: string;
+      mimeType: string;
+      fileSize: number;
+      documentType: string;
+      storageProvider: string;
+      storageKey: string;
+      downloadUrl: string;
+      thumbnailUrl?: string;
+      uploadedBy: string;
+    }
+  ): Promise<TimelineDocument> {
+    await this.verifyTimelineOwnership(userId, input.timelineId);
+
+    // Verify step belongs to timeline if provided
+    if (input.stepId) {
+      const step = await prisma.timelineStep.findFirst({
+        where: {
+          id: input.stepId,
+          timelineId: input.timelineId
+        }
+      });
+
+      if (!step) {
+        throw new Error('Step not found or does not belong to timeline');
+      }
+    }
+
+    return await prisma.timelineDocument.create({
+      data: {
+        timelineId: input.timelineId,
+        stepId: input.stepId,
+        fileName: input.fileName,
+        originalName: input.originalName,
+        mimeType: input.mimeType,
+        fileSize: BigInt(input.fileSize), // Convert to BigInt for database
+        documentType: input.documentType as any, // Cast to enum
+        storageProvider: input.storageProvider as any, // Cast to enum
+        storageKey: input.storageKey,
+        downloadUrl: input.downloadUrl,
+        thumbnailUrl: input.thumbnailUrl,
+        uploadedBy: input.uploadedBy,
+      }
     });
   }
 
@@ -806,6 +937,7 @@ export class TimelineService {
         status: true
       }
     });
+
 
     const estimatedTotal = steps.reduce((sum, step) => {
       return sum + (step.estimatedCost ? Number(step.estimatedCost) / 100 : 0);

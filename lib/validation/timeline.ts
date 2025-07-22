@@ -120,8 +120,12 @@ export const updateTimelineStepSchema = z.object({
     .max(500, 'Description must be less than 500 characters')
     .optional(),
   status: stepStatusSchema.optional(),
-  notes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
+  notes: z.union([
+    z.string().max(1000, 'Notes must be less than 1000 characters'),
+    z.null()
+  ]).optional(),
   isCompleted: z.boolean().optional(),
+  isEarlyCompletion: z.boolean().optional(),
   isBlocked: z.boolean().optional(),
   blockReason: z.string()
     .max(200, 'Block reason must be less than 200 characters')
@@ -201,8 +205,8 @@ export const uploadDocumentSchema = z.object({
   isRequired: z.boolean().optional().default(false),
   storageProvider: nonEmptyStringSchema.max(50, 'Storage provider must be less than 50 characters'),
   storageKey: nonEmptyStringSchema.max(500, 'Storage key must be less than 500 characters'),
-  downloadUrl: urlSchema,
-  thumbnailUrl: urlSchema,
+  downloadUrl: z.string().min(1, 'Download URL is required'),
+  thumbnailUrl: z.string().optional(),
 }).strict();
 
 export const updateDocumentSchema = z.object({
@@ -351,12 +355,10 @@ export const stepsQuerySchema = z.object({
   ]).optional(),
   includeDocuments: z.string()
     .optional()
-    .transform((val) => val === 'true' ? true : false)
-    .default(false),
+    .transform((val) => val === 'true'),
   includeComments: z.string()
     .optional()
-    .transform((val) => val === 'true' ? true : false)
-    .default(false),
+    .transform((val) => val === 'true'),
   sortBy: z.enum(['sortOrder', 'daysFromStart', 'scheduledDate', 'priority'])
     .optional()
     .default('sortOrder'),

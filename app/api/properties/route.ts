@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       clerkId
     });
 
-    if (result.isExisting) {
+    if ('isExisting' in result && result.isExisting) {
       return NextResponse.json({
         success: true,
         property: {
@@ -110,6 +110,17 @@ export async function POST(request: NextRequest) {
           mlsUrl: result.property.mlsUrl
         },
         message: "Property already exists in your portfolio"
+      });
+    }
+    
+    if ('isRestored' in result && result.isRestored) {
+      return NextResponse.json({
+        success: true,
+        property: {
+          id: result.property.id,
+          mlsUrl: result.property.mlsUrl
+        },
+        message: "Property restored to your portfolio"
       });
     }
 

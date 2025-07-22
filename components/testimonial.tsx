@@ -33,7 +33,7 @@ export default function Testimonial() {
               
               {/* Quote */}
               <blockquote className="text-neutral-darkest font-heading text-h5 leading-[140%] tracking-[-0.01em] w-full">
-                "HH.Fun transformed how I analyze properties. What used to take hours of research now takes seconds, and the insights are incredibly accurate. It's like having a team of analysts in my pocket."
+                &quot;HH.Fun transformed how I analyze properties. What used to take hours of research now takes seconds, and the insights are incredibly accurate. It&apos;s like having a team of analysts in my pocket.&quot;
               </blockquote>
               
               {/* Avatar */}

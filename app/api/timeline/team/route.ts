@@ -16,8 +16,7 @@ const teamQuerySchema = z.object({
   role: z.string().optional(),
   isActive: z.string()
     .optional()
-    .transform((val) => val === 'false' ? false : true)
-    .default(true),
+    .transform((val) => val === 'false' ? false : true),
 });
 
 // ============================================================================

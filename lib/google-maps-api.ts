@@ -84,8 +84,8 @@ export class GoogleMapsAPI {
         walkScore: this.calculateWalkScore(groceryStores, restaurants, parks, transitStations),
         crimeRate: 'Data not available', // Would need separate crime API
         demographics: {
-          medianIncome: null,
-          population: null
+          medianIncome: undefined,
+          population: undefined
         }
       };
       
