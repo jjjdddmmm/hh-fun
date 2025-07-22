@@ -477,7 +477,7 @@ export default function PropertyLookupPage() {
                       </div>
                     ) : (
                       <div className="text-center py-8 text-[#020B0A] opacity-70">
-                        Click "Show Raw Data" to see all available fields
+                        Click &quot;Show Raw Data&quot; to see all available fields
                       </div>
                     )}
                   </CardContent>
@@ -493,7 +493,7 @@ export default function PropertyLookupPage() {
                     <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-yellow-800">No Property Data Found</h3>
                     <p className="text-yellow-700 mt-2">
-                      Try a different address format or check if the property exists in BatchData's database.
+                      Try a different address format or check if the property exists in BatchData&apos;s database.
                     </p>
                   </div>
                 </CardContent>
