@@ -458,13 +458,31 @@ export class BatchDataPropertyAnalysisService {
   }
 
   /**
-   * Extract photos (BatchData may not have photos, use defaults)
+   * Extract photos with better defaults based on property type and features
    */
   private extractPhotos(property: any): string[] {
-    // BatchData typically doesn't have photos, use reasonable defaults
+    // BatchData typically doesn't have photos, use contextual defaults based on property features
+    const hasPool = property.building?.pool || property.quickLists?.pool;
+    const propertyType = property.building?.propertyType || property.mls?.propertyType || 'Single Family';
+    const isHighEnd = (property.valuation?.estimatedValue || 0) > 800000;
+    
+    // Select appropriate hero image based on property characteristics
+    let heroImage = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop&crop=edges'; // Default single family
+    
+    if (hasPool && isHighEnd) {
+      heroImage = 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=800&h=600&fit=crop&crop=edges'; // Luxury home with pool
+    } else if (hasPool) {
+      heroImage = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop&crop=edges'; // Home with pool
+    } else if (isHighEnd) {
+      heroImage = 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&h=600&fit=crop&crop=edges'; // Luxury home
+    } else if (propertyType.toLowerCase().includes('condo')) {
+      heroImage = 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop&crop=edges'; // Modern condo
+    }
+    
     return [
-      'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop&crop=edges',
-      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop&crop=edges'
+      heroImage,
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop&crop=edges',
+      'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&h=600&fit=crop&crop=edges'
     ];
   }
 

@@ -16,6 +16,10 @@ import AppFooter from "@/components/app-footer";
 interface Property {
   id: string;
   mlsUrl: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
   status: 'pending' | 'analyzed' | 'error';
   hasTimeline?: boolean;
   data?: {
@@ -320,6 +324,10 @@ export default function PropertyAnalysisPage() {
       const newProperty: Property = {
         id: result.property.id,
         mlsUrl: newMlsUrl.trim(),
+        address: result.property.address || 'Analyzing...',
+        city: result.property.city || '',
+        state: result.property.state || '',
+        zipCode: result.property.zipCode || '',
         status: 'pending'
       };
       
@@ -2321,11 +2329,11 @@ ${analysis.dealBreakers.map((breaker: string) => `• ${breaker}`).join('\n')}` 
                   <Card className="shadow-lg border-2 border-[#D9DADA] bg-[#F2F2F2] hover:shadow-xl transition-shadow overflow-hidden rounded-2xl">
                     {/* Hero Image */}
                     <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200">
-                      {property.status === 'analyzed' && property.data?.images?.[0] ? (
+                      {property.status === 'analyzed' ? (
                         <>
                           <img 
-                            src={property.data.images[0]}
-                            alt={property.data.address}
+                            src={property.data?.images?.[0] || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop&crop=edges'}
+                            alt={property.data?.address || 'Property'}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.currentTarget.src = 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop&crop=edges';
@@ -2387,10 +2395,20 @@ ${analysis.dealBreakers.map((breaker: string) => `• ${breaker}`).join('\n')}` 
                       <CardTitle className="text-xl font-ds-body font-normal text-[#5C1B10] leading-tight">
                         {property.data?.address || 'Analyzing...'}
                       </CardTitle>
-                      <div className="flex items-center gap-1 text-sm text-[#020B0A] opacity-70">
-                        <MapPin className="h-3 w-3" />
-                        <span className="truncate">{property.mlsUrl}</span>
-                      </div>
+                      {property.status === 'analyzed' && property.data && (
+                        <div className="flex items-center gap-1 text-sm text-[#020B0A] opacity-70">
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate">
+                            {[property.city, property.state, property.zipCode].filter(Boolean).join(', ') || 'Location information loading...'}
+                          </span>
+                        </div>
+                      )}
+                      {property.status !== 'analyzed' && (
+                        <div className="flex items-center gap-1 text-sm text-[#020B0A] opacity-70">
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate">Property location loading...</span>
+                        </div>
+                      )}
                     </CardHeader>
                     
                     <CardContent>

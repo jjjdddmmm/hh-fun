@@ -47,6 +47,11 @@ export async function GET() {
       const mappedProperty = {
         id: property.id,
         mlsUrl: property.mlsUrl,
+        // Add database fields to match frontend interface
+        address: property.address,
+        city: property.city,
+        state: property.state,
+        zipCode: property.zipCode,
         status: property.analyses.length > 0 ? 'analyzed' : 'pending',
         data: {
           address: property.address,
