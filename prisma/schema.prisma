@@ -104,6 +104,7 @@ model Property {
   deletedAt              DateTime?
   user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   analyses               PropertyAnalysis[]
+  comparableSales        ComparableSales[]
   timeline               Timeline?
 
   // === STRATEGIC INDEXES FOR PERFORMANCE ===
@@ -134,6 +135,47 @@ model PropertyAnalysis {
   property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@map("property_analyses")
+}
+
+model ComparableSales {
+  id              String   @id @default(cuid())
+  propertyId      String
+  zipCode         String
+  bedrooms        Int?
+  bathrooms       Int?
+  squareFootage   Int?
+  radius          Decimal  @default(0.5) @db.Decimal(3, 2)
+  propertyType    String?
+  
+  // Cached API Response Data
+  comparablesData Json     // Full BatchData comparable response
+  comparableCount Int      @default(0)
+  avgSalePrice    Decimal? @db.Decimal(12, 2)
+  avgPricePerSqft Decimal? @db.Decimal(8, 2)
+  avgDaysOnMarket Int?
+  inventoryLevel  String?
+  
+  // API Cost Tracking
+  apiCost         Decimal  @default(0.46) @db.Decimal(5, 2)
+  dataSource      String   @default("BatchData")
+  
+  // Cache Management
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime // Cache expires after 30 days
+  lastAccessedAt  DateTime @default(now())
+  accessCount     Int      @default(1)
+  
+  // Relationships
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  // Performance Indexes
+  @@index([zipCode, bedrooms, bathrooms])
+  @@index([propertyId])
+  @@index([expiresAt])
+  @@index([zipCode, radius])
+  
+  @@map("comparable_sales")
 }
 
 model Timeline {

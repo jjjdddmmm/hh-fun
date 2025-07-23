@@ -4,7 +4,9 @@ import { parseMLSUrl } from "@/lib/mls-parser";
 import { createBatchDataPropertyAnalysisService, BatchDataPropertyData } from "@/lib/services/BatchDataPropertyAnalysis";
 import { createAIAnalysisService } from "@/lib/services/AIAnalysisService";
 import { createPropertyService } from "@/lib/services/PropertyService";
+import { createEnhancedInvestmentScoringService } from "@/lib/services/EnhancedInvestmentScoring";
 import { generalRateLimiter } from "@/lib/rate-limiter";
+import { createZillowService } from "@/lib/services/ZillowService";
 
 // Extract address from MLS URL for BatchData search
 function extractAddressFromMlsUrl(parsedUrl: any, mlsUrl: string): string {
@@ -106,6 +108,8 @@ export async function POST(request: NextRequest) {
     const propertyService = createPropertyService();
     const batchDataService = createBatchDataPropertyAnalysisService(true); // Use production API
     const aiService = createAIAnalysisService();
+    const enhancedScoring = createEnhancedInvestmentScoringService();
+    const zillowService = createZillowService();
 
     // Verify property ownership
     const property = await propertyService.getUserProperties(userId);
@@ -165,17 +169,82 @@ export async function POST(request: NextRequest) {
             description: batchData.description || "Property details from BatchData",
             images: batchData.photos || []
           };
+          
+          // If no photos from BatchData and we have a ZPID, try to fetch photos from Zillow
+          if ((!propertyData.images || propertyData.images.length === 0 || 
+               propertyData.images[0]?.includes('unsplash')) && parsedUrl.zpid && zillowService.isApiAvailable()) {
+            try {
+              console.log(`📸 Fetching photos from Zillow for ZPID: ${parsedUrl.zpid}`);
+              const zillowData = await zillowService.getPropertyData(parsedUrl.zpid);
+              
+              if (zillowData && zillowData.photos && zillowData.photos.length > 0) {
+                console.log(`✅ Found ${zillowData.photos.length} photos from Zillow`);
+                propertyData.images = zillowData.photos;
+                
+                // Also update the BatchData object to include real photos
+                batchData.photos = zillowData.photos;
+              }
+            } catch (error) {
+              console.error('Failed to fetch photos from Zillow:', error);
+              // Continue with placeholder images
+            }
+          }
 
           // Create basic analysis from BatchData (fast)
           analysisData = createBasicAnalysis(batchData);
           
-          // Use AI for investment score, insights and red flags
-          const aiInsights = await aiService.generatePropertyInsights(batchData as any);
+          // 🚀 ENHANCED: Use BatchData + AI for comprehensive investment scoring
+          console.log('🎯 Generating enhanced investment score with BatchData intelligence...');
           
-          if (aiService.validateInsights(aiInsights)) {
-            analysisData.investmentScore = aiInsights.investmentScore;
-            analysisData.keyInsights = aiInsights.keyInsights;
-            analysisData.redFlags = aiInsights.redFlags as any;
+          try {
+            const enhancedScore = await enhancedScoring.calculateEnhancedScore({
+              data: propertyData
+            }, {
+              // Pass through BatchData intelligence from property update
+              estimatedValue: batchData.zestimate?.amount,
+              marketTrend: batchData.daysOnMarket && batchData.daysOnMarket > 60 ? 'cold' : 'warm',
+              demandLevel: batchData.daysOnMarket && batchData.daysOnMarket < 30 ? 'high' : 'medium',
+              daysOnMarket: batchData.daysOnMarket,
+              // QuickLists intelligence
+              ownerOccupied: batchData.quickLists?.ownerOccupied,
+              absenteeOwner: batchData.quickLists?.absenteeOwner,
+              highEquity: batchData.quickLists?.highEquity,
+              cashBuyer: batchData.quickLists?.cashBuyer,
+              distressedProperty: batchData.quickLists?.distressedProperty,
+              freeAndClear: batchData.quickLists?.freeAndClear,
+              recentlySold: batchData.quickLists?.recentlySold,
+              // Property features
+              pool: batchData.features?.pool,
+              garageParkingSpaces: batchData.features?.garage ? 2 : 0,
+              // Rental analysis (estimated)
+              rentToValueRatio: batchData.rentZestimate ? (batchData.rentZestimate * 12) / batchData.price : 0.01,
+              capRate: 0.06 // Default estimate
+            });
+            
+            // Replace simple score with enhanced AI-powered score
+            analysisData.investmentScore = enhancedScore.totalScore;
+            // Add enhanced fields using flexible assignment
+            (analysisData as any).investmentGrade = enhancedScore.grade;
+            (analysisData as any).investmentRecommendation = enhancedScore.recommendation;
+            (analysisData as any).scoreBreakdown = enhancedScore.breakdown;
+            analysisData.keyInsights = enhancedScore.aiInsights;
+            analysisData.redFlags = enhancedScore.redFlags;
+            (analysisData as any).keyOpportunities = enhancedScore.keyOpportunities;
+            analysisData.aiConfidence = enhancedScore.confidence;
+            
+            console.log(`✅ Enhanced investment score: ${enhancedScore.totalScore}/${enhancedScore.maxScore} (${enhancedScore.grade})`);
+            
+          } catch (error) {
+            console.error('❌ Enhanced scoring failed, falling back to basic AI:', error);
+            
+            // Fallback to basic AI analysis
+            const aiInsights = await aiService.generatePropertyInsights(batchData as any);
+            
+            if (aiService.validateInsights(aiInsights)) {
+              analysisData.investmentScore = aiInsights.investmentScore;
+              analysisData.keyInsights = aiInsights.keyInsights;
+              analysisData.redFlags = aiInsights.redFlags as any;
+            }
           }
 
           // Update property with enhanced BatchData including intelligence fields

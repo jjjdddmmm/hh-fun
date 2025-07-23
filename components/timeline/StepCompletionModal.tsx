@@ -3,7 +3,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,11 +33,18 @@ export function StepCompletionModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // Reset form when step changes or modal opens
+  useEffect(() => {
+    if (isOpen && step) {
+      // Reset form for new step
+      setActualCost('');
+      setSelectedFiles([]);
+      setIsDragOver(false);
+    }
+  }, [isOpen, step?.id]); // Reset when modal opens or step changes
+
   const handleClose = () => {
     if (isLoading) return; // Prevent closing during upload
-    setActualCost('');
-    setSelectedFiles([]);
-    setIsDragOver(false);
     onClose();
   };
 

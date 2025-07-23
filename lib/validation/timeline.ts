@@ -131,8 +131,8 @@ export const updateTimelineStepSchema = z.object({
     .max(200, 'Block reason must be less than 200 characters')
     .optional(),
   actualStartDate: dateSchema.optional(),
-  actualEndDate: dateSchema.optional(),
-  actualCost: currencySchema.optional(),
+  actualEndDate: z.union([dateSchema, z.null()]).optional(),
+  actualCost: z.union([currencySchema, z.null()]).optional(),
   priority: stepPrioritySchema.optional(),
   completedBy: z.string()
     .max(100, 'Completed by must be less than 100 characters')

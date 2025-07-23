@@ -138,9 +138,13 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
         isEarlyCompletion, // Re-add this for early completion support
       };
 
-      // Only include actualEndDate when completing, not when marking incomplete
+      // When completing, set actualEndDate
       if (isCompleted) {
         requestBody.actualEndDate = new Date().toISOString();
+      } else {
+        // When marking incomplete, clear actualCost and actualEndDate
+        requestBody.actualCost = null;
+        requestBody.actualEndDate = null;
       }
 
       // Update server first - database is source of truth

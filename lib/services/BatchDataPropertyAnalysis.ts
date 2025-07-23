@@ -248,6 +248,14 @@ export class BatchDataPropertyAnalysisService {
     console.log('🔧 Converting BatchData property to expected format...');
     console.log('📊 Raw property data keys:', Object.keys(property));
     
+    // Log MLS data specifically to check for photos
+    if (property.mls) {
+      console.log('📷 MLS data available, keys:', Object.keys(property.mls));
+      if (property.mls.photos || property.mls.images || property.mls.media) {
+        console.log('🖼️ Found MLS photos/images/media!');
+      }
+    }
+    
     const address = this.extractAddress(property);
     const price = this.extractPrice(property);
     const bedrooms = this.extractBedrooms(property);
@@ -461,7 +469,32 @@ export class BatchDataPropertyAnalysisService {
    * Extract photos with better defaults based on property type and features
    */
   private extractPhotos(property: any): string[] {
-    // BatchData typically doesn't have photos, use contextual defaults based on property features
+    // First, check if BatchData provides actual photos in various possible locations
+    const mlsPhotos = property.mls?.photos || property.mls?.images || property.mls?.media;
+    const propertyPhotos = property.photos || property.images || property.media;
+    const listingPhotos = property.listing?.photos || property.listing?.images;
+    
+    // Log to help debug what fields are available
+    console.log('🖼️ Photo extraction debug:', {
+      hasMlsPhotos: !!mlsPhotos,
+      hasPropertyPhotos: !!propertyPhotos,
+      hasListingPhotos: !!listingPhotos,
+      mlsPhotoCount: Array.isArray(mlsPhotos) ? mlsPhotos.length : 0,
+      propertyPhotoCount: Array.isArray(propertyPhotos) ? propertyPhotos.length : 0
+    });
+    
+    // Try to get real photos from various possible sources
+    const realPhotos = mlsPhotos || propertyPhotos || listingPhotos;
+    
+    // If we have real photos, return them (ensure they're in array format)
+    if (realPhotos && Array.isArray(realPhotos) && realPhotos.length > 0) {
+      console.log(`✅ Found ${realPhotos.length} actual property photos from BatchData`);
+      return realPhotos.slice(0, 10); // Limit to 10 photos max
+    }
+    
+    // If no real photos available, use contextual placeholder images
+    console.log('⚠️ No actual photos found in BatchData, using placeholder images');
+    
     const hasPool = property.building?.pool || property.quickLists?.pool;
     const propertyType = property.building?.propertyType || property.mls?.propertyType || 'Single Family';
     const isHighEnd = (property.valuation?.estimatedValue || 0) > 800000;

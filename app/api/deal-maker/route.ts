@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DealMakerAgent } from '@/lib/services/DealMakerAgent';
+import { createComparablesCacheService } from '@/lib/services/ComparablesCacheService';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 
@@ -41,27 +42,86 @@ export async function POST(request: NextRequest) {
       });
       
       if (existingProperty) {
-        // Construct from basic property data (prices are stored in cents)
+        // Construct comprehensive property data including ALL BatchData intelligence (prices are stored in cents)
         propertyData = {
-          zpid: existingProperty.id, // Use property ID as zpid
+          zpid: existingProperty.id,
           address: existingProperty.address,
-          price: Number(existingProperty.price) / 100, // Convert cents to dollars
+          price: Number(existingProperty.price) / 100,
           bedrooms: existingProperty.bedrooms,
           bathrooms: existingProperty.bathrooms ? Number(existingProperty.bathrooms) : undefined,
-          livingArea: existingProperty.squareFootage, // Use squareFootage instead
+          livingArea: existingProperty.squareFootage,
+          sqft: existingProperty.squareFootage, // Alternative field name
           yearBuilt: existingProperty.yearBuilt,
           homeType: existingProperty.propertyType || 'SINGLE_FAMILY',
-          homeStatus: 'FOR_SALE', // Default status
-          daysOnZillow: 0, // Default value
+          homeStatus: 'FOR_SALE',
+          
+          // === ENHANCED BATCHDATA INTELLIGENCE FIELDS ===
+          // Market & Timing Intelligence
+          daysOnMarket: existingProperty.daysOnMarket || 0,
+          daysOnZillow: existingProperty.daysOnMarket || 0, // Legacy compatibility
+          marketTrend: existingProperty.marketTrend,
+          demandLevel: existingProperty.demandLevel,
+          pricePerSqft: existingProperty.pricePerSqft,
+          
+          // Financial Intelligence
+          estimatedValue: existingProperty.estimatedValue ? Number(existingProperty.estimatedValue) / 100 : undefined,
+          lastSalePrice: existingProperty.lastSalePrice ? Number(existingProperty.lastSalePrice) / 100 : undefined,
+          lastSaleDate: existingProperty.lastSaleDate,
+          equityAmount: existingProperty.equityAmount ? Number(existingProperty.equityAmount) / 100 : undefined,
+          equityPercent: existingProperty.equityPercent ? Number(existingProperty.equityPercent) : undefined,
+          mortgageBalance: existingProperty.mortgageBalance ? Number(existingProperty.mortgageBalance) / 100 : undefined,
+          
+          // Owner Intelligence (Critical for Negotiation!)
+          ownerName: existingProperty.ownerName,
+          ownerOccupied: existingProperty.ownerOccupied,
+          absenteeOwner: existingProperty.absenteeOwner,
+          ownershipLength: existingProperty.ownershipLength,
+          ownerPhone: existingProperty.ownerPhone,
+          ownerEmail: existingProperty.ownerEmail,
+          
+          // Investment Signals
+          highEquity: existingProperty.highEquity,
+          cashBuyer: existingProperty.cashBuyer,
+          distressedProperty: existingProperty.distressedProperty,
+          foreclosureStatus: existingProperty.foreclosureStatus,
+          fixAndFlipPotential: existingProperty.fixAndFlipPotential,
+          
+          // Property Features
+          pool: existingProperty.buildingFeatures ? JSON.parse(existingProperty.buildingFeatures as string)?.pool : false,
+          garageParkingSpaces: existingProperty.buildingFeatures ? JSON.parse(existingProperty.buildingFeatures as string)?.garageParkingSpaces : 0,
+          fireplaceCount: existingProperty.buildingFeatures ? JSON.parse(existingProperty.buildingFeatures as string)?.fireplaceCount : 0,
+          
+          // QuickLists Intelligence (Parsed from JSON)
+          corporateOwned: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.corporateOwned : undefined,
+          trustOwned: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.trustOwned : undefined,
+          freeAndClear: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.freeAndClear : undefined,
+          vacant: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.vacant : undefined,
+          taxDefault: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.taxDefault : undefined,
+          listedBelowMarketPrice: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.listedBelowMarketPrice : undefined,
+          failedListing: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.expiredListing : undefined,
+          expiredListing: existingProperty.quickLists ? JSON.parse(existingProperty.quickLists as string)?.expiredListing : undefined,
+          
+          // Rental Analysis
+          rentZestimate: existingProperty.rentZestimate ? Number(existingProperty.rentZestimate) / 100 : undefined,
+          estimatedRent: existingProperty.estimatedRent ? Number(existingProperty.estimatedRent) / 100 : undefined,
+          rentToValueRatio: existingProperty.rentToValueRatio ? Number(existingProperty.rentToValueRatio) : undefined,
+          capRate: existingProperty.capRate ? Number(existingProperty.capRate) : undefined,
+          
+          // Valuation Data
           zestimate: existingProperty.zestimate ? {
-            amount: Number(existingProperty.zestimate) / 100, // Convert cents to dollars
+            amount: Number(existingProperty.zestimate) / 100,
             valuationRange: {
               low: Number(existingProperty.zestimateRangeLow || existingProperty.zestimate) / 100,
               high: Number(existingProperty.zestimateRangeHigh || existingProperty.zestimate) / 100
             }
           } : undefined,
-          rentZestimate: existingProperty.rentZestimate ? Number(existingProperty.rentZestimate) / 100 : undefined,
-          priceHistory: []
+          
+          // Historical Data
+          priceHistory: existingProperty.priceHistory ? JSON.parse(existingProperty.priceHistory as string) : [],
+          
+          // Data Quality Indicators
+          batchDataLastUpdated: existingProperty.batchDataLastUpdated,
+          batchDataCost: existingProperty.batchDataCost
         };
       } else {
         return NextResponse.json(
@@ -82,13 +142,49 @@ export async function POST(request: NextRequest) {
       /* Zillow fetch disabled for now */
     }
 
-    // Initialize Deal Maker Agent
+    // Initialize services
     const dealMaker = new DealMakerAgent();
+    const comparablesCache = createComparablesCacheService();
     
-    // Analyze and generate negotiation strategy
+    // Get comparable sales data with intelligent caching
+    let marketData = {};
+    if (propertyData) {
+      try {
+        console.log('🔍 Fetching comparable sales for enhanced offer strategy (with caching)...');
+        const zipCode = (propertyData.address.match(/\b\d{5}\b/)?.[0]) || '90210';
+        
+        const cachedComparables = await comparablesCache.getComparables({
+          propertyId: propertyData.zpid,
+          zipCode,
+          bedrooms: propertyData.bedrooms || undefined,
+          bathrooms: propertyData.bathrooms || undefined,
+          squareFootage: propertyData.livingArea || propertyData.sqft || undefined,
+          radius: 0.5,
+          propertyType: 'SINGLE_FAMILY'
+        });
+        
+        if (cachedComparables && cachedComparables.comparables.length > 0) {
+          marketData = {
+            recentComps: cachedComparables.comparables,
+            avgSalePrice: cachedComparables.stats.avgSalePrice,
+            avgPricePerSqft: cachedComparables.stats.avgPricePerSqft,
+            avgDaysOnMarket: cachedComparables.stats.avgDaysOnMarket,
+            inventoryLevel: cachedComparables.stats.inventoryLevel
+          };
+          
+          const cacheInfo = cachedComparables.cacheInfo;
+          console.log(`✅ Found ${cachedComparables.comparables.length} comparable sales ${cacheInfo.fromCache ? `(cached, age: ${cacheInfo.cacheAge}h, accessed: ${cacheInfo.accessCount}x)` : '(fresh from API)'}`);
+        }
+      } catch (error) {
+        console.error('❌ Failed to fetch comparables for offer strategy:', error);
+      }
+    }
+    
+    // Analyze and generate iron-clad negotiation strategy with ALL intelligence
     const negotiationAnalysis = await dealMaker.analyzeAndNegotiate(
       propertyData,
-      buyerProfile
+      buyerProfile,
+      marketData
     );
 
     // Log the request for analytics

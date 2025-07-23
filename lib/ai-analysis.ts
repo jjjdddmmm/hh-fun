@@ -145,12 +145,12 @@ export class PropertyAIAnalyzer {
       const propertyAge = currentYear - propertyData.yearBuilt;
       
       // Extract zipcode for local expertise
-      const zipcode = propertyData.address.match(/\b\d{5}\b/)?.[0] || 'Unknown';
+      const zipcode = propertyData.address?.match(/\b\d{5}\b/)?.[0] || propertyData.zipcode || 'Unknown';
       
       const prompt = `You are Sarah Chen, a seasoned real estate investor with 15 years of experience specializing in the ${zipcode} area. You've personally bought, renovated, and sold over 200 properties specifically in ${zipcode} and surrounding neighborhoods. You know this market inside and out - the street-by-street trends, local school districts, development patterns, and exactly what buyers want in this specific area.
 
 PROPERTY TO EVALUATE:
-Address: ${propertyData.address}
+Address: ${propertyData.address || 'Property details'}
 Price: $${propertyData.price?.toLocaleString() || 'Unknown'}
 Size: ${propertyData.livingArea} sq ft
 Built: ${propertyData.yearBuilt} (${propertyAge} years old)
@@ -206,7 +206,7 @@ Respond with JSON only:
       
       return { investmentScore: 50, keyInsights: ['Property analysis completed'], redFlags: [] };
     } catch (error) {
-      console.error('❌ AI Insights Error for property:', propertyData.address, {
+      console.error('❌ AI Insights Error for property:', propertyData.address || propertyData.zpid, {
         error: error instanceof Error ? error.message : String(error),
         propertyId: propertyData.zpid,
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
@@ -239,13 +239,13 @@ Respond with JSON only:
       
       throw new Error('Invalid response format from AI');
     } catch (error) {
-      console.error('❌ AI Full Analysis Error for property:', propertyData.address, {
+      console.error('❌ AI Full Analysis Error for property:', propertyData.address || propertyData.zpid, {
         error: error instanceof Error ? error.message : String(error),
         propertyId: propertyData.zpid,
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
         stack: error instanceof Error ? error.stack : undefined
       });
-      console.warn('🔄 Using fallback analysis for property:', propertyData.address);
+      console.warn('🔄 Using fallback analysis for property:', propertyData.address || propertyData.zpid);
       return this.fallbackAnalysis(propertyData);
     }
   }
@@ -520,7 +520,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
     try {
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        console.error('❌ No JSON found in AI response for property:', propertyData.address);
+        console.error('❌ No JSON found in AI response for property:', propertyData.address || propertyData.zpid);
         console.error('AI Response:', aiResponse.substring(0, 500));
         throw new Error('No JSON found in AI response');
       }
@@ -560,7 +560,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
         analysis: parsed.analysis || 'Property analysis completed successfully.'
       };
     } catch (error) {
-      console.error('❌ Error parsing AI response for property:', propertyData.address, error);
+      console.error('❌ Error parsing AI response for property:', propertyData.address || propertyData.zpid, error);
       return this.fallbackAnalysis(propertyData);
     }
   }
@@ -694,7 +694,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
     // Ensure score stays within bounds
     investmentScore = Math.max(1, Math.min(100, investmentScore));
     
-    console.warn('🔄 Using calculated fallback investment score:', investmentScore, 'for property:', propertyData.address);
+    console.warn('🔄 Using calculated fallback investment score:', investmentScore, 'for property:', propertyData.address || propertyData.zpid);
     
     return {
       marketValue: {

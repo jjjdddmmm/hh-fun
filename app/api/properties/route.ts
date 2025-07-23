@@ -60,7 +60,9 @@ export async function GET() {
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms ? Number(property.bathrooms) : null,
           yearBuilt: property.yearBuilt,
+          daysOnMarket: property.daysOnMarket || 0,
           pricePerSqft: property.squareFootage ? Number(property.price) / 100 / property.squareFootage : null,
+          description: '', // Add description field
           images: parsedImages
         },
         analysis: analysis
