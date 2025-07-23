@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { TimelineWithRelations, StepStatus, StepCategory, StepPriority, checkStepDependencies } from "@/lib/types/timeline";
 import { StepCompletionModal } from "./StepCompletionModal";
+import { StepEditModal } from "./StepEditModal";
 
 interface TimelineStepsListProps {
   timeline: TimelineWithRelations;
@@ -54,6 +55,14 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
     isOpen: false,
     step: null,
     isEarlyCompletion: false
+  });
+  
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    step: any | null;
+  }>({
+    isOpen: false,
+    step: null
   });
 
 
@@ -338,9 +347,24 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
     });
   };
 
+  const openEditModal = (step: any) => {
+    setEditModal({
+      isOpen: true,
+      step
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditModal({
+      isOpen: false,
+      step: null
+    });
+  };
+
   const handleStepCompletion = async (data: {
     actualCost?: number;
     documents: File[];
+    completionSessionId: string;
   }) => {
     if (!completionModal.step) return;
 
@@ -357,6 +381,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
           formData.append('timelineId', timeline.id);
           formData.append('stepCategory', completionModal.step!.category);
           formData.append('fileName', file.name);
+          formData.append('completionSessionId', data.completionSessionId);
 
           const uploadResponse = await fetch('/api/timeline/documents/upload', {
             method: 'POST',
@@ -420,6 +445,63 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
     } finally {
       // Clear loading state
       setIsUpdating(null);
+    }
+  };
+
+  const handleCostUpdate = async (cost?: number) => {
+    if (!editModal.step) return;
+
+    try {
+      const requestBody: any = {};
+      if (cost !== undefined) {
+        requestBody.actualCost = Math.round(cost * 100); // Convert to cents
+      }
+
+      const response = await fetch(`/api/timeline/steps/${editModal.step.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update cost');
+      }
+
+      closeEditModal();
+    } catch (error) {
+      console.error('Error updating cost:', error);
+    }
+  };
+
+  const handleDocumentUpload = async (file: File, replaceDocumentId?: string) => {
+    if (!editModal.step) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('stepId', editModal.step.id);
+      formData.append('timelineId', timeline.id);
+      formData.append('stepCategory', editModal.step.category);
+      formData.append('fileName', file.name);
+      
+      // Create a new completion session for individual document updates
+      const sessionId = `edit_${editModal.step.id}_${Date.now()}`;
+      formData.append('completionSessionId', sessionId);
+
+      const uploadResponse = await fetch('/api/timeline/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(`Failed to upload ${file.name}: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Document upload error:', error);
+      throw error;
     }
   };
 
@@ -556,6 +638,15 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
                         ) : (
                           // Completed step buttons
                           <>
+                            <Button
+                              size="sm"
+                              onClick={() => openEditModal(step)}
+                              className="bg-[#5C1B10] hover:bg-[#4A1508] text-white"
+                            >
+                              <Edit2 className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+
                             <Button
                               variant="outline"
                               size="sm"
@@ -807,6 +898,17 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
         onClose={closeCompletionModal}
         onComplete={handleStepCompletion}
         isLoading={isUpdating === completionModal.step?.id}
+      />
+
+      {/* Step Edit Modal */}
+      <StepEditModal
+        step={editModal.step}
+        isOpen={editModal.isOpen}
+        onClose={closeEditModal}
+        onUpdateCost={handleCostUpdate}
+        onUploadDocument={handleDocumentUpload}
+        onRefresh={onRefreshTimeline || (() => Promise.resolve())}
+        isLoading={isUpdating === editModal.step?.id}
       />
     </div>
   );

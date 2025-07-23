@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, X, File, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, X, File, CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { TimelineStepWithRelations } from "@/lib/types/timeline";
+import { documentVersionService } from "@/lib/services/DocumentVersionService";
 
 interface StepCompletionModalProps {
   step: TimelineStepWithRelations | null;
@@ -18,6 +19,7 @@ interface StepCompletionModalProps {
   onComplete: (data: {
     actualCost?: number;
     documents: File[];
+    completionSessionId: string;
   }) => Promise<void>;
   isLoading?: boolean;
 }
@@ -32,6 +34,8 @@ export function StepCompletionModal({
   const [actualCost, setActualCost] = useState<string>('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [completionSessionId, setCompletionSessionId] = useState<string>('');
+  const [previousCompletions, setPreviousCompletions] = useState<number>(0);
 
   // Reset form when step changes or modal opens
   useEffect(() => {
@@ -40,8 +44,36 @@ export function StepCompletionModal({
       setActualCost('');
       setSelectedFiles([]);
       setIsDragOver(false);
+      
+      // Create new completion session ID asynchronously
+      const initializeSession = async () => {
+        try {
+          const sessionId = await documentVersionService.createCompletionSession(step.id);
+          setCompletionSessionId(sessionId);
+          
+          // Check if this step has been completed before
+          await checkPreviousCompletions();
+        } catch (error) {
+          console.error('Error initializing completion session:', error);
+          setCompletionSessionId(`session_${step.id}_${Date.now()}`); // Fallback
+        }
+      };
+      
+      initializeSession();
     }
   }, [isOpen, step?.id]); // Reset when modal opens or step changes
+
+  const checkPreviousCompletions = async () => {
+    if (!step) return;
+    
+    try {
+      const sessions = await documentVersionService.getCompletionSessions(step.id);
+      setPreviousCompletions(sessions.length);
+    } catch (error) {
+      console.error('Error checking previous completions:', error);
+      setPreviousCompletions(0);
+    }
+  };
 
   const handleClose = () => {
     if (isLoading) return; // Prevent closing during upload
@@ -79,7 +111,8 @@ export function StepCompletionModal({
     
     await onComplete({
       actualCost: costValue,
-      documents: selectedFiles
+      documents: selectedFiles,
+      completionSessionId: completionSessionId
     });
   };
 
@@ -108,6 +141,24 @@ export function StepCompletionModal({
           <p className="text-gray-600">
             Would you like to upload any documents and enter costs for this step before marking it complete?
           </p>
+
+          {/* Previous Completion Warning */}
+          {previousCompletions > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-800 mb-1">
+                    Step Previously Completed
+                  </p>
+                  <p className="text-amber-700">
+                    This step has been completed {previousCompletions} time{previousCompletions !== 1 ? 's' : ''} before. 
+                    New documents will create a new version while preserving previous documents for reference.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* File Upload Area */}
           <div className="space-y-3">

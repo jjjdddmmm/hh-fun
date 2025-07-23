@@ -245,36 +245,51 @@ model TimelineStep {
 }
 
 model TimelineDocument {
-  id              String        @id @default(cuid())
-  timelineId      String
-  stepId          String?
-  fileName        String
-  originalName    String
-  mimeType        String
-  fileSize        BigInt
-  documentType    DocumentType
-  storageProvider String
-  storageKey      String
-  downloadUrl     String?
-  thumbnailUrl    String?
-  description     String?
-  tags            String[]
-  isRequired      Boolean       @default(false)
-  isVerified      Boolean       @default(false)
-  verifiedBy      String?
-  verifiedAt      DateTime?
-  uploadedBy      String
-  isPublic        Boolean       @default(false)
-  sharedWith      String[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  step            TimelineStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
-  timeline        Timeline      @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  id                     String        @id @default(cuid())
+  timelineId             String
+  stepId                 String?
+  fileName               String
+  originalName           String
+  mimeType               String
+  fileSize               BigInt
+  documentType           DocumentType
+  storageProvider        String
+  storageKey             String
+  downloadUrl            String?
+  thumbnailUrl           String?
+  description            String?
+  tags                   String[]
+  isRequired             Boolean       @default(false)
+  isVerified             Boolean       @default(false)
+  verifiedBy             String?
+  verifiedAt             DateTime?
+  uploadedBy             String
+  isPublic               Boolean       @default(false)
+  sharedWith             String[]
+  
+  // Document Completion Sessions fields
+  completionSessionId    String?       // Groups documents by completion attempt
+  isCurrentVersion       Boolean       @default(true) // Latest version of this document type
+  supersededBy           String?       // Points to newer version document ID
+  documentVersion        Int           @default(1) // Version number for same document type
+  supersededAt           DateTime?     // When this version was superseded
+  
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  step                   TimelineStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  timeline               Timeline      @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  
+  // Self-referential relationship for version tracking
+  supersededByDocument   TimelineDocument? @relation("DocumentVersions", fields: [supersededBy], references: [id])
+  supersedes             TimelineDocument[] @relation("DocumentVersions")
 
   @@index([timelineId])
   @@index([stepId])
   @@index([documentType])
   @@index([uploadedBy])
+  @@index([completionSessionId])
+  @@index([isCurrentVersion])
+  @@index([stepId, documentType, isCurrentVersion]) // Query current versions by step and type
   @@map("timeline_documents")
 }
 

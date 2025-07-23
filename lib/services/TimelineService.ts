@@ -434,6 +434,12 @@ export class TimelineService {
           }
         }
       } else if (input.isCompleted === false) {
+        // Mark step incomplete: handle document versioning and update step status
+        
+        // Handle document version cleanup when step becomes incomplete
+        const { documentVersionService } = await import('./DocumentVersionService');
+        await documentVersionService.handleStepIncomplete(stepId);
+        
         // Mark step incomplete: find earliest UPCOMING step and make it CURRENT
         // First, set all non-completed steps to UPCOMING
         await tx.timelineStep.updateMany({
@@ -587,6 +593,7 @@ export class TimelineService {
       downloadUrl: string;
       thumbnailUrl?: string;
       uploadedBy: string;
+      completionSessionId?: string;
     }
   ): Promise<TimelineDocument> {
     await this.verifyTimelineOwnership(userId, input.timelineId);
@@ -605,7 +612,8 @@ export class TimelineService {
       }
     }
 
-    return await prisma.timelineDocument.create({
+    // Create the document
+    const document = await prisma.timelineDocument.create({
       data: {
         timelineId: input.timelineId,
         stepId: input.stepId,
@@ -619,8 +627,22 @@ export class TimelineService {
         downloadUrl: input.downloadUrl,
         thumbnailUrl: input.thumbnailUrl,
         uploadedBy: input.uploadedBy,
+        completionSessionId: input.completionSessionId,
       }
     });
+
+    // Handle document versioning if this is part of a completion session
+    if (input.completionSessionId && input.stepId) {
+      const { documentVersionService } = await import('./DocumentVersionService');
+      await documentVersionService.handleDocumentVersioning(
+        input.stepId,
+        input.documentType,
+        document.id,
+        input.completionSessionId
+      );
+    }
+
+    return document;
   }
 
   /**

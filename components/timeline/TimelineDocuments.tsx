@@ -21,6 +21,8 @@ import {
   Filter
 } from "lucide-react";
 import { TimelineWithRelations, StepCategory } from "@/lib/types/timeline";
+import { DocumentVersionsView } from "./DocumentVersionsView";
+import { documentVersionService } from "@/lib/services/DocumentVersionService";
 
 interface TimelineDocumentsProps {
   timeline: TimelineWithRelations;
@@ -31,6 +33,7 @@ export function TimelineDocuments({ timeline, onDocumentUpdate }: TimelineDocume
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<StepCategory | "ALL">("ALL");
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
+  const [documentVersions, setDocumentVersions] = useState<Map<string, any>>(new Map());
 
   // Collect all documents organized by step
   const documentsByStep = useMemo(() => {
@@ -128,12 +131,22 @@ export function TimelineDocuments({ timeline, onDocumentUpdate }: TimelineDocume
     }
   };
 
-  const toggleStepExpansion = (stepId: string) => {
+  const toggleStepExpansion = async (stepId: string) => {
     const newExpanded = new Set(expandedSteps);
     if (newExpanded.has(stepId)) {
       newExpanded.delete(stepId);
     } else {
       newExpanded.add(stepId);
+      
+      // Load document versions for this step
+      if (!documentVersions.has(stepId)) {
+        try {
+          const versions = await documentVersionService.getDocumentsGroupedBySessions(stepId);
+          setDocumentVersions(prev => new Map(prev).set(stepId, versions));
+        } catch (error) {
+          console.error('Error loading document versions:', error);
+        }
+      }
     }
     setExpandedSteps(newExpanded);
   };
@@ -152,6 +165,31 @@ export function TimelineDocuments({ timeline, onDocumentUpdate }: TimelineDocume
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+  };
+
+  const handlePromoteDocument = async (documentId: string) => {
+    try {
+      await documentVersionService.promoteDocumentToCurrent(documentId);
+      
+      // Refresh the document versions for the step
+      const stepId = Object.keys(Object.fromEntries(documentVersions))
+        .find(stepId => {
+          const versions = documentVersions.get(stepId);
+          return versions?.currentDocuments.some((doc: any) => doc.id === documentId) ||
+                 versions?.previousSessions.some((session: any) => 
+                   session.documents.some((doc: any) => doc.id === documentId));
+        });
+      
+      if (stepId) {
+        const versions = await documentVersionService.getDocumentsGroupedBySessions(stepId);
+        setDocumentVersions(prev => new Map(prev).set(stepId, versions));
+      }
+      
+      // Refresh timeline data
+      onDocumentUpdate();
+    } catch (error) {
+      console.error('Error promoting document:', error);
     }
   };
 
@@ -261,56 +299,20 @@ export function TimelineDocuments({ timeline, onDocumentUpdate }: TimelineDocume
                 
                 {isExpanded && (
                   <CardContent className="pt-0">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {documents.map((doc: any) => (
-                        <Card key={doc.id} className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-4">
-                            <div className="space-y-3">
-                              {/* Document Icon/Thumbnail */}
-                              <div className="flex items-center justify-center h-12 w-12 bg-blue-100 rounded-lg mx-auto">
-                                <FileText className="h-6 w-6 text-blue-600" />
-                              </div>
-                              
-                              {/* Document Info */}
-                              <div className="text-center">
-                                <h4 className="font-medium text-sm text-gray-900 truncate" title={doc.fileName}>
-                                  {doc.fileName}
-                                </h4>
-                                <div className="flex items-center justify-center gap-2 mt-1 text-xs text-gray-500">
-                                  <Calendar className="h-3 w-3" />
-                                  <span>{formatDate(doc.createdAt)}</span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {formatFileSize(Number(doc.fileSize || 0))}
-                                </p>
-                              </div>
-                              
-                              {/* Actions */}
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleViewDocument(doc)}
-                                  className="flex-1"
-                                >
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  View
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDownloadDocument(doc)}
-                                  className="flex-1"
-                                >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  Download
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                    {documentVersions.has(stepId) ? (
+                      <DocumentVersionsView
+                        stepId={stepId}
+                        currentDocuments={documentVersions.get(stepId)?.currentDocuments || []}
+                        previousSessions={documentVersions.get(stepId)?.previousSessions || []}
+                        onPromoteDocument={handlePromoteDocument}
+                        onDownload={handleDownloadDocument}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
+                        <span className="ml-2 text-gray-600">Loading documents...</span>
+                      </div>
+                    )}
                   </CardContent>
                 )}
               </Card>

@@ -14,6 +14,7 @@ const uploadSchema = z.object({
   timelineId: z.string().cuid(),
   stepCategory: z.string().min(1),
   fileName: z.string().min(1),
+  completionSessionId: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
     const timelineId = formData.get('timelineId') as string;
     const stepCategory = formData.get('stepCategory') as string;
     const fileName = formData.get('fileName') as string;
+    const completionSessionId = formData.get('completionSessionId') as string;
 
     console.log('Upload request received:', {
       fileName,
@@ -57,7 +59,8 @@ export async function POST(request: NextRequest) {
       stepId,
       timelineId,
       stepCategory,
-      fileName: fileName || file?.name
+      fileName: fileName || file?.name,
+      completionSessionId: completionSessionId || undefined
     });
 
     if (!file) {
@@ -102,7 +105,8 @@ export async function POST(request: NextRequest) {
       storageKey: uploadResult.publicId,
       downloadUrl: uploadResult.url,
       thumbnailUrl: uploadResult.thumbnailUrl,
-      uploadedBy: userId
+      uploadedBy: userId,
+      completionSessionId: validatedData.completionSessionId
     });
 
     return NextResponse.json({
