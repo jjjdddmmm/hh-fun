@@ -11,8 +11,9 @@ export enum SupportedFileType {
 }
 
 export enum ExtractionMethod {
-  PDF_PARSE = 'pdf-parse',
   CLAUDE_VISION = 'claude-vision',
+  GOOGLE_VISION = 'google-vision',
+  HYBRID = 'hybrid-ocr-vision',
   FALLBACK = 'fallback'
 }
 

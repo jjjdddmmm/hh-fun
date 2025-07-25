@@ -5,6 +5,7 @@
 
 import { ExtractionMethod, SupportedFileType, ProcessingContext } from '../types/DocumentTypes';
 
+import { logger } from "@/lib/utils/logger";
 export enum LogLevel {
   DEBUG = 'debug',
   INFO = 'info',
@@ -48,9 +49,9 @@ export class DocumentLogger {
         ...(entry.context && { context: entry.context }),
         ...(entry.metadata && { metadata: entry.metadata })
       };
-      console.log(logMessage, details);
+      logger.debug(logMessage, details);
     } else {
-      console.log(logMessage);
+      logger.debug(logMessage);
     }
   }
 
@@ -186,6 +187,22 @@ export class DocumentLogger {
         `File validation ${isValid ? 'passed' : 'failed'}: ${fileName}`,
         context,
         { fileName, fileType, isValid, validationErrors: errors }
+      )
+    );
+  }
+
+  static logStep(
+    stepName: string,
+    message: string,
+    context?: ProcessingContext,
+    metadata?: Record<string, unknown>
+  ): void {
+    this.log(
+      this.createLogEntry(
+        LogLevel.INFO,
+        `[${stepName}] ${message}`,
+        context,
+        metadata
       )
     );
   }

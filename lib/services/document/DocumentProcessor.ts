@@ -3,7 +3,7 @@
  * Orchestrates document processing using strategy pattern with proper fallbacks
  */
 
-import { TextExtractor, VisionExtractor } from './extractors';
+import { VisionExtractor, HybridExtractor, GoogleVisionExtractor } from './extractors';
 import { FileValidator } from './utils/FileValidator';
 import { DocumentLogger } from './utils/DocumentLogger';
 import {
@@ -26,16 +26,17 @@ export class DocumentProcessor {
 
   constructor() {
     this.extractors = new Map<ExtractionMethod, DocumentExtractor>();
-    this.extractors.set(ExtractionMethod.PDF_PARSE, new TextExtractor());
     this.extractors.set(ExtractionMethod.CLAUDE_VISION, new VisionExtractor());
+    this.extractors.set(ExtractionMethod.GOOGLE_VISION, new GoogleVisionExtractor());
+    this.extractors.set(ExtractionMethod.HYBRID, new HybridExtractor());
 
     this.defaultOptions = {
-      preferredMethod: ExtractionMethod.PDF_PARSE,
+      preferredMethod: ExtractionMethod.HYBRID, // Use hybrid as default for better results
       fallbackEnabled: true,
-      timeout: 120000, // 2 minutes total
+      timeout: 180000, // 3 minutes total (hybrid takes longer)
       extractorConfig: {
         maxTokens: 8192,
-        timeout: 60000,
+        timeout: 90000, // Increased for hybrid processing
         retries: 1
       }
     };
@@ -241,28 +242,18 @@ export class DocumentProcessor {
   ): { primary: ExtractionMethod; fallback?: ExtractionMethod } {
     const fileType = document.metadata.fileType;
 
-    // For real PDFs, try text extraction first
-    if (fileType === SupportedFileType.PDF && FileValidator.isPdfWithText(document.buffer)) {
+    // For PDFs and images, use hybrid extraction (OCR + Vision)
+    if (fileType === SupportedFileType.PDF || FileValidator.isImageFile(document.buffer)) {
       return {
-        primary: ExtractionMethod.PDF_PARSE,
+        primary: ExtractionMethod.HYBRID,
         fallback: ExtractionMethod.CLAUDE_VISION
       };
     }
 
-    // For images or image-based PDFs, use vision
-    if (FileValidator.isImageFile(document.buffer) || fileType === SupportedFileType.PDF) {
-      return {
-        primary: ExtractionMethod.CLAUDE_VISION,
-        fallback: fileType === SupportedFileType.PDF ? ExtractionMethod.PDF_PARSE : undefined
-      };
-    }
-
-    // Use preferred method from options
+    // Use preferred method from options (fallback to vision)
     return {
-      primary: options.preferredMethod,
-      fallback: options.preferredMethod === ExtractionMethod.PDF_PARSE 
-        ? ExtractionMethod.CLAUDE_VISION 
-        : ExtractionMethod.PDF_PARSE
+      primary: options.preferredMethod === ExtractionMethod.HYBRID ? ExtractionMethod.HYBRID : ExtractionMethod.CLAUDE_VISION,
+      fallback: ExtractionMethod.CLAUDE_VISION
     };
   }
 

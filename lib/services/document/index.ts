@@ -7,7 +7,7 @@
 export { DocumentProcessor } from './DocumentProcessor';
 
 // Extractors
-export { TextExtractor, VisionExtractor } from './extractors';
+export { VisionExtractor, HybridExtractor } from './extractors';
 
 // Utilities
 export { FileValidator } from './utils/FileValidator';

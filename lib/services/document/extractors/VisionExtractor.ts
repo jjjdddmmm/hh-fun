@@ -16,6 +16,7 @@ import {
   DocumentProcessingError
 } from '../types/DocumentTypes';
 import { DocumentLogger } from '../utils/DocumentLogger';
+import { FileCompressor } from '../utils/FileCompressor';
 
 export interface ClaudeVisionResponse {
   readonly content: ReadonlyArray<{
@@ -138,8 +139,19 @@ Be extremely thorough - this is a complete inspection report that should have ex
     document: DocumentBuffer,
     config: Required<ExtractorConfig>
   ): Promise<ClaudeVisionResponse> {
-    const base64Data = document.buffer.toString('base64');
-    const mediaType = this.getMediaType(document.metadata.fileType);
+    // Check if file needs compression
+    const processedDocument = await FileCompressor.compressForVision(document);
+    
+    // If file is still too large, throw a clear error
+    if (FileCompressor.needsCompression(processedDocument.buffer)) {
+      throw new DocumentProcessingError(
+        `File size ${(processedDocument.buffer.length / 1024 / 1024).toFixed(2)}MB exceeds 5MB limit`,
+        'FILE_TOO_LARGE'
+      );
+    }
+
+    const base64Data = processedDocument.buffer.toString('base64');
+    const mediaType = this.getMediaType(processedDocument.metadata.fileType);
 
     const extractionPromise = this.anthropic.messages.create({
       model: config.model,
