@@ -61,13 +61,14 @@ export class GoogleVisionExtractor implements DocumentExtractor {
       );
     }
 
-    this.processorId = process.env.GOOGLE_DOCUMENT_AI_PROCESSOR_ID;
-    if (!this.processorId) {
+    const processorId = process.env.GOOGLE_DOCUMENT_AI_PROCESSOR_ID;
+    if (!processorId) {
       throw new DocumentProcessingError(
         'Google Document AI processor ID not configured',
         'MISSING_PROCESSOR_ID'
       );
     }
+    this.processorId = processorId;
 
     this.projectId = credentials.project_id;
     this.client = new DocumentProcessorServiceClient({
