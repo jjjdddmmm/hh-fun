@@ -311,10 +311,15 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         </div>
 
         {/* Claude's Natural Language Insights */}
-        <div className="mt-8 bg-white/10 rounded-lg p-6">
+        <div className="mt-8 bg-white/10 rounded-lg p-6 border-2 border-yellow-400">
           <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
             <Target className="h-5 w-5" />
             Claude&apos;s Analysis & Strategy
+            {currentReport?.detailedAnalysis ? (
+              <span className="text-xs bg-green-500 px-2 py-1 rounded">✓ DATA FOUND</span>
+            ) : (
+              <span className="text-xs bg-red-500 px-2 py-1 rounded">⚠ NO DATA</span>
+            )}
           </h3>
           <div className="prose prose-invert text-white/90 text-sm leading-relaxed space-y-4">
             {getClaudeInsights(selectedView, currentReport, summary, reportType)}
