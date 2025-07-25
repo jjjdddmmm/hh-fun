@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,14 @@ import {
   CheckCircle,
   Shield,
   Clock,
-  Flame
+  Flame,
+  ArrowLeft,
+  ChevronRight,
+  FileSearch,
+  Home,
+  Droplets,
+  Home as ChimneyIcon,
+  Bug
 } from "lucide-react";
 
 // Import our feature components
@@ -45,11 +53,45 @@ interface NegotiationWorkspaceProps {
   totalEstimatedCredits: number;
 }
 
+// Helper function to get report icon
+const getReportIcon = (type: string) => {
+  switch (type) {
+    case 'home':
+      return <Home className="h-4 w-4" />;
+    case 'pool':
+      return <Droplets className="h-4 w-4" />;
+    case 'chimney':
+      return <ChimneyIcon className="h-4 w-4" />;
+    case 'sewer':
+      return <Droplets className="h-4 w-4" />;
+    case 'pest':
+      return <Bug className="h-4 w-4" />;
+    default:
+      return <FileText className="h-4 w-4" />;
+  }
+};
+
+// Helper function to get report type label
+const getReportTypeLabel = (type: string) => {
+  const labels = {
+    home: 'Home Inspection',
+    pool: 'Pool Inspection',
+    chimney: 'Chimney Inspection',
+    sewer: 'Sewer Inspection',
+    pest: 'Pest Inspection',
+    other: 'Other Inspection'
+  };
+  return labels[type as keyof typeof labels] || 'Inspection';
+};
+
 export function NegotiationWorkspace({
   reports,
   totalEstimatedCredits
 }: NegotiationWorkspaceProps) {
+  const router = useRouter();
+  const [selectedView, setSelectedView] = useState<'consolidated' | string>('consolidated');
   const [prioritizedIssues, setPrioritizedIssues] = useState<PrioritizedIssue[]>([]);
+  const [reportIssuesMap, setReportIssuesMap] = useState<Map<string, PrioritizedIssue[]>>(new Map());
   const [enabledIssues, setEnabledIssues] = useState<Set<string>>(new Set());
   const [executiveSummary, setExecutiveSummary] = useState<ExecutiveSummary | null>(null);
   const [currentTotalAsk, setCurrentTotalAsk] = useState(totalEstimatedCredits);
@@ -66,6 +108,16 @@ export function NegotiationWorkspace({
       // Convert to our prioritized format
       const prioritized = NegotiationAnalysisService.prioritizeIssues(allRawIssues);
       setPrioritizedIssues(prioritized);
+      
+      // Create report-specific issue maps
+      const reportMap = new Map<string, PrioritizedIssue[]>();
+      reports.forEach(report => {
+        if (report.issues) {
+          const reportPrioritized = NegotiationAnalysisService.prioritizeIssues(report.issues);
+          reportMap.set(report.id, reportPrioritized);
+        }
+      });
+      setReportIssuesMap(reportMap);
       
       // Initially enable all issues
       const allIssueIds = new Set(prioritized.map(issue => issue.id));
@@ -127,32 +179,57 @@ export function NegotiationWorkspace({
     }).format(amount);
   };
 
-  const getLeverageColor = (score: number) => {
-    if (score >= 8) return 'text-red-600';
-    if (score >= 6) return 'text-orange-600';
-    if (score >= 4) return 'text-yellow-600';
-    return 'text-gray-600';
+  const handleBackToAnalysis = () => {
+    // Navigate back to analysis view
+    router.push('/negotiation');
   };
 
-  const getLeverageIcon = (score: number) => {
-    if (score >= 8) return <Flame className="h-3 w-3" />;
-    if (score >= 6) return <AlertTriangle className="h-3 w-3" />;
-    if (score >= 4) return <TrendingUp className="h-3 w-3" />;
-    return <CheckCircle className="h-3 w-3" />;
-  };
-
-  const getSeverityIcon = (severity: PrioritizedIssue['severity']) => {
-    switch (severity) {
-      case 'safety':
-        return <Shield className="h-3 w-3 text-red-600" />;
-      case 'major':
-        return <AlertTriangle className="h-3 w-3 text-orange-600" />;
-      case 'minor':
-        return <Clock className="h-3 w-3 text-yellow-600" />;
-      default:
-        return <CheckCircle className="h-3 w-3 text-gray-600" />;
+  // Get current view's issues and data
+  const getCurrentViewData = () => {
+    if (selectedView === 'consolidated') {
+      return {
+        title: 'Consolidated Overview',
+        subtitle: `${reports.length} reports analyzed`,
+        issues: prioritizedIssues,
+        reportType: 'multiple' as const,
+        summary: executiveSummary,
+        report: null
+      };
+    } else {
+      const report = reports.find(r => r.id === selectedView);
+      const reportIssues = reportIssuesMap.get(selectedView) || [];
+      
+      // Debug: Log the report data structure
+      console.log('NegotiationWorkspace Debug - getCurrentViewData:', {
+        selectedView,
+        reportFound: !!report,
+        reportName: report?.name,
+        hasDetailedAnalysis: !!report?.detailedAnalysis,
+        detailedAnalysisKeys: report?.detailedAnalysis ? Object.keys(report.detailedAnalysis) : [],
+        reportType: report?.type,
+        issuesLength: reportIssues.length
+      });
+      
+      // Generate report-specific executive summary
+      const reportSummary = report && reportIssues.length > 0 ? 
+        NegotiationAnalysisService.generateExecutiveSummary(
+          reportIssues,
+          report.type,
+          NegotiationAnalysisService.getDefaultMarketConditions()
+        ) : executiveSummary;
+      
+      return {
+        title: report?.name || 'Report',
+        subtitle: getReportTypeLabel(report?.type || 'other'),
+        issues: reportIssues,
+        reportType: report?.type || 'inspection',
+        summary: reportSummary,
+        report: report || null
+      };
     }
   };
+
+  const currentViewData = getCurrentViewData();
 
   // Show loading state while data is being processed
   if (!executiveSummary || prioritizedIssues.length === 0) {
@@ -171,191 +248,218 @@ export function NegotiationWorkspace({
     );
   }
 
-  const reportType = reports[0]?.type || 'inspection';
   const marketConditions = NegotiationAnalysisService.getDefaultMarketConditions();
 
   // Sidebar content component (shared between desktop and mobile)
   const SidebarContent = () => (
-    <div className="h-full overflow-y-auto p-4">
-      <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <Target className="h-4 w-4" />
-        Select Issues to Negotiate
-      </h3>
+    <div className="h-full overflow-y-auto">
+      {/* Sidebar Header */}
+      <div className="p-4 border-b border-gray-200">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+          <FileSearch className="h-4 w-4" />
+          Analysis Results
+        </h3>
+      </div>
       
-      {/* Issue List */}
-      <div className="space-y-2">
-        {prioritizedIssues.map((issue, index) => {
-          const isEnabled = enabledIssues.has(issue.id);
+      {/* Report List */}
+      <div className="p-4 space-y-2">
+        {/* Consolidated Overview */}
+        <div
+          className={`
+            flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all
+            ${selectedView === 'consolidated' 
+              ? 'bg-[#5C1B10] text-white' 
+              : 'hover:bg-gray-100'
+            }
+          `}
+          onClick={() => {
+            setSelectedView('consolidated');
+            if (window.innerWidth < 1024) {
+              setMobileSheetOpen(false);
+            }
+          }}
+        >
+          <BarChart3 className={`h-5 w-5 ${selectedView === 'consolidated' ? 'text-white' : 'text-gray-600'}`} />
+          <div className="flex-1">
+            <p className="font-medium">Consolidated Overview</p>
+            <p className={`text-xs ${selectedView === 'consolidated' ? 'text-white/80' : 'text-gray-500'}`}>
+              All {reports.length} reports • {formatCurrency(totalEstimatedCredits)}
+            </p>
+          </div>
+          <ChevronRight className={`h-4 w-4 ${selectedView === 'consolidated' ? 'text-white' : 'text-gray-400'}`} />
+        </div>
+
+        {/* Separator */}
+        <div className="py-2">
+          <div className="h-px bg-gray-200"></div>
+        </div>
+
+        {/* Individual Reports */}
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider px-1">Individual Reports</p>
+        {reports.map((report) => {
+          const reportIssues = reportIssuesMap.get(report.id) || [];
+          const reportTotal = reportIssues.reduce((sum, issue) => sum + issue.negotiationValue, 0);
           
           return (
             <div
-              key={issue.id}
-              className={`border rounded-lg p-3 cursor-pointer transition-all ${
-                isEnabled 
-                  ? 'border-[#5C1B10] bg-[#5C1B10]/5' 
-                  : 'border-gray-200 bg-gray-50/50'
-              }`}
+              key={report.id}
+              className={`
+                flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all
+                ${selectedView === report.id 
+                  ? 'bg-[#5C1B10] text-white' 
+                  : 'hover:bg-gray-100'
+                }
+              `}
               onClick={() => {
-                handleIssueToggle(issue.id);
-                // Close mobile sheet after selection on mobile
+                setSelectedView(report.id);
                 if (window.innerWidth < 1024) {
                   setMobileSheetOpen(false);
                 }
               }}
             >
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={isEnabled}
-                  onChange={() => {}}
-                  className="mt-1 rounded border-gray-300 text-[#5C1B10] focus:ring-[#5C1B10]"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {getSeverityIcon(issue.severity)}
-                    <span className="font-medium text-sm text-gray-900 truncate">
-                      {issue.category}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 truncate mb-2">
-                    {issue.location}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {getLeverageIcon(issue.leverageScore)}
-                      <span className={`text-xs font-medium ${getLeverageColor(issue.leverageScore)}`}>
-                        {issue.leverageScore}/10
-                      </span>
-                    </div>
-                    <span className="font-medium text-sm text-gray-900">
-                      {formatCurrency(issue.negotiationValue)}
-                    </span>
-                  </div>
-                </div>
+              <div className={`${selectedView === report.id ? 'text-white' : 'text-gray-600'}`}>
+                {getReportIcon(report.type)}
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{report.name}</p>
+                <p className={`text-xs ${selectedView === report.id ? 'text-white/80' : 'text-gray-500'}`}>
+                  {reportIssues.length} issues • {formatCurrency(reportTotal)}
+                </p>
+              </div>
+              <ChevronRight className={`h-4 w-4 flex-shrink-0 ${selectedView === report.id ? 'text-white' : 'text-gray-400'}`} />
             </div>
           );
         })}
       </div>
 
       {/* Sidebar Footer */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-600">Selected Issues</span>
-          <span className="font-medium">{enabledIssues.size}/{prioritizedIssues.length}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600">Total Value</span>
-          <span className="font-bold text-lg text-[#5C1B10]">
-            {formatCurrency(
-              prioritizedIssues
-                .filter(issue => enabledIssues.has(issue.id))
-                .reduce((sum, issue) => sum + issue.negotiationValue, 0)
-            )}
-          </span>
+      <div className="p-4 border-t border-gray-200 mt-auto">
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Total Issues</span>
+            <span className="font-medium">{prioritizedIssues.length}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Total Credits</span>
+            <span className="font-bold text-lg text-[#5C1B10]">
+              {formatCurrency(totalEstimatedCredits)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="relative">
-      {/* Persistent Header */}
-      <div className="bg-[#5C1B10] text-white p-4 rounded-t-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hidden lg:flex text-white hover:bg-white/10"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-            <div>
-              <h2 className="text-xl font-bold">Negotiation Workspace</h2>
-              <p className="text-sm text-white/80">
-                {prioritizedIssues.length} issues • {reports.length} report{reports.length > 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-6">
-            <div className="text-right">
-              <p className="text-xs sm:text-sm text-white/70">Current Ask</p>
-              <p className="text-lg sm:text-2xl font-bold">{formatCurrency(currentTotalAsk)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs sm:text-sm text-white/70">Success Rate</p>
-              <p className="text-lg sm:text-2xl font-bold">{currentSuccessRate}%</p>
-            </div>
-            <Button variant="secondary" size="sm" className="ml-2 sm:ml-4 hidden sm:flex">
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleBackToAnalysis}
+          className="hover:bg-gray-100 -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Analysis
+        </Button>
+        <span className="text-gray-400">/</span>
+        <span className="font-medium text-gray-900">Negotiation Strategy</span>
       </div>
 
-      {/* Main Layout Container */}
-      <div className="flex h-[calc(100vh-200px)] bg-gray-50 rounded-b-lg overflow-hidden">
-        {/* Desktop Sidebar */}
-        <div className={`${
-          sidebarOpen ? 'w-80' : 'w-0'
-        } transition-all duration-300 bg-white border-r border-gray-200 overflow-hidden flex-shrink-0 hidden lg:block`}>
-          <SidebarContent />
-        </div>
-
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <TabsList className="w-full justify-start rounded-none border-b bg-white px-2 sm:px-4">
-              <TabsTrigger value="overview" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Strategy Overview</span>
-                <span className="sm:hidden">Overview</span>
-              </TabsTrigger>
-              <TabsTrigger value="calculator" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Calculator className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Scenario Calculator</span>
-                <span className="sm:hidden">Calculator</span>
-              </TabsTrigger>
-              <TabsTrigger value="scripts" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Scripts & Talking Points</span>
-                <span className="sm:hidden">Scripts</span>
-              </TabsTrigger>
-            </TabsList>
-            
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-gray-50">
-              <TabsContent value="overview" className="mt-0 h-full">
-                <ExecutiveDashboard 
-                  summary={executiveSummary} 
-                  reportType={reportType}
-                />
-              </TabsContent>
-              
-              <TabsContent value="calculator" className="mt-0 h-full">
-                <ScenarioPlanner 
-                  issues={prioritizedIssues}
-                  enabledIssues={enabledIssues}
-                  totalAsk={currentTotalAsk}
-                  marketConditions={marketConditions}
-                  onStrategyChange={handleStrategyChange}
-                />
-              </TabsContent>
-              
-              <TabsContent value="scripts" className="mt-0 h-full">
-                <NegotiationScripts 
-                  issues={prioritizedIssues.filter(issue => enabledIssues.has(issue.id))}
-                  enabledIssues={enabledIssues}
-                  totalAsk={currentTotalAsk}
-                />
-              </TabsContent>
+      {/* Main Card */}
+      <Card className="overflow-hidden">
+        {/* Header */}
+        <CardHeader className="bg-[#5C1B10] text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden lg:flex text-white hover:bg-white/10 -ml-2"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              >
+                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+              <div>
+                <CardTitle className="text-xl text-white">{currentViewData.title}</CardTitle>
+                <p className="text-sm text-white/80 mt-1">
+                  {currentViewData.subtitle}
+                </p>
+              </div>
             </div>
-          </Tabs>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-xs text-white/70">Recommended Ask</p>
+                <p className="text-2xl font-bold">{formatCurrency(currentTotalAsk)}</p>
+              </div>
+              <Button variant="secondary" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        {/* Main Layout Container */}
+        <div className="flex h-[calc(100vh-300px)] bg-gray-50 overflow-hidden">
+          {/* Desktop Sidebar */}
+          <div className={`${
+            sidebarOpen ? 'w-80' : 'w-0'
+          } transition-all duration-300 bg-white border-r border-gray-200 overflow-hidden flex-shrink-0 hidden lg:flex flex-col`}>
+            <SidebarContent />
+          </div>
+
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+              <TabsList className="w-full justify-start rounded-none border-b bg-white px-4">
+                <TabsTrigger value="overview" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Strategy Overview
+                </TabsTrigger>
+                <TabsTrigger value="calculator" className="flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Scenario Calculator
+                </TabsTrigger>
+                <TabsTrigger value="scripts" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Scripts & Talking Points
+                </TabsTrigger>
+              </TabsList>
+              
+              <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+                <TabsContent value="overview" className="mt-0 h-full">
+                  <ExecutiveDashboard 
+                    summary={currentViewData.summary || executiveSummary!} 
+                    reportType={currentViewData.reportType}
+                    selectedView={selectedView}
+                    currentReport={currentViewData.report}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="calculator" className="mt-0 h-full">
+                  <ScenarioPlanner 
+                    issues={currentViewData.issues}
+                    enabledIssues={enabledIssues}
+                    totalAsk={selectedView === 'consolidated' ? currentTotalAsk : currentViewData.issues.reduce((sum, issue) => sum + (enabledIssues.has(issue.id) ? issue.negotiationValue : 0), 0)}
+                    marketConditions={marketConditions}
+                    onStrategyChange={handleStrategyChange}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="scripts" className="mt-0 h-full">
+                  <NegotiationScripts 
+                    issues={currentViewData.issues.filter(issue => enabledIssues.has(issue.id))}
+                    enabledIssues={enabledIssues}
+                    totalAsk={selectedView === 'consolidated' ? currentTotalAsk : currentViewData.issues.reduce((sum, issue) => sum + (enabledIssues.has(issue.id) ? issue.negotiationValue : 0), 0)}
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
         </div>
-      </div>
+      </Card>
 
       {/* Mobile Sheet Trigger */}
       <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
@@ -366,7 +470,7 @@ export function NegotiationWorkspace({
             className="lg:hidden fixed bottom-4 left-4 z-50 bg-[#5C1B10] text-white hover:bg-[#4A1508] shadow-lg"
           >
             <Menu className="h-5 w-5 mr-2" />
-            Issues ({enabledIssues.size})
+            Reports
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-[300px] sm:w-[400px] p-0">

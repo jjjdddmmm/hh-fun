@@ -70,6 +70,7 @@ export default function NegotiationPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
   const [availableReports, setAvailableReports] = useState<InspectionDocument[]>([]);
+  const [hasInitiatedAnalysis, setHasInitiatedAnalysis] = useState(false);
 
   // Load existing inspection reports from database
   useEffect(() => {
@@ -107,9 +108,12 @@ export default function NegotiationPage() {
 
   const handleReportsUpload = (newReports: UploadedReport[]) => {
     // Don't add to existing reports - the ReportUploadSection already manages the reports state
-    // This callback is just to move to the analysis step
+    // This callback starts the analysis immediately after confirmation
     if (newReports.length > 0) {
+      setHasInitiatedAnalysis(true);
       setCurrentStep('analysis');
+      // Start analysis immediately after confirmation
+      handleStartAnalysis();
     }
   };
 
@@ -350,8 +354,8 @@ export default function NegotiationPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {stats.totalReports > 0 && (
+      {/* Stats Cards - only show after analysis has been initiated */}
+      {stats.totalReports > 0 && hasInitiatedAnalysis && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-blue-500">
             <CardContent className="p-6">
@@ -450,6 +454,7 @@ export default function NegotiationPage() {
               reports={reports}
               setReports={setReports}
               availableReports={availableReports}
+              hasInitiatedAnalysis={hasInitiatedAnalysis}
             />
           )}
         

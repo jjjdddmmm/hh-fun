@@ -36,10 +36,12 @@ export interface ExecutiveSummary {
 
 interface ExecutiveDashboardProps {
   summary: ExecutiveSummary;
-  reportType: string;
+  reportType: string | 'multiple';
+  selectedView?: string;
+  currentReport?: any;
 }
 
-export function ExecutiveDashboard({ summary, reportType }: ExecutiveDashboardProps) {
+export function ExecutiveDashboard({ summary, reportType, selectedView = 'consolidated', currentReport }: ExecutiveDashboardProps) {
   const getStrengthColor = (strength: NegotiationStrength['level']) => {
     switch (strength) {
       case 'VERY_STRONG':
@@ -76,6 +78,118 @@ export function ExecutiveDashboard({ summary, reportType }: ExecutiveDashboardPr
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const getClaudeInsights = (view: string, report: any, summary: ExecutiveSummary, type: string) => {
+    if (view === 'consolidated') {
+      return (
+        <div className="space-y-4">
+          <p>
+            <strong>Here&apos;s what I think:</strong> After analyzing your inspection reports, I&apos;ve identified several strategic opportunities for negotiation. 
+            Your position is <strong>{summary.negotiationStrength.level.toLowerCase().replace('_', ' ')}</strong> with a {summary.negotiationStrength.score}% strength score.
+          </p>
+          <p>
+            The most compelling issues are your <strong>critical and major repairs</strong>, which account for {summary.breakdown.critical.percentage + summary.breakdown.major.percentage}% 
+            of the total negotiation value. These aren&apos;t cosmetic concerns - they represent legitimate property conditions that justify your ask.
+          </p>
+          <p>
+            <strong>My recommendation:</strong> Lead with your strongest issues first. Your {formatCurrency(summary.recommendedAsk)} ask has a {summary.successRate}% success rate based on 
+            current market conditions and the severity of discovered issues. This is a data-backed, defensible position.
+          </p>
+          <p>
+            The {summary.marketContext.marketType}&apos;s market conditions are working {summary.marketContext.marketType === 'buyer' ? 'in your favor' : summary.marketContext.marketType === 'seller' ? 'against you, so timing and approach will be critical' : 'neutrally, giving you standard negotiation leverage'}.
+          </p>
+        </div>
+      );
+    } else {
+      const reportName = report?.name || 'this report';
+      const reportTypeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+      const detailedAnalysis = report?.detailedAnalysis;
+      
+      // Debug: Check if we have detailedAnalysis data
+      console.log('ExecutiveDashboard Debug:', {
+        reportName,
+        hasDetailedAnalysis: !!detailedAnalysis,
+        detailedAnalysisKeys: detailedAnalysis ? Object.keys(detailedAnalysis) : [],
+        issuesCount: detailedAnalysis?.issues?.length || 0,
+        firstIssue: detailedAnalysis?.issues?.[0]
+      });
+      
+      // Get specific insights from Claude's actual analysis
+      const specificIssues = detailedAnalysis?.issues || [];
+      const highConfidenceIssues = specificIssues.filter((issue: any) => issue.confidence > 0.8);
+      const mostExpensiveIssue = specificIssues.reduce((max: any, issue: any) => 
+        issue.negotiationValue > (max?.negotiationValue || 0) ? issue : max, null);
+      
+      // If no detailedAnalysis data, show diagnostic message
+      if (!detailedAnalysis || !specificIssues.length) {
+        return (
+          <div className="space-y-4">
+            <p>
+              <strong>Focusing on {reportName}:</strong> This {reportTypeLabel.toLowerCase()} inspection reveals specific issues that strengthen your negotiation position.
+            </p>
+            <div className="bg-white/5 rounded-lg p-4 border border-white/20">
+              <p className="text-sm">
+                <strong>⚠️ Debug Info:</strong> {!detailedAnalysis ? 'No detailedAnalysis data found.' : 'No issues in detailedAnalysis.'} 
+                Using general strategy approach.
+              </p>
+            </div>
+            <p>
+              <strong>Key insight:</strong> {type === 'home' ? 'Home inspections often uncover structural or system issues that sellers are motivated to address quickly.' : 
+              type === 'pool' ? 'Pool issues can be expensive and are often deal-breakers for other buyers, giving you leverage.' :
+              type === 'chimney' ? 'Chimney and fireplace issues represent safety concerns that sellers typically want to resolve.' :
+              type === 'sewer' ? 'Sewer line problems are costly, urgent, and often not visible to other potential buyers.' :
+              'These specialized inspection findings often reveal issues that other buyers might miss.'}
+            </p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-4">
+          <p>
+            <strong>Focusing on {reportName}:</strong> This {reportTypeLabel.toLowerCase()} inspection reveals specific issues that strengthen your negotiation position. 
+            I&apos;ve isolated the most impactful findings from this report.
+          </p>
+          
+          {mostExpensiveIssue && (
+            <p>
+              <strong>Top concern:</strong> The most significant issue I found is <strong>{mostExpensiveIssue.category}</strong> in the {mostExpensiveIssue.location}. 
+              {mostExpensiveIssue.reasoning && (
+                <span> My analysis: &quot;{mostExpensiveIssue.reasoning}&quot;</span>
+              )}
+            </p>
+          )}
+          
+          {highConfidenceIssues.length > 0 && (
+            <p>
+              <strong>High-confidence findings:</strong> I&apos;m particularly confident about {highConfidenceIssues.length} issue{highConfidenceIssues.length > 1 ? 's' : ''} that could be strong negotiation points:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                {highConfidenceIssues.slice(0, 3).map((issue: any, index: number) => (
+                  <li key={index} className="text-sm">
+                    <strong>{issue.category}</strong> - {formatCurrency(issue.negotiationValue)} ({Math.round(issue.confidence * 100)}% confidence)
+                  </li>
+                ))}
+              </ul>
+            </p>
+          )}
+          
+          <p>
+            <strong>Key insight:</strong> {type === 'home' ? 'Home inspections often uncover structural or system issues that sellers are motivated to address quickly.' : 
+            type === 'pool' ? 'Pool issues can be expensive and are often deal-breakers for other buyers, giving you leverage.' :
+            type === 'chimney' ? 'Chimney and fireplace issues represent safety concerns that sellers typically want to resolve.' :
+            type === 'sewer' ? 'Sewer line problems are costly, urgent, and often not visible to other potential buyers.' :
+            'These specialized inspection findings often reveal issues that other buyers might miss.'}
+          </p>
+          
+          <p>
+            <strong>My strategic recommendation:</strong> Focus your negotiation on the high-confidence issues I&apos;ve identified. 
+            These represent {formatCurrency(highConfidenceIssues.reduce((sum: number, issue: any) => sum + issue.negotiationValue, 0))} in 
+            well-documented problems that any competent contractor would need to address.
+          </p>
+        </div>
+      );
+    }
   };
 
   return (
@@ -193,6 +307,17 @@ export function ExecutiveDashboard({ summary, reportType }: ExecutiveDashboardPr
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Claude's Natural Language Insights */}
+        <div className="mt-8 bg-white/10 rounded-lg p-6">
+          <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Claude&apos;s Analysis & Strategy
+          </h3>
+          <div className="prose prose-invert text-white/90 text-sm leading-relaxed space-y-4">
+            {getClaudeInsights(selectedView, currentReport, summary, reportType)}
           </div>
         </div>
       </CardContent>
