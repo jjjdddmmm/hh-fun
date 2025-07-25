@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { ReportUploadSection } from "@/components/negotiation/ReportUploadSection";
 import { NegotiationAnalysis } from "@/components/negotiation/NegotiationAnalysis";
-import { NegotiationStrategy } from "@/components/negotiation/NegotiationStrategy";
+import { NegotiationWorkspace } from "@/components/negotiation/NegotiationWorkspace";
 import AppNavigation from "@/components/app-navigation";
 import AppFooter from "@/components/app-footer";
 
@@ -45,6 +45,7 @@ interface UploadedReport {
   documentData?: InspectionDocument;
   analysisStatus: 'pending' | 'analyzing' | 'complete' | 'error';
   issues?: InspectionIssue[];
+  detailedAnalysis?: any; // Will contain the detailed analysis data for the modal
 }
 
 interface InspectionIssue {
@@ -217,6 +218,7 @@ export default function NegotiationPage() {
                   ...r, 
                   analysisStatus: 'complete', 
                   issues: analysisResult.issues || [],
+                  detailedAnalysis: analysisResult.detailedAnalysis || null,
                   tempIssueCount: undefined,
                   tempMessage: undefined
                 }
@@ -437,7 +439,7 @@ export default function NegotiationPage() {
         )}
         
           {currentStep === 'strategy' && (
-            <NegotiationStrategy
+            <NegotiationWorkspace
               reports={reports}
               totalEstimatedCredits={stats.estimatedCredits}
             />

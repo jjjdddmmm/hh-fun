@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
+import { ClaudeAnalysisService } from '@/lib/services/analysis/ClaudeAnalysisService';
 
 export async function GET() {
   return NextResponse.json({ 
@@ -66,21 +67,122 @@ export async function POST(request: NextRequest) {
       return handleMockAnalysis(reportType, file.name, 'PDF contains minimal readable text');
     }
 
-    // For now, analyze the extracted text with enhanced mock
-    // This proves PDF extraction works before we add Claude
-    const analysisPrompt = createAnalysisPrompt(extractedText, reportType);
-    logger.debug('Would send to Claude:', { 
-      promptPreview: analysisPrompt.substring(0, 200) + '...' 
+    // Analyze with Claude Opus 4 (real AI analysis)
+    logger.info('Starting Claude Opus 4 analysis', {
+      documentName: file.name,
+      reportType,
+      textLength: extractedText.length
     });
 
-    // Simulate processing time
-    const processingDelay = 4000 + Math.random() * 4000; // 4-8 seconds
-    await new Promise(resolve => setTimeout(resolve, processingDelay));
+    const claudeResult = await ClaudeAnalysisService.analyzeInspectionReport(
+      extractedText,
+      reportType,
+      file.name
+    );
 
-    // Generate enhanced issues based on actual PDF content
-    const issues = generateIssuesFromText(extractedText, reportType);
-    const totalNegotiationValue = issues.reduce((sum, issue) => sum + issue.negotiationValue, 0);
+    let issues: any[];
+    let totalNegotiationValue: number;
+    let analysisMethod: string;
+    let analysisConfidence: number;
+
+    if (claudeResult.success && claudeResult.issues.length > 0) {
+      // Use Claude's analysis
+      issues = claudeResult.issues;
+      totalNegotiationValue = issues.reduce((sum, issue) => sum + issue.negotiationValue, 0);
+      analysisMethod = `Claude AI (${claudeResult.modelUsed})`;
+      analysisConfidence = claudeResult.confidence;
+      
+      logger.info('Claude analysis successful', {
+        documentName: file.name,
+        modelUsed: claudeResult.modelUsed,
+        issuesFound: issues.length,
+        totalValue: totalNegotiationValue,
+        avgConfidence: analysisConfidence
+      });
+    } else {
+      // Fallback to keyword-based analysis
+      logger.warn('Claude analysis failed, using fallback', {
+        documentName: file.name,
+        error: claudeResult.error
+      });
+      
+      issues = generateIssuesFromText(extractedText, reportType);
+      totalNegotiationValue = issues.reduce((sum, issue) => sum + issue.negotiationValue, 0);
+      analysisMethod = 'Keyword Analysis (Fallback)';
+      analysisConfidence = 0.6; // Lower confidence for fallback
+      
+      // Add fallback indicators to issues
+      issues = issues.map(issue => ({
+        ...issue,
+        confidence: 0.3, // Low confidence for fallback
+        reasoning: `Fallback analysis due to Claude failure: ${claudeResult.error}`,
+        description: issue.description + ' [Fallback Analysis]'
+      }));
+    }
+
+    const processingDelay = claudeResult.processingTime || 5000;
     
+    // Create detailed analysis data for audit modal
+    const detailedAnalysis = {
+      documentName: file.name,
+      documentType: reportType,
+      analysisTimestamp: new Date().toISOString(),
+      issues: issues.map(issue => ({
+        id: issue.id,
+        category: issue.category,
+        severity: issue.severity,
+        description: issue.description,
+        location: issue.location,
+        estimatedCost: {
+          low: issue.estimatedCost?.low || 0,
+          high: issue.estimatedCost?.high || 0,
+          average: issue.estimatedCost?.mostLikely || Math.round(((issue.estimatedCost?.low || 0) + (issue.estimatedCost?.high || 0)) / 2)
+        },
+        negotiationValue: issue.negotiationValue,
+        confidence: issue.confidence || 0.7,
+        sourceText: issue.sourceText || extractRelevantText(extractedText, issue.category),
+        reasoning: issue.reasoning || `Identified using ${analysisMethod}`
+      })),
+      summary: {
+        totalIssues: issues.length,
+        totalEstimatedCost: totalNegotiationValue,
+        issuesBySeverity: {
+          safety: issues.filter(i => i.severity === 'safety').length,
+          major: issues.filter(i => i.severity === 'major').length,
+          minor: issues.filter(i => i.severity === 'minor').length,
+          cosmetic: issues.filter(i => i.severity === 'cosmetic').length
+        }
+      },
+      debug: {
+        extractedText: extractedText,
+        processingTime: Math.round(processingDelay),
+        tokensUsed: Math.floor(extractedText.length / 4), // Rough token estimate
+        modelUsed: claudeResult.success ? claudeResult.modelUsed : 'fallback-analysis',
+        apiCalls: claudeResult.success ? 1 : 0,
+        analysisMethod: analysisMethod,
+        analysisConfidence: analysisConfidence,
+        claudeSuccess: claudeResult.success,
+        claudeError: claudeResult.error || null,
+        rawResponse: {
+          success: claudeResult.success,
+          timestamp: new Date().toISOString(),
+          processingSteps: claudeResult.success ? [
+            'PDF text extraction',
+            'Claude Opus 4 AI analysis',
+            'Issue identification',
+            'Cost estimation',
+            'Confidence scoring'
+          ] : [
+            'PDF text extraction',
+            'Claude analysis failed',
+            'Fallback keyword analysis',
+            'Basic cost estimation'
+          ],
+          fallbackReason: claudeResult.success ? null : claudeResult.error
+        }
+      }
+    };
+
     return NextResponse.json({
       success: true,
       analysis: {
@@ -90,6 +192,7 @@ export async function POST(request: NextRequest) {
         extractedText: extractedText.substring(0, 500) + '...', // First 500 chars as preview
         pdfMetadata,
         issues,
+        detailedAnalysis, // Add the detailed analysis for audit modal
         summary: {
           totalIssues: issues.length,
           safetyIssues: issues.filter(i => i.severity === 'safety').length,
@@ -153,6 +256,37 @@ function extractTextBetween(text: string, start: string, end: string): string | 
   if (endIndex === -1) return null;
   
   return text.substring(startIndex + start.length, endIndex).trim();
+}
+
+// Extract relevant text snippet for an issue category
+function extractRelevantText(text: string, category: string): string {
+  const lowerText = text.toLowerCase();
+  const categoryLower = category.toLowerCase();
+  
+  // Find the first occurrence of category-related text
+  const searchTerms = {
+    'electrical': ['electrical', 'gfci', 'outlet', 'wiring', 'circuit'],
+    'plumbing': ['plumbing', 'leak', 'water', 'pipe', 'faucet'],
+    'hvac': ['hvac', 'furnace', 'air', 'heating', 'cooling'],
+    'roofing': ['roof', 'shingle', 'gutter', 'flashing'],
+    'interior': ['interior', 'wall', 'floor', 'ceiling', 'door'],
+    'general': ['inspection', 'recommend', 'repair', 'replace']
+  };
+  
+  const terms = searchTerms[categoryLower as keyof typeof searchTerms] || searchTerms.general;
+  
+  for (const term of terms) {
+    const index = lowerText.indexOf(term);
+    if (index !== -1) {
+      // Extract 100 characters around the found term
+      const start = Math.max(0, index - 50);
+      const end = Math.min(text.length, index + 150);
+      return text.substring(start, end).trim();
+    }
+  }
+  
+  // Fallback: return first 200 characters
+  return text.substring(0, 200).trim();
 }
 
 // Generate issues based on keywords found in actual PDF text
@@ -262,7 +396,80 @@ function generateIssuesFromText(text: string, reportType: string): any[] {
 function handleMockAnalysis(reportType: string, fileName: string, reason: string) {
   logger.debug('Using mock analysis:', { reason });
   
-  // Return mock response (abbreviated for space)
+  const mockIssue = {
+    id: 'mock_1',
+    category: 'GENERAL',
+    severity: 'major',
+    urgency: '1-6-months',
+    riskLevel: 'medium',
+    title: 'Unable to fully analyze PDF',
+    description: `PDF processing limited: ${reason}. Manual review recommended.`,
+    location: 'See original inspection report',
+    recommendations: ['Review original PDF manually', 'Consider text-based PDF version'],
+    estimatedCost: { low: 1000, high: 5000, mostLikely: 3000, professionalRequired: true },
+    negotiationValue: 2500,
+    confidence: 0.2, // Very low confidence for failed analysis
+    sourceText: `[PDF extraction failed: ${reason}]`,
+    reasoning: 'Unable to perform analysis due to PDF processing limitations - manual review strongly recommended.'
+  };
+
+  const detailedAnalysis = {
+    documentName: fileName,
+    documentType: reportType,
+    analysisTimestamp: new Date().toISOString(),
+    issues: [{
+      id: mockIssue.id,
+      category: mockIssue.category,
+      severity: mockIssue.severity,
+      description: mockIssue.description,
+      location: mockIssue.location,
+      estimatedCost: {
+        low: mockIssue.estimatedCost.low,
+        high: mockIssue.estimatedCost.high,
+        average: mockIssue.estimatedCost.mostLikely
+      },
+      negotiationValue: mockIssue.negotiationValue,
+      confidence: 0.3, // Low confidence for mock
+      sourceText: `[${reason}]`,
+      reasoning: 'Unable to perform detailed analysis due to PDF processing limitations.'
+    }],
+    summary: {
+      totalIssues: 1,
+      totalEstimatedCost: 2500,
+      issuesBySeverity: {
+        safety: 0,
+        major: 1,
+        minor: 0,
+        cosmetic: 0
+      }
+    },
+    debug: {
+      extractedText: `[Unable to extract text: ${reason}]`,
+      processingTime: 3000,
+      tokensUsed: 0,
+      modelUsed: 'none',
+      apiCalls: 0,
+      analysisMethod: 'PDF Extraction Failed',
+      analysisConfidence: 0.2,
+      claudeSuccess: false,
+      claudeError: 'PDF extraction failed - could not attempt Claude analysis',
+      rawResponse: {
+        success: false,
+        error: reason,
+        fallback: true,
+        timestamp: new Date().toISOString(),
+        processingSteps: [
+          'PDF text extraction (failed)',
+          'Claude analysis (skipped)',
+          'Fallback analysis (failed)',
+          'Mock result generated'
+        ],
+        fallbackReason: reason
+      }
+    }
+  };
+  
+  // Return mock response with detailed analysis
   return NextResponse.json({
     success: true,
     analysis: {
@@ -270,21 +477,8 @@ function handleMockAnalysis(reportType: string, fileName: string, reason: string
       reportType,
       processingTimeMs: 3000,
       extractedText: `[Unable to extract text: ${reason}]`,
-      issues: [
-        {
-          id: 'mock_1',
-          category: 'GENERAL',
-          severity: 'major',
-          urgency: '1-6-months',
-          riskLevel: 'medium',
-          title: 'Unable to fully analyze PDF',
-          description: `PDF processing limited: ${reason}. Manual review recommended.`,
-          location: 'See original inspection report',
-          recommendations: ['Review original PDF manually', 'Consider text-based PDF version'],
-          estimatedCost: { low: 1000, high: 5000, mostLikely: 3000, professionalRequired: true },
-          negotiationValue: 2500
-        }
-      ],
+      issues: [mockIssue],
+      detailedAnalysis,
       summary: {
         totalIssues: 1,
         safetyIssues: 0,

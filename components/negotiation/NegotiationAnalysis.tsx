@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AnalysisDetailsModal, AnalysisDetails } from "./AnalysisDetailsModal";
 import { 
   FileText, 
   Loader2, 
   CheckCircle, 
   AlertTriangle,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Eye
 } from "lucide-react";
 
 interface UploadedReport {
@@ -20,6 +23,7 @@ interface UploadedReport {
   documentData?: any;
   analysisStatus: 'pending' | 'analyzing' | 'complete' | 'error';
   issues?: any[];
+  detailedAnalysis?: AnalysisDetails;
   tempIssueCount?: number;
   tempMessage?: string;
 }
@@ -39,6 +43,21 @@ export function NegotiationAnalysis({
   onStartAnalysis,
   onProceedToStrategy
 }: NegotiationAnalysisProps) {
+  const [selectedAnalysis, setSelectedAnalysis] = useState<AnalysisDetails | null>(null);
+  const [selectedReportName, setSelectedReportName] = useState<string>('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Check if we're in debug mode - temporarily always enabled for testing
+  const isDebugMode = true; // process.env.NODE_ENV === 'development' || 
+    // (typeof window !== 'undefined' && window.location.search.includes('debug=true'));
+
+  const handleViewAnalysis = (report: UploadedReport) => {
+    if (report.detailedAnalysis) {
+      setSelectedAnalysis(report.detailedAnalysis);
+      setSelectedReportName(report.name);
+      setIsModalOpen(true);
+    }
+  };
   const getStatusIcon = (status: UploadedReport['analysisStatus']) => {
     switch (status) {
       case 'pending':
@@ -116,9 +135,16 @@ export function NegotiationAnalysis({
                         }
                       </p>
                       {report.analysisStatus === 'complete' && (
-                        <p className="text-xs text-gray-600">
-                          ${(report.issues || []).reduce((sum, issue) => sum + (issue.negotiationValue || 0), 0).toLocaleString()} potential credits
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleViewAnalysis(report)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer flex items-center gap-1"
+                            title="Click to view detailed analysis"
+                          >
+                            <Eye className="h-3 w-3" />
+                            ${(report.issues || []).reduce((sum, issue) => sum + (issue.negotiationValue || 0), 0).toLocaleString()} potential credits
+                          </button>
+                        </div>
                       )}
                       {report.analysisStatus === 'analyzing' && report.tempMessage && (
                         <p className="text-xs text-blue-600 italic">
@@ -213,6 +239,15 @@ export function NegotiationAnalysis({
           </CardContent>
         </Card>
       )}
+
+      {/* Analysis Details Modal */}
+      <AnalysisDetailsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        analysisDetails={selectedAnalysis}
+        reportName={selectedReportName}
+        isDebugMode={isDebugMode}
+      />
     </div>
   );
 }
