@@ -115,7 +115,6 @@ export function NegotiationAnalysis({
                 AI Analysis Progress
               </span>
               <div className="flex items-center gap-2 mt-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-xs text-gray-500 font-medium">Claude Opus 4 Active</span>
               </div>
             </div>
@@ -176,12 +175,9 @@ export function NegotiationAnalysis({
           <div className="mt-8 flex justify-between items-center p-6 bg-gradient-to-r from-gray-50 to-blue-50/50 rounded-xl border">
             <div className="text-sm">
               {hasStarted ? (
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${allComplete ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`}></div>
-                  <span className="font-medium text-gray-700">
-                    {reports.filter(r => r.analysisStatus === 'complete').length} of {reports.length} reports analyzed
-                  </span>
-                </div>
+                <span className="font-medium text-gray-700">
+                  {reports.filter(r => r.analysisStatus === 'complete').length} of {reports.length} reports analyzed
+                </span>
               ) : (
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-gray-500" />
@@ -204,10 +200,7 @@ export function NegotiationAnalysis({
                       Starting Analysis...
                     </>
                   ) : (
-                    <>
-                      <span>Start AI Analysis</span>
-                      <div className="ml-2 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    </>
+                    'Start AI Analysis'
                   )}
                 </Button>
               )}
@@ -237,11 +230,8 @@ export function NegotiationAnalysis({
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center group">
-                <div className="relative">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <AlertTriangle className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full opacity-75 animate-ping"></div>
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <AlertTriangle className="h-8 w-8 text-blue-600" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-3 text-lg">Issue Identification</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -249,11 +239,8 @@ export function NegotiationAnalysis({
                 </p>
               </div>
               <div className="text-center group">
-                <div className="relative">
-                  <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <DollarSign className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full opacity-75 animate-ping" style={{animationDelay: '0.5s'}}></div>
+                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <DollarSign className="h-8 w-8 text-green-600" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-3 text-lg">Cost Estimation</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -261,11 +248,8 @@ export function NegotiationAnalysis({
                 </p>
               </div>
               <div className="text-center group">
-                <div className="relative">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                    <Target className="h-8 w-8 text-purple-600" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full opacity-75 animate-ping" style={{animationDelay: '1s'}}></div>
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <Target className="h-8 w-8 text-purple-600" />
                 </div>
                 <h3 className="font-bold text-gray-900 mb-3 text-lg">Negotiation Strategy</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">

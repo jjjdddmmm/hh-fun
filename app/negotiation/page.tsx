@@ -289,59 +289,40 @@ export default function NegotiationPage() {
       
       <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
-      <div className="mb-12 text-center">
-        <div className="relative">
-          <SectionHeader className="text-4xl md:text-5xl mb-4 bg-gradient-to-r from-[#5C1B10] to-[#8B2635] bg-clip-text text-transparent font-bold">
-            Inspection Credit Negotiation
-          </SectionHeader>
-          <div className="absolute -top-2 -right-2 w-16 h-16 bg-gradient-to-br from-orange-400 to-red-500 rounded-full opacity-20 blur-xl animate-pulse"></div>
+      <div className="mb-8">
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+          <DollarSign className="h-4 w-4" />
+          Negotiation
         </div>
-        <p className="text-gray-700 text-xl max-w-3xl mx-auto leading-relaxed">
-          Transform your inspection reports into <span className="font-semibold text-[#5C1B10]">data-backed negotiation strategies</span> with specific credit amounts
+        <SectionHeader className="text-4xl font-bold mb-3">
+          Inspection Credit Negotiation
+        </SectionHeader>
+        <p className="text-gray-600 text-lg">
+          Transform your inspection reports into data-backed negotiation strategies with specific credit amounts
         </p>
-        <div className="mt-6 flex items-center justify-center space-x-2 text-sm text-gray-500">
-          <div className="flex items-center space-x-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span>Claude Opus 4 AI Analysis</span>
-          </div>
-          <span>•</span>
-          <span>Real-time cost estimates</span>
-          <span>•</span>
-          <span>Market-based negotiations</span>
-        </div>
       </div>
 
       {/* Progress Steps */}
-      <div className="mb-12">
-        <div className="relative max-w-4xl mx-auto">
-          <div className="flex items-center justify-between relative">
-            {/* Background progress line */}
-            <div className="absolute top-6 left-6 right-6 h-0.5 bg-gray-200 -z-10"></div>
-            <div className={`absolute top-6 left-6 h-0.5 bg-gradient-to-r from-green-500 to-[#5C1B10] transition-all duration-1000 -z-10 ${
-              currentStep === 'upload' ? 'w-0' :
-              currentStep === 'analysis' ? 'right-1/2' :
-              'right-6'
-            }`}></div>
-
-            {[
-              { key: 'upload', icon: Upload, label: 'Upload Reports', desc: 'Add inspection reports' },
-              { key: 'analysis', icon: Calculator, label: 'AI Analysis', desc: 'Extract & cost issues' },
-              { key: 'strategy', icon: Target, label: 'Negotiation Strategy', desc: 'Get your game plan' }
-            ].map((step, index) => {
-              const isActive = currentStep === step.key;
-              const isCompleted = 
-                (step.key === 'upload' && reports.length > 0) ||
-                (step.key === 'analysis' && stats.completedAnalysis === stats.totalReports && stats.totalReports > 0) ||
-                (step.key === 'strategy' && currentStep === 'strategy');
-              
-              return (
-                <div key={step.key} className="flex flex-col items-center relative">
+      <div className="mb-8">
+        <div className="flex items-center justify-center">
+          {[
+            { key: 'upload', icon: Upload, label: 'Upload Reports', desc: 'Add inspection reports' },
+            { key: 'analysis', icon: Calculator, label: 'AI Analysis', desc: 'Extract & cost issues' },
+            { key: 'strategy', icon: Target, label: 'Negotiation Strategy', desc: 'Get your game plan' }
+          ].map((step, index) => {
+            const isActive = currentStep === step.key;
+            const isCompleted = 
+              (step.key === 'upload' && reports.length > 0) ||
+              (step.key === 'analysis' && stats.completedAnalysis === stats.totalReports && stats.totalReports > 0) ||
+              (step.key === 'strategy' && currentStep === 'strategy');
+            
+            return (
+              <div key={step.key} className="flex items-center">
+                <div className="flex flex-col items-center">
                   <div className={`
-                    w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-all duration-500 transform
-                    ${isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg scale-110' : 
-                      isActive ? 'bg-gradient-to-br from-[#5C1B10] to-[#8B2635] text-white shadow-lg scale-105' : 
-                      'bg-gray-100 text-gray-400 hover:bg-gray-200'}
-                    ${isActive ? 'animate-pulse' : ''}
+                    w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-colors
+                    ${isCompleted ? 'bg-green-500 text-white' : 
+                      isActive ? 'bg-[#5C1B10] text-white' : 'bg-gray-200 text-gray-500'}
                   `}>
                     {isCompleted ? (
                       <CheckCircle className="h-6 w-6" />
@@ -350,24 +331,22 @@ export default function NegotiationPage() {
                     )}
                   </div>
                   <div className="text-center">
-                    <p className={`font-semibold text-sm mb-1 transition-colors ${
-                      isActive ? 'text-[#5C1B10]' : 
-                      isCompleted ? 'text-green-600' : 'text-gray-600'
-                    }`}>
+                    <p className={`font-medium ${isActive ? 'text-[#5C1B10]' : 'text-gray-600'}`}>
                       {step.label}
                     </p>
-                    <p className="text-xs text-gray-500 max-w-24">{step.desc}</p>
+                    <p className="text-xs text-gray-500">{step.desc}</p>
                   </div>
-                  
-                  {isActive && (
-                    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                      <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce"></div>
-                    </div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
+                
+                {index < 2 && (
+                  <div className={`
+                    h-0.5 w-16 mx-4 transition-colors
+                    ${isCompleted ? 'bg-green-500' : 'bg-gray-300'}
+                  `} />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -458,11 +437,6 @@ export default function NegotiationPage() {
               <div className="text-center space-y-2">
                 <p className="text-xl font-semibold text-gray-900">Loading Your Inspection Reports</p>
                 <p className="text-gray-600 max-w-md">Fetching completed inspection documents from your timelines...</p>
-                <div className="flex items-center justify-center space-x-1 pt-2">
-                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                </div>
               </div>
             </div>
           </CardContent>
