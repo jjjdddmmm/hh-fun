@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { logger } from "@/lib/utils/logger";
 import { ZillowPropertyData } from './zillow-api';
 
 export interface PropertyAnalysisResult {
@@ -206,7 +207,7 @@ Respond with JSON only:
       
       return { investmentScore: 50, keyInsights: ['Property analysis completed'], redFlags: [] };
     } catch (error) {
-      console.error('❌ AI Insights Error for property:', propertyData.address || propertyData.zpid, {
+      logger.error('❌ AI Insights Error for property:', propertyData.address || propertyData.zpid, {
         error: error instanceof Error ? error.message : String(error),
         propertyId: propertyData.zpid,
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
@@ -239,13 +240,13 @@ Respond with JSON only:
       
       throw new Error('Invalid response format from AI');
     } catch (error) {
-      console.error('❌ AI Full Analysis Error for property:', propertyData.address || propertyData.zpid, {
+      logger.error('❌ AI Full Analysis Error for property:', propertyData.address || propertyData.zpid, {
         error: error instanceof Error ? error.message : String(error),
         propertyId: propertyData.zpid,
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
         stack: error instanceof Error ? error.stack : undefined
       });
-      console.warn('🔄 Using fallback analysis for property:', propertyData.address || propertyData.zpid);
+      logger.warn('🔄 Using fallback analysis for property:', propertyData.address || propertyData.zpid);
       return this.fallbackAnalysis(propertyData);
     }
   }
@@ -273,7 +274,7 @@ Respond with JSON only:
       
       throw new Error('Invalid response format from AI');
     } catch (error) {
-      console.error('AI Investment Analysis Error:', error);
+      logger.error('AI Investment Analysis Error:', error);
       return this.fallbackInvestmentAnalysis(property, params);
     }
   }
@@ -301,7 +302,7 @@ Respond with JSON only:
       
       throw new Error('Invalid response format from AI');
     } catch (error) {
-      console.error('AI Negotiation Analysis Error:', error);
+      logger.error('AI Negotiation Analysis Error:', error);
       return this.fallbackNegotiationAnalysis(property, params);
     }
   }
@@ -520,8 +521,8 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
     try {
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        console.error('❌ No JSON found in AI response for property:', propertyData.address || propertyData.zpid);
-        console.error('AI Response:', aiResponse.substring(0, 500));
+        logger.error('❌ No JSON found in AI response for property:', propertyData.address || propertyData.zpid);
+        logger.error('AI Response:', aiResponse.substring(0, 500));
         throw new Error('No JSON found in AI response');
       }
       
@@ -560,7 +561,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
         analysis: parsed.analysis || 'Property analysis completed successfully.'
       };
     } catch (error) {
-      console.error('❌ Error parsing AI response for property:', propertyData.address || propertyData.zpid, error);
+      logger.error('❌ Error parsing AI response for property:', propertyData.address || propertyData.zpid, error);
       return this.fallbackAnalysis(propertyData);
     }
   }
@@ -615,7 +616,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
         analysis: parsed.analysis || 'Investment analysis completed successfully.'
       };
     } catch (error) {
-      console.error('Error parsing investment response:', error);
+      logger.error('Error parsing investment response:', error);
       return this.fallbackInvestmentAnalysis(property, params);
     }
   }
@@ -657,7 +658,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
         analysis: parsed.analysis || 'Negotiation analysis completed successfully.'
       };
     } catch (error) {
-      console.error('Error parsing negotiation response:', error);
+      logger.error('Error parsing negotiation response:', error);
       return this.fallbackNegotiationAnalysis(property, params);
     }
   }
@@ -694,7 +695,7 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
     // Ensure score stays within bounds
     investmentScore = Math.max(1, Math.min(100, investmentScore));
     
-    console.warn('🔄 Using calculated fallback investment score:', investmentScore, 'for property:', propertyData.address || propertyData.zpid);
+    logger.warn('🔄 Using calculated fallback investment score:', investmentScore, 'for property:', propertyData.address || propertyData.zpid);
     
     return {
       marketValue: {

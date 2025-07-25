@@ -1,3 +1,5 @@
+import { logger } from "@/lib/utils/logger";
+
 // Test the server method directly
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -5,13 +7,13 @@ const prisma = new PrismaClient();
 // Import the compiled version after running tsc
 async function testServerMethod() {
   try {
-    console.log('🧪 Testing server method directly...');
+    logger.debug('🧪 Testing server method directly...');
     
     const stepId = 'cmdff53p1000b8cet07p3qak4';
-    console.log('📋 Testing with stepId:', stepId);
+    logger.debug('📋 Testing with stepId:', stepId);
     
     // Test the basic queries that the server method uses
-    console.log('\n1️⃣ Testing allDocuments query...');
+    logger.debug('\n1️⃣ Testing allDocuments query...');
     const allDocuments = await prisma.timelineDocument.findMany({
       where: { stepId },
       orderBy: [
@@ -21,14 +23,14 @@ async function testServerMethod() {
       ]
     });
     
-    console.log(`📄 Found ${allDocuments.length} total documents`);
+    logger.debug(`📄 Found ${allDocuments.length} total documents`);
     
     const currentDocuments = allDocuments.filter(doc => doc.isCurrentVersion);
     const previousDocuments = allDocuments.filter(doc => !doc.isCurrentVersion);
     
-    console.log(`📊 Current: ${currentDocuments.length}, Previous: ${previousDocuments.length}`);
+    logger.debug(`📊 Current: ${currentDocuments.length}, Previous: ${previousDocuments.length}`);
     
-    console.log('\n2️⃣ Testing completion sessions query...');
+    logger.debug('\n2️⃣ Testing completion sessions query...');
     const sessions = await prisma.timelineDocument.groupBy({
       by: ['completionSessionId', 'createdAt'],
       where: {
@@ -43,7 +45,7 @@ async function testServerMethod() {
       }
     });
     
-    console.log(`📁 Found ${sessions.length} sessions`);
+    logger.debug(`📁 Found ${sessions.length} sessions`);
     
     const formattedSessions = sessions
       .filter(session => session.completionSessionId)
@@ -55,7 +57,7 @@ async function testServerMethod() {
         documentCount: session._count.id
       }));
     
-    console.log('✅ Formatted sessions:', formattedSessions.length);
+    logger.debug('✅ Formatted sessions:', formattedSessions.length);
     
     // Test the final result construction
     const totalSessions = formattedSessions.length;
@@ -92,20 +94,20 @@ async function testServerMethod() {
       previousSessions
     };
     
-    console.log('\n✅ Final result:', {
+    logger.debug('\n✅ Final result:', {
       currentCount: result.currentDocuments.length,
       previousSessionsCount: result.previousSessions.length
     });
     
     if (result.currentDocuments.length > 0) {
-      console.log('\n📄 Current documents:');
+      logger.debug('\n📄 Current documents:');
       result.currentDocuments.forEach((doc, i) => {
-        console.log(`  ${i + 1}. ${doc.originalName} (v${doc.documentVersion})`);
+        logger.debug(`  ${i + 1}. ${doc.originalName} (v${doc.documentVersion})`);
       });
     }
     
   } catch (error) {
-    console.error('❌ Error in server method test:', error);
+    logger.error('❌ Error in server method test:', error);
   } finally {
     await prisma.$disconnect();
   }

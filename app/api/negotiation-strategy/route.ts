@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { createAIAnalyzer } from "@/lib/ai-analysis";
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       data: negotiationAnalysis
     });
   } catch (error) {
-    console.error("Error analyzing negotiation strategy:", error);
+    logger.error("Error analyzing negotiation strategy:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

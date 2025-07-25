@@ -4,6 +4,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { logger } from "@/lib/utils/logger";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -88,7 +89,7 @@ export default function NegotiationPage() {
         }
       }
     } catch (error) {
-      console.error('Error loading inspection reports:', error);
+      logger.error('Error loading inspection reports:', error);
     } finally {
       setIsLoadingReports(false);
     }
@@ -223,7 +224,7 @@ export default function NegotiationPage() {
           ));
           
         } catch (error) {
-          console.error('Analysis failed for report:', report.name, error);
+          logger.error('Analysis failed for report:', report.name, error);
           
           // Mark as error
           setReports(prev => prev.map(r => 

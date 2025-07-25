@@ -4,6 +4,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { logger } from "@/lib/utils/logger";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -144,7 +145,7 @@ export function TimelineDocuments({ timeline, onDocumentUpdate }: TimelineDocume
           const versions = await documentVersionService.getDocumentsGroupedBySessions(stepId);
           setDocumentVersions(prev => new Map(prev).set(stepId, versions));
         } catch (error) {
-          console.error('Error loading document versions:', error);
+          logger.error('Error loading document versions:', error);
         }
       }
     }
@@ -189,7 +190,7 @@ export function TimelineDocuments({ timeline, onDocumentUpdate }: TimelineDocume
       // Refresh timeline data
       onDocumentUpdate();
     } catch (error) {
-      console.error('Error promoting document:', error);
+      logger.error('Error promoting document:', error);
     }
   };
 

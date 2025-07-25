@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { BatchDataService } from '@/lib/services/BatchDataService';
 
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const results = [];
 
     for (const zipCode of testZipCodes) {
-      console.log(`🔍 Testing zip code: ${zipCode}`);
+      logger.debug(`🔍 Testing zip code: ${zipCode}`);
       
       const result = await batchData.makeRequest('/api/v1/property/search', {
         searchCriteria: {
@@ -76,8 +77,8 @@ export async function GET(request: NextRequest) {
           
           // Only analyze first good property in detail
           if (results.length === 1) {
-            console.log(`📊 Full property structure for ${zipCode}:`);
-            console.log(JSON.stringify(property, null, 2));
+            logger.debug(`📊 Full property structure for ${zipCode}:`);
+            logger.debug(JSON.stringify(property, null, 2));
           }
         }
       } else {
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('BatchData field analysis error:', error);
+    logger.error('BatchData field analysis error:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

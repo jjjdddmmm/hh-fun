@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Property data is required' }, { status: 400 });
     }
 
-    console.log('🤖 Deal Maker AI analyzing property...');
+    logger.debug('🤖 Deal Maker AI analyzing property...');
 
     // Extract key data for AI analysis
     const analysisData = {
@@ -117,7 +118,7 @@ Format your response in clear sections with emojis and actionable insights. Be s
     });
 
   } catch (error) {
-    console.error('Deal Maker AI analysis error:', error);
+    logger.error('Deal Maker AI analysis error:', error);
     return NextResponse.json(
       { 
         error: 'AI analysis failed', 

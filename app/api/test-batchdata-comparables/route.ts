@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { createBatchDataComparablesService } from '@/lib/services/BatchDataComparablesService';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🧪 Testing BatchData Comparables Service...');
+    logger.debug('🧪 Testing BatchData Comparables Service...');
     
     const batchDataAPI = createBatchDataComparablesService();
     
@@ -14,13 +15,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log('✅ BatchData service created successfully');
+    logger.debug('✅ BatchData service created successfully');
 
     // Test with simple address and zip code from Beverly Hills
     const testAddress = '1545 N Vista St';
     const testZipCode = '90210';
     
-    console.log(`🔍 Testing search for: ${testAddress}, ${testZipCode}`);
+    logger.debug(`🔍 Testing search for: ${testAddress}, ${testZipCode}`);
 
     // Capture console logs
     const originalLog = console.log;
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('BatchData Comparables test error:', error);
+    logger.error('BatchData Comparables test error:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { createPropertyService } from "@/lib/services/PropertyService";
 import { generalRateLimiter } from "@/lib/rate-limiter";
@@ -29,8 +30,8 @@ export async function GET() {
           const rawAnalysis = property.analyses[0].analysis;
           analysis = JSON.parse(rawAnalysis as string);
         } catch (error) {
-          console.error('❌ Failed to parse analysis for property:', property.id, error);
-          console.error('❌ Raw analysis that failed:', property.analyses[0].analysis);
+          logger.error('❌ Failed to parse analysis for property:', property.id, error);
+          logger.error('❌ Raw analysis that failed:', property.analyses[0].analysis);
         }
       } else {
       }
@@ -40,7 +41,7 @@ export async function GET() {
         try {
           parsedImages = JSON.parse(property.images as string);
         } catch (error) {
-          console.error('❌ Failed to parse images for property:', property.id, error);
+          logger.error('❌ Failed to parse images for property:', property.id, error);
         }
       }
       
@@ -77,7 +78,7 @@ export async function GET() {
       properties: mappedProperties
     });
   } catch (error) {
-    console.error("Error fetching properties:", error);
+    logger.error("Error fetching properties:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error("Error creating property:", error);
+    logger.error("Error creating property:", error);
     return NextResponse.json({ error: "Internal server error", details: (error as Error).message }, { status: 500 });
   }
 }

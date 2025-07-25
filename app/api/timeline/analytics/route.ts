@@ -2,6 +2,7 @@
 // Analytics and progress tracking for timelines
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
           validatedQuery.timelineId
         );
       } catch (error) {
-        console.error('Progress stats error:', error);
+        logger.error('Progress stats error:', error);
         // Continue without progress stats
       }
     }
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
           validatedQuery.timelineId
         );
       } catch (error) {
-        console.error('Cost summary error:', error);
+        logger.error('Cost summary error:', error);
         // Continue without cost summary
       }
     }
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof ZodError) {
-      console.error('Analytics validation error:', error.errors);
+      logger.error('Analytics validation error:', error.errors);
       return NextResponse.json(
         { 
           success: false, 
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.error('Timeline analytics GET error:', error);
+    logger.error('Timeline analytics GET error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 

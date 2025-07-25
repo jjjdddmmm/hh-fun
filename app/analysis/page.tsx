@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { logger } from "@/lib/utils/logger";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -288,7 +289,7 @@ export default function PropertyAnalysisPage() {
         }
       }
     } catch (error) {
-      console.error('Error loading properties:', error);
+      logger.error('Error loading properties:', error);
     } finally {
       setIsLoading(false);
     }
@@ -336,7 +337,7 @@ export default function PropertyAnalysisPage() {
       
       analyzeProperty(newProperty);
     } catch (error) {
-      console.error('❌ Failed to add property:', error);
+      logger.error('❌ Failed to add property:', error);
       alert(`Error: ${(error as Error).message}`);
     }
   };
@@ -375,7 +376,7 @@ export default function PropertyAnalysisPage() {
         );
       }
     } catch (error) {
-      console.error('❌ Analysis error:', error);
+      logger.error('❌ Analysis error:', error);
       setProperties(prev => 
         prev.map(p => 
           p.id === property.id 
@@ -403,7 +404,7 @@ export default function PropertyAnalysisPage() {
       // Remove from local state
       setProperties(prev => prev.filter(p => p.id !== propertyId));
     } catch (error) {
-      console.error('❌ Delete error:', error);
+      logger.error('❌ Delete error:', error);
       alert('Failed to delete property. Please try again.');
     }
   };
@@ -439,7 +440,7 @@ export default function PropertyAnalysisPage() {
       // Reload the properties to get fresh data
       await loadProperties();
     } catch (error) {
-      console.error('❌ Refresh error:', error);
+      logger.error('❌ Refresh error:', error);
       alert('Failed to refresh property. Please try again.');
       
       // Set back to error state
@@ -456,14 +457,14 @@ export default function PropertyAnalysisPage() {
   const generateCustomStrategy = async () => {
     
     if (!selectedProperty || !wizardData.maxBudget || !wizardData.preferredPrice) {
-      console.error('Property or budget information missing');
+      logger.error('Property or budget information missing');
       return;
     }
     
     setGeneratingStrategy(true);
     
     try {
-      console.log('🤖 Generating AI-powered offer strategy with BatchData intelligence...');
+      logger.debug('🤖 Generating AI-powered offer strategy with BatchData intelligence...');
       
       // Call the actual DealMaker AI service with all BatchData intelligence
       const response = await fetch('/api/deal-maker', {
@@ -494,7 +495,7 @@ export default function PropertyAnalysisPage() {
       const aiAnalysis = await response.json();
       
       if (aiAnalysis.success && aiAnalysis.negotiationAnalysis) {
-        console.log('✅ AI strategy generated successfully');
+        logger.debug('✅ AI strategy generated successfully');
         setCustomStrategy(aiAnalysis.negotiationAnalysis);
         setDealMakerAnalysis(aiAnalysis.negotiationAnalysis);
       } else {
@@ -502,10 +503,10 @@ export default function PropertyAnalysisPage() {
       }
       
     } catch (error) {
-      console.error('❌ Error generating AI strategy:', error);
+      logger.error('❌ Error generating AI strategy:', error);
       
       // Fallback to basic analysis if AI fails
-      console.log('📊 Falling back to basic analysis...');
+      logger.debug('📊 Falling back to basic analysis...');
       const listPrice = selectedProperty.data?.price || 0;
       const preferredPrice = parseInt(wizardData.preferredPrice);
       const marketValue = selectedProperty.analysis?.marketValue.estimated || listPrice;
@@ -545,7 +546,7 @@ export default function PropertyAnalysisPage() {
 
   const createTimeline = async (property: Property) => {
     if (!property.data) {
-      console.error('Property data not available');
+      logger.error('Property data not available');
       return;
     }
 
@@ -586,7 +587,7 @@ export default function PropertyAnalysisPage() {
         throw new Error(data.error || 'Failed to create timeline');
       }
     } catch (error) {
-      console.error('Error creating timeline:', error);
+      logger.error('Error creating timeline:', error);
       // You could add a toast notification here for better UX
       alert(error instanceof Error ? error.message : 'Failed to create timeline. Please try again.');
     } finally {
@@ -609,10 +610,10 @@ export default function PropertyAnalysisPage() {
       }
       
       // Other errors should be logged but not break the flow
-      console.error('Error checking timeline:', response.status, response.statusText);
+      logger.error('Error checking timeline:', response.status, response.statusText);
       return false;
     } catch (error) {
-      console.error('Error checking timeline:', error);
+      logger.error('Error checking timeline:', error);
       return false;
     }
   };
@@ -644,7 +645,7 @@ export default function PropertyAnalysisPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching comparables:', error);
+      logger.error('Error fetching comparables:', error);
     } finally {
       setLoadingComps(null);
     }
@@ -671,7 +672,7 @@ export default function PropertyAnalysisPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching area analysis:', error);
+      logger.error('Error fetching area analysis:', error);
     }
   };
 
@@ -708,7 +709,7 @@ export default function PropertyAnalysisPage() {
         alert('Failed to analyze negotiation strategy');
       }
     } catch (error) {
-      console.error('Error running Deal Maker:', error);
+      logger.error('Error running Deal Maker:', error);
       alert('Error analyzing property');
     } finally {
       setDealMakerLoading(false);

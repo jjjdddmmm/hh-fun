@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { BatchDataService } from '@/lib/services/BatchDataService';
 
+import { logger } from "@/lib/utils/logger";
 function isAdminUser(userId: string): boolean {
   const adminUserIds = process.env.ADMIN_USER_IDS?.split(',').map(id => id.trim()) || [];
   return adminUserIds.includes(userId);
@@ -33,9 +34,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'BatchData API not available' }, { status: 503 });
     }
 
-    console.log(`🔍 Admin property lookup: ${address} ${zipCode || ''}`);
-    console.log(`🔑 Production API key configured: ${process.env.BATCH_DATA_PRODUCTION_API_KEY ? 'YES' : 'NO'}`);
-    console.log(`🔑 Sandbox API key configured: ${process.env.BATCH_DATA_SANDBOX_API_KEY ? 'YES' : 'NO'}`);
+    logger.debug(`🔍 Admin property lookup: ${address} ${zipCode || ''}`);
+    // logger.debug("API call made");
+    // logger.debug("API call made");
 
     // Try different search approaches to get comprehensive data
     const searchQueries = [];
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     // Execute searches
     for (const searchQuery of searchQueries) {
       try {
-        console.log(`🔬 Trying ${searchQuery.name}...`);
+        logger.debug(`🔬 Trying ${searchQuery.name}...`);
         
         const result = await batchData.makeRequest('/api/v1/property/search', searchQuery.query, 'POST');
         
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
           
           // If we found exact matches, no need to continue
           if (propertiesCount > 0) {
-            console.log(`✅ Found ${propertiesCount} properties with ${searchQuery.name}`);
+            logger.debug(`✅ Found ${propertiesCount} properties with ${searchQuery.name}`);
             break;
           }
         } else {
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
           });
         }
       } catch (error) {
-        console.error(`❌ ${searchQuery.name} failed:`, error);
+        logger.error(`❌ ${searchQuery.name} failed:`, error);
         results.push({
           searchType: searchQuery.name,
           success: false,
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Admin property lookup error:', error);
+    logger.error('Admin property lookup error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

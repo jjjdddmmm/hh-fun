@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { createComparablesCacheService } from '@/lib/services/ComparablesCacheService';
 
 export async function GET() {
@@ -41,7 +42,7 @@ export async function GET() {
     });
     
   } catch (error) {
-    console.error('Error fetching comparables cache stats:', error);
+    logger.error('Error fetching comparables cache stats:', error);
     return NextResponse.json(
       { error: 'Failed to fetch cache statistics' },
       { status: 500 }
@@ -63,7 +64,7 @@ export async function DELETE() {
     });
     
   } catch (error) {
-    console.error('Error cleaning up cache:', error);
+    logger.error('Error cleaning up cache:', error);
     return NextResponse.json(
       { error: 'Failed to cleanup cache' },
       { status: 500 }

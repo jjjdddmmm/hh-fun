@@ -2,6 +2,7 @@
 // Main timeline CRUD operations with comprehensive error handling and validation
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Log error for monitoring (in production, use proper logging service)
-    console.error('Timeline GET error:', error);
+    logger.error('Timeline GET error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -178,7 +179,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log error for monitoring
-    console.error('Timeline POST error:', error);
+    logger.error('Timeline POST error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -255,7 +256,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Log error for monitoring
-    console.error('Timeline PUT error:', error);
+    logger.error('Timeline PUT error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -317,7 +318,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Log error for monitoring
-    console.error('Timeline DELETE error:', error);
+    logger.error('Timeline DELETE error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 

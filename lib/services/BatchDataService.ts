@@ -8,6 +8,7 @@ import {
   ComparablesParams,
   MarketAnalysisParams
 } from '@/types/batchdata';
+import { logger } from '@/lib/utils/logger';
 
 export class BatchDataService {
   private apiKey: string;
@@ -17,16 +18,16 @@ export class BatchDataService {
     // Allow easy switching between sandbox and production
     if (useProduction) {
       this.apiKey = process.env.BATCH_DATA_PRODUCTION_API_KEY || '';
-      console.log('🏭 Using BatchData PRODUCTION API');
+      logger.debug('🏭 Using BatchData PRODUCTION API');
     } else {
       this.apiKey = process.env.BATCH_DATA_SANDBOX_API_KEY || process.env.BATCH_DATA_API_KEY || '';
-      console.log('🧪 Using BatchData SANDBOX API');
+      logger.debug('🧪 Using BatchData SANDBOX API');
     }
     
     this.baseUrl = 'https://api.batchdata.com';
     
     if (!this.apiKey) {
-      console.warn('BatchData API key not found in environment variables');
+      logger.warn('BatchData API key not found in environment variables');
     }
   }
 
@@ -46,7 +47,7 @@ export class BatchDataService {
       const url = new URL(`${this.baseUrl}${endpoint}`);
       
       // Debug logging
-      console.log(`🔐 BatchData request to ${endpoint} with API key ending in: ...${this.apiKey?.slice(-4) || 'MISSING'}`);
+      // logger.debug("API call made"); || 'MISSING'}`);
       
       const requestOptions: RequestInit = {
         method,
@@ -66,14 +67,14 @@ export class BatchDataService {
       } else if (method === 'POST' && params) {
         // Add body for POST requests
         requestOptions.body = JSON.stringify(params);
-        console.log(`📤 Request body:`, JSON.stringify(params).substring(0, 200) + '...');
+        logger.debug(`📤 Request body:`, JSON.stringify(params).substring(0, 200) + '...');
       }
 
       const response = await fetch(url.toString(), requestOptions);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.log(`❌ BatchData API error: ${response.status} ${response.statusText} - ${errorText}`);
+        logger.debug(`❌ BatchData API error: ${response.status} ${response.statusText} - ${errorText}`);
         throw new Error(`BatchData API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
@@ -95,7 +96,7 @@ export class BatchDataService {
         }
       };
     } catch (error) {
-      console.error('BatchData API error:', error);
+      logger.error('BatchData API error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -230,7 +231,7 @@ export class BatchDataService {
       const estimatedCost = this.estimateCost(response);
 
       // Log usage (you could also save to database)
-      console.log(`📊 BatchData Usage: ${endpoint} - ${propertiesCount} properties - ~$${estimatedCost.toFixed(2)}`);
+      logger.debug(`📊 BatchData Usage: ${endpoint} - ${propertiesCount} properties - ~$${estimatedCost.toFixed(2)}`);
 
       // TODO: Save to database for proper tracking
       // await prisma.batchDataUsage.create({
@@ -243,7 +244,7 @@ export class BatchDataService {
       //   }
       // });
     } catch (error) {
-      console.warn('Failed to track BatchData usage:', error);
+      logger.warn('Failed to track BatchData usage:', error);
     }
   }
 

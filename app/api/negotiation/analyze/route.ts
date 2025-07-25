@@ -1,5 +1,6 @@
 // Real AI Inspection Analysis API with PDF Processing
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 
 export async function GET() {
@@ -61,14 +62,14 @@ export async function POST(request: NextRequest) {
     const pdfMetadata = extractionResult.metadata;
     
     if (!extractedText || extractedText.trim().length < 100) {
-      console.log('PDF has minimal text, using enhanced mock analysis');
+      logger.debug('PDF has minimal text, using enhanced mock analysis');
       return handleMockAnalysis(reportType, file.name, 'PDF contains minimal readable text');
     }
 
     // For now, analyze the extracted text with enhanced mock
     // This proves PDF extraction works before we add Claude
     const analysisPrompt = createAnalysisPrompt(extractedText, reportType);
-    console.log('Would send to Claude:', analysisPrompt.substring(0, 200) + '...');
+    logger.debug('Would send to Claude:', analysisPrompt.substring(0, 200) + '...');
 
     // Simulate processing time
     const processingDelay = 4000 + Math.random() * 4000; // 4-8 seconds
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Analysis API error:', error);
+    logger.error('Analysis API error:', error);
     return NextResponse.json(
       { 
         error: 'Analysis failed',
@@ -257,7 +258,7 @@ function generateIssuesFromText(text: string, reportType: string): any[] {
 
 // Fallback to enhanced mock analysis
 function handleMockAnalysis(reportType: string, fileName: string, reason: string) {
-  console.log('Using mock analysis:', reason);
+  logger.debug('Using mock analysis:', reason);
   
   // Return mock response (abbreviated for space)
   return NextResponse.json({

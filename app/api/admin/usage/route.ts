@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 
 // Mock data for now - in production, this would come from your database
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Admin usage API error:', error);
+    logger.error('Admin usage API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -2,6 +2,7 @@
 // CRUD operations for timeline steps with comprehensive validation
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.error('Timeline steps GET error:', error);
+    logger.error('Timeline steps GET error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.error('Timeline step POST error:', error);
+    logger.error('Timeline step POST error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -248,7 +249,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    console.error('Timeline step PUT error:', error);
+    logger.error('Timeline step PUT error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -309,7 +310,7 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    console.error('Timeline step DELETE error:', error);
+    logger.error('Timeline step DELETE error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { parseMLSUrl } from "@/lib/mls-parser";
 import { createBatchDataPropertyAnalysisService, BatchDataPropertyData } from "@/lib/services/BatchDataPropertyAnalysis";
@@ -10,8 +11,8 @@ import { createZillowService } from "@/lib/services/ZillowService";
 
 // Extract address from MLS URL for BatchData search
 function extractAddressFromMlsUrl(parsedUrl: any, mlsUrl: string): string {
-  console.log(`🔍 Extracting address from: ${mlsUrl}`);
-  console.log(`📋 Parsed URL data:`, parsedUrl);
+  logger.debug(`🔍 Extracting address from: ${mlsUrl}`);
+  logger.debug(`📋 Parsed URL data:`, parsedUrl);
   
   // Try to extract address from URL patterns
   if (parsedUrl.platform === 'zillow' && mlsUrl.includes('/homedetails/')) {
@@ -19,7 +20,7 @@ function extractAddressFromMlsUrl(parsedUrl: any, mlsUrl: string): string {
     if (urlParts) {
       // Convert URL format: "123-Main-St-Los-Angeles-CA-90210" -> "123 Main St Los Angeles CA 90210"
       const address = urlParts.replace(/-/g, ' ').replace(/\d{5}_zpid$/, '').trim();
-      console.log(`✅ Extracted Zillow address: "${address}"`);
+      logger.debug(`✅ Extracted Zillow address: "${address}"`);
       return address;
     }
   }
@@ -35,13 +36,13 @@ function extractAddressFromMlsUrl(parsedUrl: any, mlsUrl: string): string {
     const urlMatch = mlsUrl.match(pattern);
     if (urlMatch) {
       const address = urlMatch[1].replace(/-/g, ' ').replace(/\d{5}_zpid$/, '').trim();
-      console.log(`✅ Pattern matched address: "${address}"`);
+      logger.debug(`✅ Pattern matched address: "${address}"`);
       return address;
     }
   }
   
   // Try to use the property data we already have in database
-  console.warn(`⚠️ Could not extract address from URL: ${mlsUrl}`);
+  logger.warn(`⚠️ Could not extract address from URL: ${mlsUrl}`);
   return "Address extraction failed - using property lookup";
 }
 
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
       try {
         // Extract address from parsed URL
         const addressFromUrl = extractAddressFromMlsUrl(parsedUrl, mlsUrl);
-        console.log(`🔍 BatchData: Analyzing property from URL: ${addressFromUrl}`);
+        logger.debug(`🔍 BatchData: Analyzing property from URL: ${addressFromUrl}`);
         
         let batchData = null;
         
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
         
         // If extraction failed or no results, try using existing property data
         if (!batchData && targetProperty.address !== "Analyzing...") {
-          console.log(`🔄 Retrying with existing address: ${targetProperty.address}`);
+          logger.debug(`🔄 Retrying with existing address: ${targetProperty.address}`);
           batchData = await batchDataService.getPropertyAnalysis(targetProperty.address, parsedUrl.zpid);
         }
         
@@ -149,13 +150,13 @@ export async function POST(request: NextRequest) {
         if (!batchData && addressFromUrl.includes(' ')) {
           const zipMatch = addressFromUrl.match(/\b\d{5}\b/);
           if (zipMatch) {
-            console.log(`🔄 Retrying with ZIP code search: ${zipMatch[0]}`);
+            logger.debug(`🔄 Retrying with ZIP code search: ${zipMatch[0]}`);
             batchData = await batchDataService.getPropertyAnalysis(zipMatch[0], parsedUrl.zpid);
           }
         }
         
         if (batchData && batchDataService.validatePropertyData(batchData)) {
-          console.log(`✅ BatchData: Found property data for ${batchData.address}`);
+          logger.debug(`✅ BatchData: Found property data for ${batchData.address}`);
           
           propertyData = {
             address: batchData.address,
@@ -174,18 +175,18 @@ export async function POST(request: NextRequest) {
           if ((!propertyData.images || propertyData.images.length === 0 || 
                propertyData.images[0]?.includes('unsplash')) && parsedUrl.zpid && zillowService.isApiAvailable()) {
             try {
-              console.log(`📸 Fetching photos from Zillow for ZPID: ${parsedUrl.zpid}`);
+              logger.debug(`📸 Fetching photos from Zillow for ZPID: ${parsedUrl.zpid}`);
               const zillowData = await zillowService.getPropertyData(parsedUrl.zpid);
               
               if (zillowData && zillowData.photos && zillowData.photos.length > 0) {
-                console.log(`✅ Found ${zillowData.photos.length} photos from Zillow`);
+                logger.debug(`✅ Found ${zillowData.photos.length} photos from Zillow`);
                 propertyData.images = zillowData.photos;
                 
                 // Also update the BatchData object to include real photos
                 batchData.photos = zillowData.photos;
               }
             } catch (error) {
-              console.error('Failed to fetch photos from Zillow:', error);
+              logger.error('Failed to fetch photos from Zillow:', error);
               // Continue with placeholder images
             }
           }
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
           analysisData = createBasicAnalysis(batchData);
           
           // 🚀 ENHANCED: Use BatchData + AI for comprehensive investment scoring
-          console.log('🎯 Generating enhanced investment score with BatchData intelligence...');
+          logger.debug('🎯 Generating enhanced investment score with BatchData intelligence...');
           
           try {
             const enhancedScore = await enhancedScoring.calculateEnhancedScore({
@@ -232,10 +233,10 @@ export async function POST(request: NextRequest) {
             (analysisData as any).keyOpportunities = enhancedScore.keyOpportunities;
             analysisData.aiConfidence = enhancedScore.confidence;
             
-            console.log(`✅ Enhanced investment score: ${enhancedScore.totalScore}/${enhancedScore.maxScore} (${enhancedScore.grade})`);
+            logger.debug(`✅ Enhanced investment score: ${enhancedScore.totalScore}/${enhancedScore.maxScore} (${enhancedScore.grade})`);
             
           } catch (error) {
-            console.error('❌ Enhanced scoring failed, falling back to basic AI:', error);
+            logger.error('❌ Enhanced scoring failed, falling back to basic AI:', error);
             
             // Fallback to basic AI analysis
             const aiInsights = await aiService.generatePropertyInsights(batchData as any);
@@ -292,13 +293,13 @@ export async function POST(request: NextRequest) {
           } as any, batchData.zpid);
         }
       } catch (error) {
-        console.error("Error fetching from BatchData API:", error);
+        logger.error("Error fetching from BatchData API:", error);
       }
     }
 
     // Fallback to mock data if BatchData API fails
     if (!propertyData) {
-      console.warn('⚠️ BatchData unavailable, using fallback data. Cost: $0.46 saved per analysis!');
+      logger.warn('⚠️ BatchData unavailable, using fallback data. Cost: $0.46 saved per analysis!');
       
       const mockBatchData: BatchDataPropertyData = {
         zpid: "unknown",
@@ -359,7 +360,7 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error("Error analyzing property:", error);
+    logger.error("Error analyzing property:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

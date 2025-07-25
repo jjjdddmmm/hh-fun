@@ -2,6 +2,7 @@
 // CRUD operations for step comments
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
@@ -66,7 +67,7 @@ export async function GET(
       }
     }
 
-    console.error('Step comments GET error:', error);
+    logger.error('Step comments GET error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -157,7 +158,7 @@ export async function POST(
       }
     }
 
-    console.error('Step comment POST error:', error);
+    logger.error('Step comment POST error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 

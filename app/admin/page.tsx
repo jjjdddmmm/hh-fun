@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { logger } from "@/lib/utils/logger";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,7 +60,7 @@ export default function AdminPage() {
       const data = await response.json();
       setUsageData(data);
     } catch (err) {
-      console.error('Failed to fetch usage data:', err);
+      logger.error('Failed to fetch usage data:', err);
       setError('Failed to load usage data');
     } finally {
       setLoading(false);

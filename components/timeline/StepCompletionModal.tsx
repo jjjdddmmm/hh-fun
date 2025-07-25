@@ -4,6 +4,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { logger } from "@/lib/utils/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +55,7 @@ export function StepCompletionModal({
           // Check if this step has been completed before
           await checkPreviousCompletions();
         } catch (error) {
-          console.error('Error initializing completion session:', error);
+          logger.error('Error initializing completion session:', error);
           setCompletionSessionId(`session_${step.id}_${Date.now()}`); // Fallback
         }
       };
@@ -70,7 +71,7 @@ export function StepCompletionModal({
       const sessions = await documentVersionService.getCompletionSessions(step.id);
       setPreviousCompletions(sessions.length);
     } catch (error) {
-      console.error('Error checking previous completions:', error);
+      logger.error('Error checking previous completions:', error);
       setPreviousCompletions(0);
     }
   };

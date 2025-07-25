@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { logger } from "@/lib/utils/logger";
 export async function GET(request: NextRequest) {
   try {
     const apiKey = process.env.BATCH_DATA_API_KEY;
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log('🔍 Testing BatchData API endpoints...');
+    logger.debug('🔍 Testing BatchData API endpoints...');
 
     const testResults = {
       apiKey: 'Present',
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     for (const test of endpointsToTest) {
       try {
-        console.log(`Testing ${test.method} ${test.path}`);
+        logger.debug(`Testing ${test.method} ${test.path}`);
         
         const requestConfig: any = {
           method: test.method,
@@ -118,18 +119,18 @@ export async function GET(request: NextRequest) {
         testResults.endpoints.push(result);
 
         if (response.ok) {
-          console.log(`✅ ${test.method} ${test.path} - ${response.status}`);
-          console.log('Response:', JSON.stringify(responseData, null, 2));
+          logger.debug(`✅ ${test.method} ${test.path} - ${response.status}`);
+          logger.debug('Response:', JSON.stringify(responseData, null, 2));
         } else {
-          console.log(`❌ ${test.method} ${test.path} - ${response.status} ${response.statusText}`);
-          console.log('Error response:', JSON.stringify(responseData, null, 2));
+          logger.debug(`❌ ${test.method} ${test.path} - ${response.status} ${response.statusText}`);
+          logger.debug('Error response:', JSON.stringify(responseData, null, 2));
         }
 
         // Add a small delay between requests
         await new Promise(resolve => setTimeout(resolve, 500));
 
       } catch (error) {
-        console.log(`💥 ${test.method} ${test.path} - ${error}`);
+        logger.debug(`💥 ${test.method} ${test.path} - ${error}`);
         testResults.endpoints.push({
           method: test.method,
           endpoint: test.path,
@@ -169,7 +170,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error testing BatchData API:', error);
+    logger.error('Error testing BatchData API:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

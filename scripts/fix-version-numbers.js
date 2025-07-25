@@ -1,3 +1,5 @@
+import { logger } from "@/lib/utils/logger";
+
 // Fix Document Version Numbers - Quick Fix
 // This specifically addresses the documentVersion field being all 1s
 
@@ -6,7 +8,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function fixVersionNumbers() {
-  console.log('🔧 Fixing document version numbers...');
+  logger.debug('🔧 Fixing document version numbers...');
   
   try {
     // Get all steps with documents
@@ -18,7 +20,7 @@ async function fixVersionNumbers() {
     });
 
     for (const { stepId } of steps) {
-      console.log(`\n📋 Processing step: ${stepId}`);
+      logger.debug(`\n📋 Processing step: ${stepId}`);
       
       // Get all unique sessions for this step, ordered by creation time
       const sessions = await prisma.timelineDocument.findMany({
@@ -36,14 +38,14 @@ async function fixVersionNumbers() {
         }
       });
 
-      console.log(`  📁 Found ${sessions.length} sessions`);
+      logger.debug(`  📁 Found ${sessions.length} sessions`);
 
       // Assign proper version numbers based on session chronology
       for (let i = 0; i < sessions.length; i++) {
         const session = sessions[i];
         const versionNumber = i + 1;
         
-        console.log(`  🔄 Setting session ${session.completionSessionId} to version ${versionNumber}`);
+        logger.debug(`  🔄 Setting session ${session.completionSessionId} to version ${versionNumber}`);
         
         await prisma.timelineDocument.updateMany({
           where: {
@@ -86,7 +88,7 @@ async function fixVersionNumbers() {
             const currentVersion = versions[i];
             const nextVersion = versions[i + 1];
 
-            console.log(`    🔗 Linking ${documentType} v${currentVersion.documentVersion} → v${nextVersion.documentVersion}`);
+            logger.debug(`    🔗 Linking ${documentType} v${currentVersion.documentVersion} → v${nextVersion.documentVersion}`);
 
             await prisma.timelineDocument.update({
               where: { id: currentVersion.id },
@@ -101,7 +103,7 @@ async function fixVersionNumbers() {
     }
 
     // Final verification
-    console.log('\n📊 Final verification:');
+    logger.debug('\n📊 Final verification:');
     const allDocs = await prisma.timelineDocument.findMany({
       where: {
         completionSessionId: { not: null }
@@ -131,13 +133,13 @@ async function fixVersionNumbers() {
 
     Object.entries(summary).forEach(([stepId, data]) => {
       const versions = Array.from(data.versions).sort((a, b) => a - b);
-      console.log(`  Step ${stepId}: versions [${versions.join(', ')}], ${data.current}/${data.total} current, ${data.linked} linked`);
+      logger.debug(`  Step ${stepId}: versions [${versions.join(', ')}], ${data.current}/${data.total} current, ${data.linked} linked`);
     });
 
-    console.log('\n✅ Version number fix completed!');
+    logger.debug('\n✅ Version number fix completed!');
     
   } catch (error) {
-    console.error('❌ Error during fix:', error);
+    logger.error('❌ Error during fix:', error);
   } finally {
     await prisma.$disconnect();
   }

@@ -1,4 +1,5 @@
 import { BatchDataService } from './BatchDataService';
+import { logger } from "@/lib/utils/logger";
 import { RentcastComparable, RentcastCompsResponse } from '../rentcast-api';
 
 /**
@@ -38,22 +39,22 @@ export class BatchDataComparablesService {
   ): Promise<RentcastCompsResponse | null> {
     try {
       if (!this.batchData.isAvailable()) {
-        console.warn('BatchData API not available');
+        logger.warn('BatchData API not available');
         return null;
       }
 
-      console.log(`🔍 BatchData: Searching comparables for ${address}, ${zipCode}`);
-      console.log(`📊 Filters: ${bedrooms}bd, ${bathrooms}ba, ${squareFootage}sqft, ${radius}mi, ${propertyType}`);
+      logger.debug(`🔍 BatchData: Searching comparables for ${address}, ${zipCode}`);
+      logger.debug(`📊 Filters: ${bedrooms}bd, ${bathrooms}ba, ${squareFootage}sqft, ${radius}mi, ${propertyType}`);
 
       // Step 1: Search for properties in the area
       const searchResults = await this.searchPropertiesInArea(address, zipCode, radius, bedrooms, bathrooms, propertyType);
       
       if (!searchResults || searchResults.length === 0) {
-        console.log('❌ No properties found in search area');
+        logger.debug('❌ No properties found in search area');
         return this.createEmptyResponse();
       }
 
-      console.log(`✅ Found ${searchResults.length} properties in area`);
+      logger.debug(`✅ Found ${searchResults.length} properties in area`);
 
       // Step 2: Filter and enhance the properties
       const comparables = await this.processAndFilterProperties(
@@ -68,7 +69,7 @@ export class BatchDataComparablesService {
       // Step 3: Calculate statistics
       const stats = this.calculateStats(comparables);
 
-      console.log(`📈 Final result: ${comparables.length} comparables with enhanced BatchData`);
+      logger.debug(`📈 Final result: ${comparables.length} comparables with enhanced BatchData`);
 
       return {
         comparables,
@@ -76,7 +77,7 @@ export class BatchDataComparablesService {
       };
 
     } catch (error) {
-      console.error('Error fetching comparables from BatchData:', error);
+      logger.error('Error fetching comparables from BatchData:', error);
       return null;
     }
   }
@@ -150,7 +151,7 @@ export class BatchDataComparablesService {
 
     for (const config of endpointsToTry) {
       try {
-        console.log(`🔬 Testing BatchData endpoint: ${config.method} ${config.endpoint}`);
+        logger.debug(`🔬 Testing BatchData endpoint: ${config.method} ${config.endpoint}`);
         
         const result = await this.batchData.makeRequest(
           config.endpoint,
@@ -159,17 +160,17 @@ export class BatchDataComparablesService {
         );
 
         if (result && this.isValidPropertySearchResponse(result)) {
-          console.log(`✅ Success with ${config.method} ${config.endpoint}`);
+          logger.debug(`✅ Success with ${config.method} ${config.endpoint}`);
           return this.extractPropertiesFromResponse(result);
         }
 
       } catch (error) {
-        console.log(`❌ Failed ${config.method} ${config.endpoint}:`, error);
+        logger.debug(`❌ Failed ${config.method} ${config.endpoint}:`, error);
         continue;
       }
     }
 
-    console.log('⚠️ All BatchData endpoints failed, returning empty results');
+    logger.debug('⚠️ All BatchData endpoints failed, returning empty results');
     return [];
   }
 
@@ -216,10 +217,10 @@ export class BatchDataComparablesService {
       []
     );
 
-    console.log(`✅ Found ${Array.isArray(properties) ? properties.length : 'unknown'} properties in area`);
+    logger.debug(`✅ Found ${Array.isArray(properties) ? properties.length : 'unknown'} properties in area`);
     
     if (properties.length > 0) {
-      console.log('🔍 Sample BatchData property structure:', JSON.stringify(properties[0], null, 2).substring(0, 500) + '...');
+      logger.debug('🔍 Sample BatchData property structure:', JSON.stringify(properties[0], null, 2).substring(0, 500) + '...');
     }
     
     return Array.isArray(properties) ? properties : [];
@@ -237,58 +238,58 @@ export class BatchDataComparablesService {
     propertyType?: string
   ): Promise<RentcastComparable[]> {
     
-    console.log(`🔄 Processing ${properties.length} BatchData properties...`);
+    logger.debug(`🔄 Processing ${properties.length} BatchData properties...`);
     const comparables: RentcastComparable[] = [];
     
     for (const property of properties) {
       try {
         // Skip subject property
         const propAddress = this.extractAddress(property);
-        console.log(`🏠 Processing property: ${propAddress}`);
+        logger.debug(`🏠 Processing property: ${propAddress}`);
         
         if (propAddress === subjectAddress) {
-          console.log('⏭️ Skipping subject property');
+          logger.debug('⏭️ Skipping subject property');
           continue;
         }
 
         // Convert BatchData property to RentCast format
         const comparable = this.convertBatchDataToRentCast(property);
-        console.log(`💰 Converted property price: $${comparable?.price || 'N/A'}`);
+        logger.debug(`💰 Converted property price: $${comparable?.price || 'N/A'}`);
         
         if (!comparable || comparable.price <= 0) {
-          console.log('❌ Skipping property: no valid price');
+          logger.debug('❌ Skipping property: no valid price');
           continue;
         }
 
         // Skip suspiciously low prices (likely non-arms-length transactions)
         if (comparable.price < 100000) {
-          console.log(`❌ Skipping property: suspicious price ($${comparable.price.toLocaleString()} - likely non-arms-length)`);
+          logger.debug(`❌ Skipping property: suspicious price ($${comparable.price.toLocaleString()} - likely non-arms-length)`);
           continue;
         }
 
         // Apply flexible filters for comparables (±1-2 rooms is reasonable)
         if (bedrooms && Math.abs(comparable.bedrooms - bedrooms) > 2) {
-          console.log(`❌ Skipping property: bedroom too different (${comparable.bedrooms} vs ${bedrooms})`);
+          logger.debug(`❌ Skipping property: bedroom too different (${comparable.bedrooms} vs ${bedrooms})`);
           continue;
         }
         if (bathrooms && Math.abs(comparable.bathrooms - bathrooms) > 2) {
-          console.log(`❌ Skipping property: bathroom too different (${comparable.bathrooms} vs ${bathrooms})`);
+          logger.debug(`❌ Skipping property: bathroom too different (${comparable.bathrooms} vs ${bathrooms})`);
           continue;
         }
         // Skip property type filtering - all single family residential should be included
         const dateStr = comparable.soldDate ? ` (sold ${new Date(comparable.soldDate).toLocaleDateString()})` : ' (active listing)';
-        console.log(`✅ Including property: ${comparable.address} - ${comparable.bedrooms}bd/${comparable.bathrooms}ba - $${comparable.price.toLocaleString()}${dateStr}`);
+        logger.debug(`✅ Including property: ${comparable.address} - ${comparable.bedrooms}bd/${comparable.bathrooms}ba - $${comparable.price.toLocaleString()}${dateStr}`);
         
         // Filter to recent sales (last 3 years) or active listings
         if (!this.isRecentOrActive(comparable)) {
-          console.log('❌ Skipping property: not recent sale or active listing');
+          logger.debug('❌ Skipping property: not recent sale or active listing');
           continue;
         }
 
         comparables.push(comparable);
 
       } catch (error) {
-        console.warn('Error processing property:', error);
+        logger.warn('Error processing property:', error);
         continue;
       }
     }
@@ -318,10 +319,10 @@ export class BatchDataComparablesService {
       const bedrooms = this.extractBedrooms(property);
       const bathrooms = this.extractBathrooms(property);
       
-      console.log(`🏠 Property details extraction for ${address}:`);
-      console.log(`  - Bedrooms: ${bedrooms} (from building.bedroomCount: ${property.building?.bedroomCount}, mls.bedroomCount: ${property.mls?.bedroomCount})`);
-      console.log(`  - Bathrooms: ${bathrooms} (from building.bathroomCount: ${property.building?.bathroomCount}, mls.bathroomCount: ${property.mls?.bathroomCount})`);
-      console.log(`  - Square footage: ${squareFootage}`);
+      logger.debug(`🏠 Property details extraction for ${address}:`);
+      logger.debug(`  - Bedrooms: ${bedrooms} (from building.bedroomCount: ${property.building?.bedroomCount}, mls.bedroomCount: ${property.mls?.bedroomCount})`);
+      logger.debug(`  - Bathrooms: ${bathrooms} (from building.bathroomCount: ${property.building?.bathroomCount}, mls.bathroomCount: ${property.mls?.bathroomCount})`);
+      logger.debug(`  - Square footage: ${squareFootage}`);
       
       // Extract enhanced BatchData insights
       const insights = this.extractPropertyInsights(property);
@@ -350,7 +351,7 @@ export class BatchDataComparablesService {
       };
       
     } catch (error) {
-      console.warn('Error converting BatchData property:', error);
+      logger.warn('Error converting BatchData property:', error);
       return null;
     }
   }
@@ -475,13 +476,13 @@ export class BatchDataComparablesService {
     const deedPrice = property.deedHistory?.[0]?.salePrice;
     
     // Debug logging for all properties to understand patterns
-    console.log('🔍 Enhanced price extraction debug:');
-    console.log(`  Property: ${property.address?.street || 'unknown'}`);
-    console.log('  - mls.soldPrice:', mlsSoldPrice);
-    console.log('  - sale.lastSale.price:', saleLastPrice);
-    console.log('  - intel.lastSoldPrice (derived):', intelPrice);
-    console.log('  - mls.price (listing):', mlsPrice);
-    console.log('  - valuation.estimatedValue:', valuationPrice);
+    logger.debug('🔍 Enhanced price extraction debug:');
+    logger.debug(`  Property: ${property.address?.street || 'unknown'}`);
+    logger.debug('  - mls.soldPrice:', mlsSoldPrice);
+    logger.debug('  - sale.lastSale.price:', saleLastPrice);
+    logger.debug('  - intel.lastSoldPrice (derived):', intelPrice);
+    logger.debug('  - mls.price (listing):', mlsPrice);
+    logger.debug('  - valuation.estimatedValue:', valuationPrice);
     
     // Prioritize actual transaction prices (best to least reliable)
     // 1. Intel derived price (most reliable - combines assessor + MLS)
@@ -494,23 +495,23 @@ export class BatchDataComparablesService {
     
     if (validPrices.length > 0) {
       const selectedPrice = validPrices[0];
-      console.log(`  ✅ Selected actual sale price: $${selectedPrice.toLocaleString()}`);
+      logger.debug(`  ✅ Selected actual sale price: $${selectedPrice.toLocaleString()}`);
       return selectedPrice;
     }
     
     // Fall back to current listing price for active properties
     if (mlsPrice && mlsPrice > 10000) {
-      console.log(`  📋 Using current listing price: $${mlsPrice.toLocaleString()}`);
+      logger.debug(`  📋 Using current listing price: $${mlsPrice.toLocaleString()}`);
       return mlsPrice;
     }
     
     // Final fallback to AVM valuation
     if (valuationPrice && valuationPrice > 10000) {
-      console.log(`  📊 Using AVM valuation: $${valuationPrice.toLocaleString()}`);
+      logger.debug(`  📊 Using AVM valuation: $${valuationPrice.toLocaleString()}`);
       return valuationPrice;
     }
     
-    console.log(`  ❌ No valid price found`);
+    logger.debug(`  ❌ No valid price found`);
     return 0;
   }
 
@@ -589,7 +590,7 @@ export class BatchDataComparablesService {
     // For sandbox environment, allow older data for testing purposes
     const isSandbox = process.env.BATCH_DATA_API_KEY?.includes('wcaJ');
     if (isSandbox) {
-      console.log(`🧪 Sandbox mode: accepting older sale data for testing`);
+      logger.debug(`🧪 Sandbox mode: accepting older sale data for testing`);
       return true; // Accept all dates in sandbox
     }
     
@@ -651,7 +652,7 @@ export function createBatchDataComparablesService(useProduction: boolean = false
     const service = new BatchDataComparablesService(useProduction);
     return service.isAvailable() ? service : null;
   } catch (error) {
-    console.error('Failed to create BatchData comparables service:', error);
+    logger.error('Failed to create BatchData comparables service:', error);
     return null;
   }
 }

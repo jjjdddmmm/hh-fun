@@ -1,3 +1,5 @@
+import { logger } from "@/lib/utils/logger";
+
 // Clean Zillow API integration via RapidAPI
 
 export interface ZillowPropertyData {
@@ -93,7 +95,7 @@ export class ZillowAPI {
       
       return this.normalizePropertyData(data);
     } catch (error) {
-      console.error('Error fetching property from Zillow:', error);
+      logger.error('Error fetching property from Zillow:', error);
       return null;
     }
   }
@@ -102,7 +104,7 @@ export class ZillowAPI {
     try {
       return await this.makeRequest('/propertyExtendedSearch', { zpid });
     } catch (error) {
-      console.error('Error fetching extended property data:', error);
+      logger.error('Error fetching extended property data:', error);
       return null;
     }
   }
@@ -267,7 +269,7 @@ export class ZillowAPI {
 export function createZillowAPI(): ZillowAPI | null {
   const apiKey = process.env.ZILLOW_API_KEY;
   if (!apiKey) {
-    console.error('ZILLOW_API_KEY not found in environment variables');
+    logger.error('ZILLOW_API_KEY not found in environment variables');
     return null;
   }
   

@@ -1,5 +1,6 @@
 import { createAIAnalysisService } from './AIAnalysisService';
 
+import { logger } from "@/lib/utils/logger";
 /**
  * Enhanced Investment Scoring Service
  * Uses BatchData intelligence + AI analysis for accurate investment scoring
@@ -57,7 +58,7 @@ export class EnhancedInvestmentScoringService {
    * Calculate comprehensive investment score using BatchData intelligence + AI
    */
   async calculateEnhancedScore(property: any, batchDataIntelligence?: any): Promise<EnhancedInvestmentScore> {
-    console.log('🔍 Calculating enhanced investment score with BatchData intelligence...');
+    logger.debug('🔍 Calculating enhanced investment score with BatchData intelligence...');
     
     // Extract BatchData intelligence from property or separate parameter
     const intelligence = batchDataIntelligence || this.extractBatchDataIntelligence(property);
@@ -82,7 +83,7 @@ export class EnhancedInvestmentScoringService {
     // Generate AI insights
     const aiAnalysis = await this.generateAIInsights(property, intelligence, percentage);
     
-    console.log(`💎 Investment Score: ${totalScore}/${maxScore} (${percentage.toFixed(1)}%) - Grade: ${grade}`);
+    logger.debug(`💎 Investment Score: ${totalScore}/${maxScore} (${percentage.toFixed(1)}%) - Grade: ${grade}`);
     
     return {
       totalScore,
@@ -437,7 +438,7 @@ Focus on:
       };
 
     } catch (error) {
-      console.error('Error generating AI insights:', error);
+      logger.error('Error generating AI insights:', error);
       return {
         confidence: 70,
         insights: ['Analysis based on BatchData intelligence and market factors'],
@@ -497,7 +498,7 @@ Focus on:
       recentlySold: property.quickLists?.recentlySold
     };
 
-    console.log('📊 Extracted BatchData intelligence for scoring:', intelligence);
+    logger.debug('📊 Extracted BatchData intelligence for scoring:', intelligence);
     return intelligence;
   }
 

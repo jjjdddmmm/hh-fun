@@ -6,8 +6,10 @@
 import { DocumentExtractor, DocumentBuffer, ExtractionResult, ExtractorConfig, SupportedFileType, ExtractionMethod } from '../types/DocumentTypes';
 import { DocumentLogger } from '../utils/DocumentLogger';
 import { GoogleVisionExtractor } from './GoogleVisionExtractor';
+import { ChunkedGoogleVisionExtractor } from './ChunkedGoogleVisionExtractor';
 import { VisionExtractor } from './VisionExtractor';
-import { logger } from '@/lib/utils/logger';
+import { PDFPageCounter } from '../utils/PDFPageCounter';
+import { logger } from '../../../utils/logger';
 
 export class HybridExtractor implements DocumentExtractor {
   readonly name = 'HybridExtractor';
@@ -15,12 +17,14 @@ export class HybridExtractor implements DocumentExtractor {
   
   private readonly visionExtractor: VisionExtractor;
   private readonly googleVisionExtractor: GoogleVisionExtractor;
+  private readonly chunkedGoogleVisionExtractor: ChunkedGoogleVisionExtractor;
   private readonly ocrTimeout = 30000; // 30 seconds for OCR
   private readonly analysisTimeout = 90000; // 90 seconds for full analysis
 
   constructor() {
     this.visionExtractor = new VisionExtractor();
     this.googleVisionExtractor = new GoogleVisionExtractor();
+    this.chunkedGoogleVisionExtractor = new ChunkedGoogleVisionExtractor();
   }
 
   canHandle(fileType: SupportedFileType): boolean {
@@ -107,10 +111,21 @@ export class HybridExtractor implements DocumentExtractor {
         return { success: false, text: '', error: 'Google Vision OCR not supported for this file type' };
       }
 
-      // Perform Google Vision OCR extraction
-      const ocrResult = await this.googleVisionExtractor.extract(document, {
+      // Determine if we need chunked processing for large PDFs
+      const useChunkedProcessing = await this.shouldUseChunkedProcessing(document);
+      
+      DocumentLogger.logStep(
+        'OCR Strategy', 
+        `Using ${useChunkedProcessing ? 'chunked' : 'standard'} Google Vision processing`, 
+        undefined, 
+        { fileName: document.metadata.fileName, chunked: useChunkedProcessing }
+      );
+
+      // Perform Google Vision OCR extraction (chunked or standard)
+      const extractor = useChunkedProcessing ? this.chunkedGoogleVisionExtractor : this.googleVisionExtractor;
+      const ocrResult = await extractor.extract(document, {
         ...config,
-        timeout: this.ocrTimeout
+        timeout: useChunkedProcessing ? this.ocrTimeout * 3 : this.ocrTimeout // Extended timeout for chunked
       });
 
       DocumentLogger.logStep(
@@ -306,6 +321,55 @@ export class HybridExtractor implements DocumentExtractor {
       method: ExtractionMethod.HYBRID,
       error: `Hybrid extraction failed: OCR ${ocrResult.success ? 'succeeded' : 'failed'}, Analysis failed`
     };
+  }
+
+  /**
+   * Determine if chunked processing is needed for large documents
+   */
+  private async shouldUseChunkedProcessing(document: DocumentBuffer): Promise<boolean> {
+    // Only PDFs might need chunking
+    if (document.metadata.fileType !== SupportedFileType.PDF) {
+      return false;
+    }
+
+    try {
+      // Quick page count check
+      const pageCountResult = await PDFPageCounter.countPages(document.buffer, document.metadata.fileName);
+      
+      if (!pageCountResult.success) {
+        // If we can't count pages, default to chunked processing for large files
+        const fileSizeMB = document.metadata.fileSize / (1024 * 1024);
+        DocumentLogger.logStep(
+          'Chunking Decision',
+          `Page count failed, using file size heuristic: ${fileSizeMB.toFixed(2)}MB`,
+          undefined,
+          { fileName: document.metadata.fileName, fileSizeMB, useChunking: fileSizeMB > 10 }
+        );
+        return fileSizeMB > 10; // If file > 10MB, assume it might be large
+      }
+
+      const needsChunking = PDFPageCounter.needsChunking(pageCountResult.pageCount);
+      
+      DocumentLogger.logStep(
+        'Chunking Decision',
+        `Document has ${pageCountResult.pageCount} pages, ${needsChunking ? 'chunking required' : 'no chunking needed'}`,
+        undefined,
+        { 
+          fileName: document.metadata.fileName, 
+          pageCount: pageCountResult.pageCount, 
+          needsChunking 
+        }
+      );
+
+      return needsChunking;
+
+    } catch (error) {
+      logger.warn('Error determining chunking needs, defaulting to standard processing', {
+        fileName: document.metadata.fileName,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return false;
+    }
   }
 
   /**

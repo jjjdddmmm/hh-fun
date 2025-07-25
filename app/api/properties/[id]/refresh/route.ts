@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -55,7 +56,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error("❌ Error refreshing property:", error);
+    logger.error("❌ Error refreshing property:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

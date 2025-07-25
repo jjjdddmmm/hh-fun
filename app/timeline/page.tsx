@@ -4,6 +4,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import { logger } from "@/lib/utils/logger";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -113,7 +114,7 @@ function TimelinePageContent() {
       }
 
     } catch (error) {
-      console.error('Error loading user timelines:', error);
+      logger.error('Error loading user timelines:', error);
       setError(error instanceof Error ? error.message : 'Failed to load timelines');
       setIsLoading(false);
     }
@@ -159,14 +160,14 @@ function TimelinePageContent() {
             }
           })
           .catch(error => {
-            console.warn('Analytics loading failed (non-blocking):', error);
+            logger.warn('Analytics loading failed (non-blocking):', error);
             // Set empty analytics to prevent layout shift
             setAnalytics({});
           });
       }
 
     } catch (error) {
-      console.error('Error loading timeline:', error);
+      logger.error('Error loading timeline:', error);
       setError(error instanceof Error ? error.message : 'Failed to load timeline');
     } finally {
       setIsLoading(false);
@@ -248,11 +249,11 @@ function TimelinePageContent() {
             }
           })
           .catch(error => {
-            console.warn('Analytics refresh failed (non-blocking):', error);
+            logger.warn('Analytics refresh failed (non-blocking):', error);
           });
       }
     } catch (error) {
-      console.error('Error refreshing timeline:', error);
+      logger.error('Error refreshing timeline:', error);
     }
   };
 
@@ -274,7 +275,7 @@ function TimelinePageContent() {
           }
         }
       } catch (error) {
-        console.warn('Failed to load team data:', error);
+        logger.warn('Failed to load team data:', error);
       }
     }
     
@@ -294,7 +295,7 @@ function TimelinePageContent() {
           }
         }
       } catch (error) {
-        console.warn('Failed to load documents data:', error);
+        logger.warn('Failed to load documents data:', error);
       }
     }
   };
@@ -323,7 +324,7 @@ function TimelinePageContent() {
 
   const handlePriceSave = () => {
     // Here you would typically save to the backend
-    console.log('Saving price:', editedPrice);
+    logger.debug('Saving price:', editedPrice);
     setIsEditingPrice(false);
   };
 
@@ -335,7 +336,7 @@ function TimelinePageContent() {
   const handleDaysSave = (days: number) => {
     setEditedDays(days);
     // Here you would typically save to the backend
-    console.log('Saving days:', days);
+    logger.debug('Saving days:', days);
   };
 
   const getStatusColor = (status: string) => {

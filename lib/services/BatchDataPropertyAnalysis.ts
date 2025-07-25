@@ -1,4 +1,5 @@
 import { BatchDataService } from './BatchDataService';
+import { logger } from "@/lib/utils/logger";
 import { BatchDataComparablesService } from './BatchDataComparablesService';
 
 /**
@@ -71,11 +72,11 @@ export class BatchDataPropertyAnalysisService {
   async getPropertyAnalysis(address: string, zpid?: string): Promise<BatchDataPropertyData | null> {
     try {
       if (!this.batchData.isAvailable()) {
-        console.warn('BatchData API not available for property analysis');
+        logger.warn('BatchData API not available for property analysis');
         return null;
       }
 
-      console.log(`🏠 BatchData: Analyzing property at ${address}`);
+      logger.debug(`🏠 BatchData: Analyzing property at ${address}`);
 
       // Multiple search strategies for better property discovery
       let properties: any[] = [];
@@ -110,26 +111,26 @@ export class BatchDataPropertyAnalysisService {
 
       for (const strategy of searchStrategies) {
         try {
-          console.log(`🔎 Trying ${strategy.name} search: "${strategy.query.searchCriteria.query}"`);
+          logger.debug(`🔎 Trying ${strategy.name} search: "${strategy.query.searchCriteria.query}"`);
           
           const searchResult = await this.batchData.makeRequest('/api/v1/property/search', strategy.query, 'POST');
           
           if (searchResult.success && searchResult.data) {
             const foundProperties = this.extractPropertiesFromResponse(searchResult.data);
             if (foundProperties.length > 0) {
-              console.log(`✅ ${strategy.name} found ${foundProperties.length} properties`);
+              logger.debug(`✅ ${strategy.name} found ${foundProperties.length} properties`);
               properties = foundProperties;
               break;
             }
           }
         } catch (error) {
-          console.log(`❌ ${strategy.name} failed:`, error);
+          logger.debug(`❌ ${strategy.name} failed:`, error);
           continue;
         }
       }
 
       if (properties.length === 0) {
-        console.error('❌ No properties found with any search strategy');
+        logger.error('❌ No properties found with any search strategy');
         return null;
       }
 
@@ -145,13 +146,13 @@ export class BatchDataPropertyAnalysisService {
         });
         if (exactMatch) {
           property = exactMatch;
-          console.log('🎯 Found exact address match');
+          logger.debug('🎯 Found exact address match');
         }
       }
       
       const extractedAddress = this.extractAddress(property);
-      console.log(`✅ Selected property: ${extractedAddress}`);
-      console.log(`📊 Property data preview:`, {
+      logger.debug(`✅ Selected property: ${extractedAddress}`);
+      logger.debug(`📊 Property data preview:`, {
         price: this.extractPrice(property),
         bedrooms: this.extractBedrooms(property),
         bathrooms: this.extractBathrooms(property),
@@ -177,12 +178,12 @@ export class BatchDataPropertyAnalysisService {
         propertyData.rentZestimate = property.rental.estimatedRent;
       }
 
-      console.log(`📊 BatchData analysis complete: $${propertyData.price?.toLocaleString()} | ${propertyData.bedrooms}bd/${propertyData.bathrooms}ba | ${propertyData.livingArea}sqft`);
+      logger.debug(`📊 BatchData analysis complete: $${propertyData.price?.toLocaleString()} | ${propertyData.bedrooms}bd/${propertyData.bathrooms}ba | ${propertyData.livingArea}sqft`);
       
       return propertyData;
 
     } catch (error) {
-      console.error('Error in BatchData property analysis:', error);
+      logger.error('Error in BatchData property analysis:', error);
       return null;
     }
   }
@@ -207,7 +208,7 @@ export class BatchDataPropertyAnalysisService {
       );
 
       if (!comparables || comparables.comparables.length === 0) {
-        console.warn('No comparables found for property analysis');
+        logger.warn('No comparables found for property analysis');
         return null;
       }
 
@@ -236,7 +237,7 @@ export class BatchDataPropertyAnalysisService {
       };
 
     } catch (error) {
-      console.error('Error getting comparable analysis:', error);
+      logger.error('Error getting comparable analysis:', error);
       return null;
     }
   }
@@ -245,14 +246,14 @@ export class BatchDataPropertyAnalysisService {
    * Convert BatchData property to expected format
    */
   private convertBatchDataToPropertyData(property: any, zpid?: string): BatchDataPropertyData {
-    console.log('🔧 Converting BatchData property to expected format...');
-    console.log('📊 Raw property data keys:', Object.keys(property));
+    logger.debug('🔧 Converting BatchData property to expected format...');
+    logger.debug('📊 Raw property data keys:', Object.keys(property));
     
     // Log MLS data specifically to check for photos
     if (property.mls) {
-      console.log('📷 MLS data available, keys:', Object.keys(property.mls));
+      logger.debug('📷 MLS data available, keys:', Object.keys(property.mls));
       if (property.mls.photos || property.mls.images || property.mls.media) {
-        console.log('🖼️ Found MLS photos/images/media!');
+        logger.debug('🖼️ Found MLS photos/images/media!');
       }
     }
     
@@ -264,7 +265,7 @@ export class BatchDataPropertyAnalysisService {
                       property.mls?.totalBuildingAreaSquareFeet || 
                       property.squareFootage || 2000;
     
-    console.log('🏠 Extracted core data:', {
+    logger.debug('🏠 Extracted core data:', {
       address,
       price,
       bedrooms,
@@ -308,7 +309,7 @@ export class BatchDataPropertyAnalysisService {
       rentZestimate: property.rental?.estimatedRent || property.rentEstimate || 0
     };
     
-    console.log('✅ Final property data:', {
+    logger.debug('✅ Final property data:', {
       zpid: propertyData.zpid,
       address: propertyData.address,
       price: propertyData.price,
@@ -351,7 +352,7 @@ export class BatchDataPropertyAnalysisService {
     quickLists.absenteeOwner = false;
     quickLists.ownerOccupied = true;
     
-    console.log('📈 Generated quick lists:', quickLists);
+    logger.debug('📈 Generated quick lists:', quickLists);
     return quickLists;
   }
 
@@ -392,7 +393,7 @@ export class BatchDataPropertyAnalysisService {
     const salePrice = property.sale?.lastSale?.price;
     const assessedValue = property.assessment?.assessedValue;
     
-    console.log('💰 Price extraction debug:', {
+    logger.debug('💰 Price extraction debug:', {
       intel: intelPrice,
       mlsSold: mlsSoldPrice,
       mlsListing: mlsPrice,
@@ -402,7 +403,7 @@ export class BatchDataPropertyAnalysisService {
     });
     
     const price = intelPrice || mlsSoldPrice || mlsPrice || valuationPrice || salePrice || assessedValue || 500000;
-    console.log(`✅ Selected price: $${price.toLocaleString()}`);
+    logger.debug(`✅ Selected price: $${price.toLocaleString()}`);
     
     return price;
   }
@@ -475,7 +476,7 @@ export class BatchDataPropertyAnalysisService {
     const listingPhotos = property.listing?.photos || property.listing?.images;
     
     // Log to help debug what fields are available
-    console.log('🖼️ Photo extraction debug:', {
+    logger.debug('🖼️ Photo extraction debug:', {
       hasMlsPhotos: !!mlsPhotos,
       hasPropertyPhotos: !!propertyPhotos,
       hasListingPhotos: !!listingPhotos,
@@ -488,12 +489,12 @@ export class BatchDataPropertyAnalysisService {
     
     // If we have real photos, return them (ensure they're in array format)
     if (realPhotos && Array.isArray(realPhotos) && realPhotos.length > 0) {
-      console.log(`✅ Found ${realPhotos.length} actual property photos from BatchData`);
+      logger.debug(`✅ Found ${realPhotos.length} actual property photos from BatchData`);
       return realPhotos.slice(0, 10); // Limit to 10 photos max
     }
     
     // If no real photos available, use contextual placeholder images
-    console.log('⚠️ No actual photos found in BatchData, using placeholder images');
+    logger.debug('⚠️ No actual photos found in BatchData, using placeholder images');
     
     const hasPool = property.building?.pool || property.quickLists?.pool;
     const propertyType = property.building?.propertyType || property.mls?.propertyType || 'Single Family';
@@ -614,7 +615,7 @@ export function createBatchDataPropertyAnalysisService(useProduction: boolean = 
     const service = new BatchDataPropertyAnalysisService(useProduction);
     return service.isAvailable() ? service : null;
   } catch (error) {
-    console.error('Failed to create BatchData property analysis service:', error);
+    logger.error('Failed to create BatchData property analysis service:', error);
     return null;
   }
 }

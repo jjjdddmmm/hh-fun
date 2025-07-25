@@ -3,6 +3,7 @@
 
 import { v2 as cloudinary } from 'cloudinary';
 
+import { logger } from "@/lib/utils/logger";
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dk2knxbfj',
@@ -11,11 +12,7 @@ cloudinary.config({
 });
 
 // Debug: Check if configuration is loaded
-console.log('Cloudinary config:', {
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dk2knxbfj',
-  api_key: process.env.CLOUDINARY_API_KEY ? 'SET' : 'NOT SET',
-  api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'NOT SET',
-});
+// logger.debug("API call made");
 
 // Upload options for timeline documents
 export interface DocumentUploadOptions {
@@ -37,7 +34,7 @@ export async function uploadDocument(
   format: string;
 }> {
   try {
-    console.log('Cloudinary upload starting for:', options.fileName);
+    logger.debug('Cloudinary upload starting for:', options.fileName);
     
     // Create folder structure: timeline/{timelineId}/{stepId}
     const folder = `timeline/${options.timelineId}/${options.stepId}`;
@@ -48,19 +45,25 @@ export async function uploadDocument(
       .replace(/_{2,}/g, '_') // Replace multiple underscores with single
       .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
     
-    console.log('Sanitized filename:', sanitizedFileName);
-    console.log('Upload folder:', folder);
+    logger.debug('Sanitized filename:', sanitizedFileName);
+    logger.debug('Upload folder:', folder);
     
     return new Promise((resolve, reject) => {
+      // Determine resource type based on file type to preserve PDFs
+      const resourceType = getResourceType(options.fileName);
+      
       const stream = cloudinary.uploader.upload_stream(
         {
           folder,
-          resource_type: "auto",
+          resource_type: resourceType,
           public_id: `${sanitizedFileName}-${Date.now()}`,
-          transformation: [
-            { quality: "auto" },
-            { fetch_format: "auto" }
-          ],
+          // Only apply transformations to non-raw resources
+          ...(resourceType !== 'raw' && {
+            transformation: [
+              { quality: "auto" },
+              { fetch_format: "auto" }
+            ]
+          }),
           tags: [
             "timeline", 
             "step-document", 
@@ -77,11 +80,30 @@ export async function uploadDocument(
           if (error) {
             reject(error);
           } else if (result) {
-            // Generate thumbnail URL for preview (300x200 crop)
-            const thumbnailUrl = result.secure_url.replace(
-              '/upload/', 
-              '/upload/w_300,h_200,c_fill,f_auto,q_auto/'
-            );
+            // Generate thumbnail URL for preview - handle raw resources differently
+            let thumbnailUrl;
+            if (resourceType === 'raw') {
+              // For raw resources (PDFs), convert to image thumbnail
+              thumbnailUrl = cloudinary.url(result.public_id, {
+                resource_type: 'raw',
+                transformation: [
+                  { 
+                    width: 300, 
+                    height: 200, 
+                    crop: 'fill',
+                    format: 'jpg',
+                    quality: 'auto',
+                    page: 1 // First page for PDF thumbnails
+                  }
+                ]
+              });
+            } else {
+              // For regular images, use direct transformation
+              thumbnailUrl = result.secure_url.replace(
+                '/upload/', 
+                '/upload/w_300,h_200,c_fill,f_auto,q_auto/'
+              );
+            }
 
             resolve({
               url: result.secure_url,
@@ -100,7 +122,7 @@ export async function uploadDocument(
       stream.end(fileBuffer);
     });
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    logger.error('Cloudinary upload error:', error);
     throw new Error(`Failed to upload document: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -110,7 +132,7 @@ export async function deleteDocument(publicId: string): Promise<void> {
   try {
     await cloudinary.uploader.destroy(publicId);
   } catch (error) {
-    console.error('Cloudinary delete error:', error);
+    logger.error('Cloudinary delete error:', error);
     throw new Error(`Failed to delete document: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -122,6 +144,41 @@ export function generateSignedUrl(publicId: string, expiresIn: number = 3600): s
   return cloudinary.utils.private_download_url(publicId, 'auto', {
     expires_at: timestamp
   });
+}
+
+// Helper function to determine resource type based on file extension
+function getResourceType(fileName: string): 'auto' | 'image' | 'video' | 'raw' {
+  const extension = fileName.toLowerCase().split('.').pop();
+  
+  switch (extension) {
+    case 'pdf':
+      // PDFs as raw to preserve original format and prevent conversion to images
+      return 'raw';
+    case 'doc':
+    case 'docx':
+    case 'txt':
+    case 'rtf':
+      // Documents as raw to preserve original format
+      return 'raw';
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'bmp':
+    case 'webp':
+    case 'svg':
+      // Images can use auto (allows transformations)
+      return 'auto';
+    case 'mp4':
+    case 'mov':
+    case 'avi':
+    case 'wmv':
+      // Videos use video resource type
+      return 'video';
+    default:
+      // Unknown files as raw to preserve original format
+      return 'raw';
+  }
 }
 
 export default cloudinary;

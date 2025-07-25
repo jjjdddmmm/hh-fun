@@ -1,10 +1,12 @@
+import { logger } from "@/lib/utils/logger";
+
 // Test what inspection reports are available in the database
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function testInspectionReports() {
   try {
-    console.log('🔍 Testing inspection reports query...');
+    logger.debug('🔍 Testing inspection reports query...');
     
     // Check all timeline documents
     const allDocs = await prisma.timelineDocument.findMany({
@@ -25,7 +27,7 @@ async function testInspectionReports() {
       }
     });
     
-    console.log(`📄 Total documents in database: ${allDocs.length}`);
+    logger.debug(`📄 Total documents in database: ${allDocs.length}`);
     
     // Filter for inspection documents
     const inspectionDocs = allDocs.filter(doc => 
@@ -34,23 +36,23 @@ async function testInspectionReports() {
       doc.isCurrentVersion === true
     );
     
-    console.log(`🔍 Inspection documents (completed, current): ${inspectionDocs.length}`);
+    logger.debug(`🔍 Inspection documents (completed, current): ${inspectionDocs.length}`);
     
     if (inspectionDocs.length > 0) {
-      console.log('\n📋 Available inspection reports:');
+      logger.debug('\n📋 Available inspection reports:');
       inspectionDocs.forEach((doc, i) => {
-        console.log(`  ${i + 1}. ${doc.originalName}`);
-        console.log(`     Step: ${doc.step?.title}`);
-        console.log(`     User: ${doc.timeline.userId}`);
-        console.log(`     Size: ${doc.fileSize} bytes`);
-        console.log(`     Created: ${doc.createdAt}`);
-        console.log('');
+        logger.debug(`  ${i + 1}. ${doc.originalName}`);
+        logger.debug(`     Step: ${doc.step?.title}`);
+        logger.debug(`     User: ${doc.timeline.userId}`);
+        logger.debug(`     Size: ${doc.fileSize} bytes`);
+        logger.debug(`     Created: ${doc.createdAt}`);
+        logger.debug('');
       });
     } else {
-      console.log('\n❌ No inspection reports found. To test:');
-      console.log('1. Complete some inspection steps in timeline');
-      console.log('2. Upload documents to those steps');
-      console.log('3. Make sure steps are marked as completed');
+      logger.debug('\n❌ No inspection reports found. To test:');
+      logger.debug('1. Complete some inspection steps in timeline');
+      logger.debug('2. Upload documents to those steps');
+      logger.debug('3. Make sure steps are marked as completed');
     }
     
     // Show breakdown by step category
@@ -61,13 +63,13 @@ async function testInspectionReports() {
       categoryBreakdown[category]++;
     });
     
-    console.log('\n📊 Documents by step category:');
+    logger.debug('\n📊 Documents by step category:');
     Object.entries(categoryBreakdown).forEach(([category, count]) => {
-      console.log(`  ${category}: ${count}`);
+      logger.debug(`  ${category}: ${count}`);
     });
     
   } catch (error) {
-    console.error('❌ Error:', error);
+    logger.error('❌ Error:', error);
   } finally {
     await prisma.$disconnect();
   }

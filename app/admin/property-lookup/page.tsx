@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { logger } from "@/lib/utils/logger";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,7 +79,7 @@ export default function PropertyLookupPage() {
       const data = await response.json();
       setResult(data);
     } catch (err) {
-      console.error('Property lookup failed:', err);
+      logger.error('Property lookup failed:', err);
       setError('Failed to lookup property');
     } finally {
       setLoading(false);
@@ -91,7 +92,7 @@ export default function PropertyLookupPage() {
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      logger.error('Failed to copy:', err);
     }
   };
 
@@ -121,7 +122,7 @@ export default function PropertyLookupPage() {
       const data = await response.json();
       setAiAnalysis(data.analysis);
     } catch (err) {
-      console.error('AI analysis failed:', err);
+      logger.error('AI analysis failed:', err);
       setAiError('Failed to analyze property with Deal Maker AI');
     } finally {
       setAnalyzingAI(false);

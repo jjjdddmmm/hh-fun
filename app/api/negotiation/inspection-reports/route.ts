@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedReports);
 
   } catch (error) {
-    console.error('Error fetching inspection reports:', error);
+    logger.error('Error fetching inspection reports:', error);
     return NextResponse.json(
       { error: 'Failed to fetch inspection reports' },
       { status: 500 }

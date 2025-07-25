@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { documentVersionService } from '@/lib/services/DocumentVersionService';
 
@@ -38,7 +39,7 @@ export async function GET(
     return NextResponse.json(serializedResult);
 
   } catch (error) {
-    console.error('Error loading step documents:', error);
+    logger.error('Error loading step documents:', error);
     return NextResponse.json(
       { error: 'Failed to load step documents' },
       { status: 500 }

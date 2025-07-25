@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { logger } from "@/lib/utils/logger";
 import { prisma } from '@/lib/prisma';
 
 export interface NegotiationAnalysis {
@@ -77,7 +78,7 @@ export class DealMakerAgent {
             // Try to parse the JSON directly
             analysis = JSON.parse(jsonMatch[0]) as NegotiationAnalysis;
           } catch (parseError) {
-            console.error('❌ JSON parsing failed, attempting to fix malformed JSON:', parseError);
+            logger.error('❌ JSON parsing failed, attempting to fix malformed JSON:', parseError);
             
             // Try to fix common JSON issues
             let fixedJson = jsonMatch[0]
@@ -90,9 +91,9 @@ export class DealMakerAgent {
             
             try {
               analysis = JSON.parse(fixedJson) as NegotiationAnalysis;
-              console.log('✅ Successfully parsed fixed JSON');
+              logger.debug('✅ Successfully parsed fixed JSON');
             } catch (secondError) {
-              console.error('❌ Failed to fix JSON, using fallback analysis');
+              logger.error('❌ Failed to fix JSON, using fallback analysis');
               return this.getFallbackAnalysis(propertyData, buyerProfile);
             }
           }
@@ -106,7 +107,7 @@ export class DealMakerAgent {
       
       throw new Error('Failed to parse negotiation analysis');
     } catch (error) {
-      console.error('DealMakerAgent error:', error);
+      logger.error('DealMakerAgent error:', error);
       return this.getFallbackAnalysis(propertyData, buyerProfile);
     }
   }
@@ -222,7 +223,7 @@ CRITICAL: Respond with ONLY valid JSON format. Use double quotes for all propert
         }
       });
     } catch (error) {
-      console.error('Failed to save negotiation analysis:', error);
+      logger.error('Failed to save negotiation analysis:', error);
     }
   }
 

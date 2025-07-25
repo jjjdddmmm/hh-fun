@@ -4,6 +4,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { logger } from "@/lib/utils/logger";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -177,7 +178,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
       }
       
     } catch (error) {
-      console.error('Error updating step:', error);
+      logger.error('Error updating step:', error);
       // TODO: Show user-friendly error message
     } finally {
       setIsUpdating(null);
@@ -216,7 +217,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
       }
       
     } catch (error) {
-      console.error('Error adding note:', error);
+      logger.error('Error adding note:', error);
       // TODO: Show user-friendly error message
     } finally {
       setIsNotesLoading(null);
@@ -253,7 +254,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
       }
       
     } catch (error) {
-      console.error('Error updating note:', error);
+      logger.error('Error updating note:', error);
       // TODO: Show user-friendly error message
     } finally {
       setIsNotesLoading(null);
@@ -287,7 +288,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
       }
       
     } catch (error) {
-      console.error('Error deleting note:', error);
+      logger.error('Error deleting note:', error);
       // TODO: Show user-friendly error message
     } finally {
       setIsNotesLoading(null);
@@ -400,7 +401,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
           const uploadResults = await Promise.all(uploadPromises);
           uploadedDocuments = uploadResults.map(result => result.document);
         } catch (uploadError) {
-          console.error('Document upload error:', uploadError);
+          logger.error('Document upload error:', uploadError);
           throw new Error(`Document upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
         }
       }
@@ -440,7 +441,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
       }, 100);
       
     } catch (error) {
-      console.error('Error completing step:', error);
+      logger.error('Error completing step:', error);
       // TODO: Show user-friendly error message
     } finally {
       // Clear loading state
@@ -471,7 +472,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
 
       closeEditModal();
     } catch (error) {
-      console.error('Error updating cost:', error);
+      logger.error('Error updating cost:', error);
     }
   };
 
@@ -500,7 +501,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
         throw new Error(`Failed to upload ${file.name}: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Document upload error:', error);
+      logger.error('Document upload error:', error);
       throw error;
     }
   };

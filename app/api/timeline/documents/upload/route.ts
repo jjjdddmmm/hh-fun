@@ -6,8 +6,10 @@ import { auth } from '@clerk/nextjs/server';
 import { uploadDocument } from '@/lib/cloudinary';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
+import { fileOptimization } from '@/lib/services/FileOptimizationService';
 import { z } from 'zod';
 
+import { logger } from "@/lib/utils/logger";
 // Validation schema
 const uploadSchema = z.object({
   stepId: z.string().cuid(),
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
     const fileName = formData.get('fileName') as string;
     const completionSessionId = formData.get('completionSessionId') as string;
 
-    console.log('Upload request received:', {
+    logger.debug('Upload request received:', {
       fileName,
       fileSize: file?.size,
       fileType: file?.type,
@@ -70,22 +72,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (50MB limit)
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    // Convert file to buffer for analysis
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // Analyze and potentially optimize large files
+    const maxSize = 50 * 1024 * 1024; // 50MB limit
+    let finalBuffer = fileBuffer;
+    let optimizationInfo = null;
+
     if (file.size > maxSize) {
-      return NextResponse.json(
-        { success: false, error: 'File too large. Maximum size is 50MB.' },
-        { status: 400 }
+      logger.debug('File exceeds size limit, attempting optimization', {
+        fileName: validatedData.fileName,
+        originalSize: file.size,
+        maxSize
+      });
+
+      const optimizationResult = await fileOptimization.optimizeFile(
+        fileBuffer,
+        validatedData.fileName,
+        {
+          maxSize,
+          quality: 75,
+          allowSplitting: false,
+          preserveQuality: false
+        }
       );
+
+      if (!optimizationResult.success) {
+        // Get user-friendly recommendations
+        const recommendations = fileOptimization.getOptimizationRecommendations(
+          file.size,
+          validatedData.fileName
+        );
+
+        return NextResponse.json({
+          success: false, 
+          error: 'File too large and could not be optimized automatically.',
+          details: {
+            originalSize: file.size,
+            maxSize,
+            canOptimize: recommendations.canOptimize,
+            recommendations: recommendations.recommendations,
+            alternatives: recommendations.alternatives,
+            optimizationError: optimizationResult.error
+          }
+        }, { status: 400 });
+      }
+
+      finalBuffer = optimizationResult.optimizedBuffer!;
+      optimizationInfo = {
+        originalSize: optimizationResult.originalSize,
+        optimizedSize: optimizationResult.optimizedSize,
+        compressionRatio: optimizationResult.compressionRatio,
+        strategy: optimizationResult.strategy
+      };
+
+      logger.info('File optimized successfully', {
+        fileName: validatedData.fileName,
+        ...optimizationInfo
+      });
     }
 
     // Timeline ownership will be verified by the createDocument method
 
-    // Convert file to buffer
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-
-    // Upload to Cloudinary
-    const uploadResult = await uploadDocument(fileBuffer, {
+    // Upload to Cloudinary using the optimized buffer
+    const uploadResult = await uploadDocument(finalBuffer, {
       stepId: validatedData.stepId,
       timelineId: validatedData.timelineId,
       stepCategory: validatedData.stepCategory,
@@ -99,7 +150,7 @@ export async function POST(request: NextRequest) {
       fileName: validatedData.fileName,
       originalName: file.name,
       mimeType: file.type,
-      fileSize: file.size,
+      fileSize: finalBuffer.length, // Use optimized size
       documentType: 'OTHER', // We can enhance this logic later
       storageProvider: 'CLOUDINARY',
       storageKey: uploadResult.publicId,
@@ -120,15 +171,18 @@ export async function POST(request: NextRequest) {
         mimeType: document.mimeType,
         uploadedAt: document.createdAt
       },
-      message: 'Document uploaded successfully'
+      optimization: optimizationInfo, // Include optimization details if any
+      message: optimizationInfo 
+        ? `Document uploaded successfully (optimized from ${(optimizationInfo.originalSize / 1024 / 1024).toFixed(1)}MB to ${(optimizationInfo.optimizedSize / 1024 / 1024).toFixed(1)}MB)`
+        : 'Document uploaded successfully'
     });
 
   } catch (error) {
-    console.error('Document upload error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    logger.error('Document upload error:', error);
+    logger.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
 
     if (error instanceof z.ZodError) {
-      console.error('Validation errors:', error.errors);
+      logger.error('Validation errors:', error.errors);
       return NextResponse.json(
         { 
           success: false, 
@@ -140,7 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (error instanceof Error) {
-      console.error('Error message:', error.message);
+      logger.error('Error message:', error.message);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return NextResponse.json(
           { success: false, error: error.message }, 

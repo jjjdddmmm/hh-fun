@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { DealMakerAgent } from '@/lib/services/DealMakerAgent';
 import { createComparablesCacheService } from '@/lib/services/ComparablesCacheService';
 import { prisma } from '@/lib/prisma';
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
     let marketData = {};
     if (propertyData) {
       try {
-        console.log('🔍 Fetching comparable sales for enhanced offer strategy (with caching)...');
+        logger.debug('🔍 Fetching comparable sales for enhanced offer strategy (with caching)...');
         const zipCode = (propertyData.address.match(/\b\d{5}\b/)?.[0]) || '90210';
         
         const cachedComparables = await comparablesCache.getComparables({
@@ -173,10 +174,10 @@ export async function POST(request: NextRequest) {
           };
           
           const cacheInfo = cachedComparables.cacheInfo;
-          console.log(`✅ Found ${cachedComparables.comparables.length} comparable sales ${cacheInfo.fromCache ? `(cached, age: ${cacheInfo.cacheAge}h, accessed: ${cacheInfo.accessCount}x)` : '(fresh from API)'}`);
+          logger.debug(`✅ Found ${cachedComparables.comparables.length} comparable sales ${cacheInfo.fromCache ? `(cached, age: ${cacheInfo.cacheAge}h, accessed: ${cacheInfo.accessCount}x)` : '(fresh from API)'}`);
         }
       } catch (error) {
-        console.error('❌ Failed to fetch comparables for offer strategy:', error);
+        logger.error('❌ Failed to fetch comparables for offer strategy:', error);
       }
     }
     
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
           }
         });
       } catch (error) {
-        console.error('Failed to log API usage:', error);
+        logger.error('Failed to log API usage:', error);
       }
     }
     */
@@ -227,7 +228,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Deal Maker API error:', error);
+    logger.error('Deal Maker API error:', error);
     
     return NextResponse.json(
       { 

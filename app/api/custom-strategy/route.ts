@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import Anthropic from '@anthropic-ai/sdk';
 
 export async function POST(request: NextRequest) {
@@ -121,7 +122,7 @@ Provide 4-5 paragraphs with concrete, personalized advice.`;
     throw new Error('Invalid response format from AI');
 
   } catch (error) {
-    console.error('Custom strategy generation error:', error);
+    logger.error('Custom strategy generation error:', error);
     return NextResponse.json(
       { error: 'Failed to generate custom strategy' },
       { status: 500 }

@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import { logger } from "@/lib/utils/logger";
 import { ZillowPropertyData } from '../zillow-api';
 import { BatchDataPropertyData } from './BatchDataPropertyAnalysis';
 
@@ -138,8 +139,8 @@ export class PropertyService {
    * Extract and populate BatchData intelligence fields
    */
   private addBatchDataFields(updateData: any, data: any) {
-    console.log('📈 Adding BatchData intelligence fields...');
-    console.log('📊 Available data fields:', Object.keys(data));
+    logger.debug('📈 Adding BatchData intelligence fields...');
+    logger.debug('📊 Available data fields:', Object.keys(data));
     // Financial Intelligence Fields
     if (data.quickLists?.lastSoldPrice || data.intel?.lastSoldPrice) {
       updateData.lastSalePrice = BigInt(Math.round((data.quickLists?.lastSoldPrice || data.intel?.lastSoldPrice) * 100));
@@ -251,8 +252,8 @@ export class PropertyService {
     updateData.batchDataLastUpdated = new Date();
     updateData.batchDataCost = 0.46; // Standard BatchData property lookup cost
 
-    console.log(`📊 Enhanced BatchData fields populated for property update`);
-    console.log('🔍 Updated fields preview:', {
+    logger.debug(`📊 Enhanced BatchData fields populated for property update`);
+    logger.debug('🔍 Updated fields preview:', {
       hasFinancialData: !!(updateData.lastSalePrice || updateData.estimatedValue),
       hasOwnerData: !!(updateData.ownerName || updateData.ownerOccupied !== undefined),
       hasInvestmentSignals: !!(updateData.highEquity !== undefined || updateData.cashBuyer !== undefined),

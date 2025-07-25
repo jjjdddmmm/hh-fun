@@ -4,6 +4,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { logger } from "@/lib/utils/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +60,7 @@ export function StepEditModal({
       const versions = await documentVersionService.getDocumentsGroupedBySessions(step.id);
       setDocumentVersions(versions);
     } catch (error) {
-      console.error('Error loading document versions:', error);
+      logger.error('Error loading document versions:', error);
     }
   };
 

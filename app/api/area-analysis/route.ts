@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { createGoogleMapsAPI } from "@/lib/google-maps-api";
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error("Error fetching area analysis:", error);
+    logger.error("Error fetching area analysis:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import { logger } from "@/lib/utils/logger";
 import { createBatchDataComparablesService } from './BatchDataComparablesService';
 
 export interface ComparableCacheParams {
@@ -45,7 +46,7 @@ export class ComparablesCacheService {
         
         const cacheAge = Math.floor((Date.now() - cached.createdAt.getTime()) / (1000 * 60 * 60));
         
-        console.log(`🎯 Using cached comparables (${cached.comparableCount} properties, age: ${cacheAge}h)`);
+        logger.debug(`🎯 Using cached comparables (${cached.comparableCount} properties, age: ${cacheAge}h)`);
         
         return {
           comparables: (cached.comparablesData as any).comparables || [],
@@ -64,7 +65,7 @@ export class ComparablesCacheService {
       }
 
       // Cache miss or expired - fetch from API
-      console.log('🔍 Cache miss - fetching fresh comparables from BatchData API');
+      logger.debug('🔍 Cache miss - fetching fresh comparables from BatchData API');
       
       const freshData = await this.fetchFreshComparables(params);
       if (!freshData) {
@@ -84,7 +85,7 @@ export class ComparablesCacheService {
       };
 
     } catch (error) {
-      console.error('Error in ComparablesCacheService:', error);
+      logger.error('Error in ComparablesCacheService:', error);
       return null;
     }
   }
@@ -139,7 +140,7 @@ export class ComparablesCacheService {
    */
   private async fetchFreshComparables(params: ComparableCacheParams) {
     if (!this.batchDataService || !this.batchDataService.isAvailable()) {
-      console.warn('BatchData service not available');
+      logger.warn('BatchData service not available');
       return null;
     }
 
@@ -205,7 +206,7 @@ export class ComparablesCacheService {
       }
     });
 
-    console.log(`💾 Cached ${data.comparables?.length || 0} comparables for ${params.zipCode} (expires: ${expiresAt.toLocaleDateString()})`);
+    logger.debug(`💾 Cached ${data.comparables?.length || 0} comparables for ${params.zipCode} (expires: ${expiresAt.toLocaleDateString()})`);
   }
 
   /**
@@ -220,7 +221,7 @@ export class ComparablesCacheService {
       }
     });
 
-    console.log(`🧹 Cleaned up ${result.count} expired comparable cache entries`);
+    logger.debug(`🧹 Cleaned up ${result.count} expired comparable cache entries`);
     return result.count;
   }
 

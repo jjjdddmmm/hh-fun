@@ -1,4 +1,5 @@
 import { PropertyAIAnalyzer, PropertyAnalysisResult } from '../ai-analysis';
+import { logger } from "@/lib/utils/logger";
 import { ZillowPropertyData } from '../zillow-api';
 import { apiCache } from '../cache';
 import { aiRateLimiter } from '../rate-limiter';
@@ -38,7 +39,7 @@ export class AIAnalysisService {
       
       return insights;
     } catch (error) {
-      console.error('Failed to generate property insights:', error);
+      logger.error('Failed to generate property insights:', error);
       
       // Return fallback insights on error
       return {
@@ -71,7 +72,7 @@ export class AIAnalysisService {
       
       return analysis;
     } catch (error) {
-      console.error('Failed to generate full property analysis:', error);
+      logger.error('Failed to generate full property analysis:', error);
       throw error;
     }
   }

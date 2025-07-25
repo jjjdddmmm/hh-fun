@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { createRentcastAPI } from "@/lib/rentcast-api";
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       streetAddress = fullAddress.replace(/, [A-Z]{2} \d{5}(?:-\d{4})?$/, '').trim();
     }
     
-    console.log(`🔍 Searching comparables for: ${streetAddress}, ${zipCode}`);
+    logger.debug(`🔍 Searching comparables for: ${streetAddress}, ${zipCode}`);
 
     // SAFE IMPLEMENTATION: Keep RentCast as primary, test BatchData in parallel
     let compsData = null;
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     
     // BatchData testing with sandbox (cost-controlled)
     if (batchDataAPI) {
-      console.log('🧪 Testing BatchData API with sandbox (safe for development)...');
+      logger.debug('🧪 Testing BatchData API with sandbox (safe for development)...');
       batchDataAPI.getComparables(
         streetAddress,
         zipCode,
@@ -66,12 +67,12 @@ export async function POST(request: NextRequest) {
         0.5,
         property.propertyType || undefined
       ).then(result => {
-        console.log('📊 BatchData sandbox test result:', result ? `${result.comparables.length} comparables` : 'failed');
+        logger.debug('📊 BatchData sandbox test result:', result ? `${result.comparables.length} comparables` : 'failed');
         if (result && result.comparables.length > 0) {
-          console.log('✅ Sample BatchData comparable:', result.comparables[0]);
+          logger.debug('✅ Sample BatchData comparable:', result.comparables[0]);
         }
       }).catch(error => {
-        console.log('⚠️ BatchData sandbox test error:', error.message);
+        logger.debug('⚠️ BatchData sandbox test error:', error.message);
       });
     }
 
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error("Error fetching comparables:", error);
+    logger.error("Error fetching comparables:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

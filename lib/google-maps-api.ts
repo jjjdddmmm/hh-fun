@@ -1,3 +1,5 @@
+import { logger } from "@/lib/utils/logger";
+
 // Google Maps API integration for area/neighborhood data
 
 export interface PlaceInfo {
@@ -43,7 +45,7 @@ export class GoogleMapsAPI {
       // First, geocode the address to get coordinates
       const coords = await this.geocodeAddress(`${address}, ${zipCode}`);
       if (!coords) {
-        console.error('Could not geocode address');
+        logger.error('Could not geocode address');
         return null;
       }
       
@@ -90,7 +92,7 @@ export class GoogleMapsAPI {
       };
       
     } catch (error) {
-      console.error('Error fetching area analysis:', error);
+      logger.error('Error fetching area analysis:', error);
       return null;
     }
   }
@@ -112,7 +114,7 @@ export class GoogleMapsAPI {
       
       return null;
     } catch (error) {
-      console.error('Geocoding error:', error);
+      logger.error('Geocoding error:', error);
       return null;
     }
   }
@@ -150,7 +152,7 @@ export class GoogleMapsAPI {
       
       return [];
     } catch (error) {
-      console.error(`Error searching for ${type}:`, error);
+      logger.error(`Error searching for ${type}:`, error);
       return [];
     }
   }
@@ -197,7 +199,7 @@ export class GoogleMapsAPI {
 export function createGoogleMapsAPI(): GoogleMapsAPI | null {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
-    console.error('GOOGLE_MAPS_API_KEY not found in environment variables');
+    logger.error('GOOGLE_MAPS_API_KEY not found in environment variables');
     return null;
   }
   

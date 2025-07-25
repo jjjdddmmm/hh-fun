@@ -1,4 +1,5 @@
 import { ZillowAPI, ZillowPropertyData, createZillowAPI } from '../zillow-api';
+import { logger } from "@/lib/utils/logger";
 import { apiCache } from '../cache';
 import { zillowRateLimiter } from '../rate-limiter';
 
@@ -31,7 +32,7 @@ export class ZillowService {
       const propertyData = await this.api.getPropertyByZpid(zpid);
       
       if (!propertyData) {
-        console.warn(`No property data found for ZPID: ${zpid}`);
+        logger.warn(`No property data found for ZPID: ${zpid}`);
         return null;
       }
 
@@ -40,7 +41,7 @@ export class ZillowService {
       
       return propertyData;
     } catch (error) {
-      console.error(`Failed to fetch property data for ZPID ${zpid}:`, error);
+      logger.error(`Failed to fetch property data for ZPID ${zpid}:`, error);
       throw error;
     }
   }
@@ -71,7 +72,7 @@ export class ZillowService {
       
       return extendedData;
     } catch (error) {
-      console.error(`Failed to fetch extended property data for ZPID ${zpid}:`, error);
+      logger.error(`Failed to fetch extended property data for ZPID ${zpid}:`, error);
       throw error;
     }
   }

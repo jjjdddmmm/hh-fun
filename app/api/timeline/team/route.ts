@@ -2,6 +2,7 @@
 // CRUD operations for timeline team members
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.error('Timeline team GET error:', error);
+    logger.error('Timeline team GET error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.error('Timeline team POST error:', error);
+    logger.error('Timeline team POST error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -224,7 +225,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    console.error('Timeline team PUT error:', error);
+    logger.error('Timeline team PUT error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -285,7 +286,7 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    console.error('Timeline team DELETE error:', error);
+    logger.error('Timeline team DELETE error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 

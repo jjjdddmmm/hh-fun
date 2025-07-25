@@ -2,6 +2,7 @@
 // List all timelines for a user
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Log error for monitoring
-    console.error('Timeline list GET error:', error);
+    logger.error('Timeline list GET error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 

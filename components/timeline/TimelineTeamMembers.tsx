@@ -4,6 +4,7 @@
 "use client";
 
 import { useState } from "react";
+import { logger } from "@/lib/utils/logger";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,7 +154,7 @@ export function TimelineTeamMembers({ timeline, onTeamUpdate }: TimelineTeamMemb
       setEditingMember(null);
       onTeamUpdate();
     } catch (error) {
-      console.error('Error saving team member:', error);
+      logger.error('Error saving team member:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -191,7 +192,7 @@ export function TimelineTeamMembers({ timeline, onTeamUpdate }: TimelineTeamMemb
 
       onTeamUpdate();
     } catch (error) {
-      console.error('Error removing team member:', error);
+      logger.error('Error removing team member:', error);
     }
   };
 

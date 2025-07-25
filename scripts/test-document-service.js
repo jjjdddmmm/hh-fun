@@ -1,3 +1,5 @@
+import { logger } from "@/lib/utils/logger";
+
 // Test DocumentVersionService directly
 const { PrismaClient } = require('@prisma/client');
 const { documentVersionService } = require('../lib/services/DocumentVersionService');
@@ -6,7 +8,7 @@ const prisma = new PrismaClient();
 
 async function testDocumentService() {
   try {
-    console.log('🧪 Testing DocumentVersionService...');
+    logger.debug('🧪 Testing DocumentVersionService...');
     
     // Get the step with documents
     const stepsWithDocs = await prisma.timelineDocument.groupBy({
@@ -17,17 +19,17 @@ async function testDocumentService() {
     });
     
     if (stepsWithDocs.length === 0) {
-      console.log('❌ No steps with documents found');
+      logger.debug('❌ No steps with documents found');
       return;
     }
     
     const testStepId = stepsWithDocs[0].stepId;
-    console.log(`📋 Testing with step: ${testStepId}`);
+    logger.debug(`📋 Testing with step: ${testStepId}`);
     
     // Test the service method
     const result = await documentVersionService.getDocumentsGroupedBySessions(testStepId);
     
-    console.log('📄 Service result:', {
+    logger.debug('📄 Service result:', {
       currentCount: result.currentDocuments.length,
       previousSessionsCount: result.previousSessions.length,
       currentDocs: result.currentDocuments.map(d => ({
@@ -39,7 +41,7 @@ async function testDocumentService() {
     });
     
     if (result.currentDocuments.length === 0) {
-      console.log('❌ No current documents returned - debugging...');
+      logger.debug('❌ No current documents returned - debugging...');
       
       // Check what's in the database directly
       const directQuery = await prisma.timelineDocument.findMany({
@@ -56,14 +58,14 @@ async function testDocumentService() {
         }
       });
       
-      console.log('💾 Direct database query results:');
+      logger.debug('💾 Direct database query results:');
       directQuery.forEach((doc, i) => {
-        console.log(`  ${i + 1}. ${doc.originalName} - v${doc.documentVersion} - current: ${doc.isCurrentVersion} - session: ${doc.completionSessionId}`);
+        logger.debug(`  ${i + 1}. ${doc.originalName} - v${doc.documentVersion} - current: ${doc.isCurrentVersion} - session: ${doc.completionSessionId}`);
       });
     }
     
   } catch (error) {
-    console.error('❌ Error:', error);
+    logger.error('❌ Error:', error);
   } finally {
     await prisma.$disconnect();
   }

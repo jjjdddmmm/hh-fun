@@ -2,6 +2,7 @@
 // Zero tech debt implementation with Claude integration
 
 import Anthropic from '@anthropic-ai/sdk';
+import { logger } from "@/lib/utils/logger";
 import { DocumentProcessor, ExtractionResult } from './document';
 import { 
   InspectionAnalysisResult, 
@@ -87,7 +88,7 @@ export class InspectionAnalyzer {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown analysis error';
-      console.error('Inspection analysis error:', error);
+      logger.error('Inspection analysis error:', error);
       
       onProgress?.({
         stage: 'error',
@@ -233,7 +234,7 @@ export class InspectionAnalyzer {
 
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown AI error');
-        console.warn(`AI analysis attempt ${attempt + 1} failed:`, lastError.message);
+        logger.warn(`AI analysis attempt ${attempt + 1} failed:`, lastError.message);
         
         if (attempt === maxRetries) {
           throw lastError;

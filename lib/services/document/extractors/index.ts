@@ -5,6 +5,7 @@
 
 export { VisionExtractor } from './VisionExtractor';
 export { GoogleVisionExtractor } from './GoogleVisionExtractor';
+export { ChunkedGoogleVisionExtractor } from './ChunkedGoogleVisionExtractor';
 export { HybridExtractor } from './HybridExtractor';
 
 // Re-export types for convenience

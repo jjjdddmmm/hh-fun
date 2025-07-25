@@ -2,6 +2,7 @@
 // Operations on specific timeline steps
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
@@ -70,7 +71,7 @@ export async function GET(
       }
     }
 
-    console.error('Timeline step GET error:', error);
+    logger.error('Timeline step GET error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 
@@ -139,13 +140,13 @@ export async function PUT(
     });
 
   } catch (error) {
-    console.error('=== ERROR IN STEP UPDATE ===');
-    console.error('Error type:', error?.constructor?.name);
-    console.error('Error message:', (error as any)?.message);
-    console.error('Full error:', error);
+    logger.error('=== ERROR IN STEP UPDATE ===');
+    logger.error('Error type:', error?.constructor?.name);
+    logger.error('Error message:', (error as any)?.message);
+    logger.error('Full error:', error);
 
     if (error instanceof ZodError) {
-      console.error('Zod validation errors:', error.errors);
+      logger.error('Zod validation errors:', error.errors);
       return NextResponse.json(
         { 
           success: false, 
@@ -165,7 +166,7 @@ export async function PUT(
       }
     }
 
-    console.error('Timeline step PUT error:', error);
+    logger.error('Timeline step PUT error:', error);
     
     return NextResponse.json(
       { success: false, error: `Internal server error: ${(error as any)?.message || 'Unknown error'}` }, 
@@ -227,7 +228,7 @@ export async function DELETE(
       }
     }
 
-    console.error('Timeline step DELETE error:', error);
+    logger.error('Timeline step DELETE error:', error);
     
     return NextResponse.json(
       { success: false, error: 'Internal server error' }, 

@@ -1,3 +1,5 @@
+import { logger } from "@/lib/utils/logger";
+
 // Fix Document Version Issues - Version 2
 // This addresses the documentVersion and supersededBy fields
 // Run with: node scripts/fix-document-versions-v2.js
@@ -7,7 +9,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function fixDocumentVersionsV2() {
-  console.log('🔧 Starting document version cleanup v2...');
+  logger.debug('🔧 Starting document version cleanup v2...');
   
   try {
     // Step 1: Get all steps with completion sessions
@@ -19,7 +21,7 @@ async function fixDocumentVersionsV2() {
     });
 
     for (const { stepId } of stepsWithSessions) {
-      console.log(`\n📋 Processing step: ${stepId}`);
+      logger.debug(`\n📋 Processing step: ${stepId}`);
       
       // Get all completion sessions for this step, ordered by creation time
       const sessions = await prisma.timelineDocument.groupBy({
@@ -38,7 +40,7 @@ async function fixDocumentVersionsV2() {
         }
       });
 
-      console.log(`  📁 Found ${sessions.length} completion sessions`);
+      logger.debug(`  📁 Found ${sessions.length} completion sessions`);
 
       // Process each session in chronological order
       for (let sessionIndex = 0; sessionIndex < sessions.length; sessionIndex++) {
@@ -47,7 +49,7 @@ async function fixDocumentVersionsV2() {
         const versionNumber = sessionIndex + 1;
         const isLatestSession = sessionIndex === sessions.length - 1;
 
-        console.log(`  🔄 Session ${sessionIndex + 1}: ${sessionId} (version ${versionNumber})`);
+        logger.debug(`  🔄 Session ${sessionIndex + 1}: ${sessionId} (version ${versionNumber})`);
 
         // Get all documents in this session
         const sessionDocs = await prisma.timelineDocument.findMany({
@@ -60,7 +62,7 @@ async function fixDocumentVersionsV2() {
           }
         });
 
-        console.log(`    📄 Processing ${sessionDocs.length} documents`);
+        logger.debug(`    📄 Processing ${sessionDocs.length} documents`);
 
         // Group documents by documentType to handle supersession properly
         const docsByType = {};
@@ -76,7 +78,7 @@ async function fixDocumentVersionsV2() {
           // Keep only the first document of each type (delete duplicates)
           if (docs.length > 1) {
             const docsToDelete = docs.slice(1);
-            console.log(`    🗑️ Deleting ${docsToDelete.length} duplicate ${docType} documents`);
+            logger.debug(`    🗑️ Deleting ${docsToDelete.length} duplicate ${docType} documents`);
             
             await prisma.timelineDocument.deleteMany({
               where: {
@@ -108,7 +110,7 @@ async function fixDocumentVersionsV2() {
           }
 
           // Update the current document
-          console.log(`    ✏️ Updating ${docType} document to version ${versionNumber}`);
+          logger.debug(`    ✏️ Updating ${docType} document to version ${versionNumber}`);
           
           await prisma.timelineDocument.update({
             where: { id: keepDoc.id },
@@ -122,7 +124,7 @@ async function fixDocumentVersionsV2() {
 
           // Update the previous version to point to this one
           if (previousVersionDoc) {
-            console.log(`    🔗 Linking previous version (${previousVersionDoc.id}) to current (${keepDoc.id})`);
+            logger.debug(`    🔗 Linking previous version (${previousVersionDoc.id}) to current (${keepDoc.id})`);
             
             await prisma.timelineDocument.update({
               where: { id: previousVersionDoc.id },
@@ -137,7 +139,7 @@ async function fixDocumentVersionsV2() {
     }
 
     // Final verification
-    console.log('\n📊 Final verification:');
+    logger.debug('\n📊 Final verification:');
     
     const allDocs = await prisma.timelineDocument.findMany({
       where: {
@@ -169,7 +171,7 @@ async function fixDocumentVersionsV2() {
     });
 
     Object.entries(stepSummary).forEach(([stepId, summary]) => {
-      console.log(`  Step ${stepId}: ${summary.total} total docs, ${summary.current} current, versions: [${Array.from(summary.versions).sort().join(', ')}]`);
+      logger.debug(`  Step ${stepId}: ${summary.total} total docs, ${summary.current} current, versions: [${Array.from(summary.versions).sort().join(', ')}]`);
     });
 
     // Check for proper supersession chains
@@ -187,15 +189,15 @@ async function fixDocumentVersionsV2() {
 
     const withoutSupersession = supersessionCheck.filter(doc => !doc.supersededBy);
     if (withoutSupersession.length > 0) {
-      console.log(`⚠️ Found ${withoutSupersession.length} old versions without supersededBy links`);
+      logger.debug(`⚠️ Found ${withoutSupersession.length} old versions without supersededBy links`);
     } else {
-      console.log(`✅ All old versions properly linked to their replacements`);
+      logger.debug(`✅ All old versions properly linked to their replacements`);
     }
 
-    console.log('\n✅ Document version cleanup v2 completed!');
+    logger.debug('\n✅ Document version cleanup v2 completed!');
     
   } catch (error) {
-    console.error('❌ Error during cleanup:', error);
+    logger.error('❌ Error during cleanup:', error);
   } finally {
     await prisma.$disconnect();
   }

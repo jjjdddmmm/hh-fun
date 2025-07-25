@@ -1,4 +1,5 @@
 import { BatchDataService } from './BatchDataService';
+import { logger } from "@/lib/utils/logger";
 import { BatchDataProperty, BatchDataComparable, BatchDataMarketAnalysis } from '@/types/batchdata';
 
 export interface PropertyEnrichmentData {
@@ -86,18 +87,18 @@ export class DataEnrichmentService {
     existingPropertyData?: any
   ): Promise<PropertyEnrichmentData | null> {
     if (!this.batchData.isAvailable()) {
-      console.warn('BatchData service not available - using fallback enrichment');
+      logger.warn('BatchData service not available - using fallback enrichment');
       return this.createFallbackEnrichment(address, existingPropertyData);
     }
 
     try {
-      console.log(`🔍 Enriching property data for: ${address}`);
+      logger.debug(`🔍 Enriching property data for: ${address}`);
 
       // Get comprehensive data from BatchData
       const enhancedData = await this.batchData.getEnhancedPropertyData(address);
 
       if (!enhancedData.property) {
-        console.warn('No BatchData property found - using fallback');
+        logger.warn('No BatchData property found - using fallback');
         return this.createFallbackEnrichment(address, existingPropertyData);
       }
 
@@ -158,11 +159,11 @@ export class DataEnrichmentService {
         dataSources: ['BatchData', 'PropertyAnalysis']
       };
 
-      console.log(`✅ Property enrichment completed with ${enhancedData.confidence}% confidence`);
+      logger.debug(`✅ Property enrichment completed with ${enhancedData.confidence}% confidence`);
       return enrichment;
 
     } catch (error) {
-      console.error('BatchData enrichment failed:', error);
+      logger.error('BatchData enrichment failed:', error);
       return this.createFallbackEnrichment(address, existingPropertyData);
     }
   }

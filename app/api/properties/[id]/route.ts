@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
@@ -48,7 +49,7 @@ export async function DELETE(
       message: "Property deleted successfully"
     });
   } catch (error) {
-    console.error("❌ Error deleting property:", error);
+    logger.error("❌ Error deleting property:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
