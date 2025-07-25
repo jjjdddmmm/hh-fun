@@ -199,16 +199,6 @@ export function NegotiationWorkspace({
       const report = reports.find(r => r.id === selectedView);
       const reportIssues = reportIssuesMap.get(selectedView) || [];
       
-      // Debug: Log the report data structure
-      console.log('NegotiationWorkspace Debug - getCurrentViewData:', {
-        selectedView,
-        reportFound: !!report,
-        reportName: report?.name,
-        hasDetailedAnalysis: !!report?.detailedAnalysis,
-        detailedAnalysisKeys: report?.detailedAnalysis ? Object.keys(report.detailedAnalysis) : [],
-        reportType: report?.type,
-        issuesLength: reportIssues.length
-      });
       
       // Generate report-specific executive summary
       const reportSummary = report && reportIssues.length > 0 ? 
