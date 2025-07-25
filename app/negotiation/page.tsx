@@ -216,6 +216,15 @@ export default function NegotiationPage() {
           await simulateProgressiveAnalysis(report.type, analysisResult.issues?.length || 0);
           
           // Complete analysis with real AI results
+          console.log('Setting analysis result for report:', {
+            reportId: report.id,
+            reportName: report.name,
+            hasAnalysisResult: !!analysisResult,
+            hasDetailedAnalysis: !!analysisResult.detailedAnalysis,
+            detailedAnalysisKeys: analysisResult.detailedAnalysis ? Object.keys(analysisResult.detailedAnalysis) : [],
+            issuesCount: analysisResult.issues?.length || 0
+          });
+          
           setReports(prev => prev.map(r => 
             r.id === report.id 
               ? { 
