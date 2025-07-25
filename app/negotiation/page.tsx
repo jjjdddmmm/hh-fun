@@ -289,36 +289,59 @@ export default function NegotiationPage() {
       
       <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
-      <div className="mb-8">
-        <SectionHeader className="text-3xl mb-2">
-          Inspection Credit Negotiation
-        </SectionHeader>
-        <p className="text-gray-600 text-lg">
-          Transform your inspection reports into data-backed negotiation strategies with specific credit amounts
+      <div className="mb-12 text-center">
+        <div className="relative">
+          <SectionHeader className="text-4xl md:text-5xl mb-4 bg-gradient-to-r from-[#5C1B10] to-[#8B2635] bg-clip-text text-transparent font-bold">
+            Inspection Credit Negotiation
+          </SectionHeader>
+          <div className="absolute -top-2 -right-2 w-16 h-16 bg-gradient-to-br from-orange-400 to-red-500 rounded-full opacity-20 blur-xl animate-pulse"></div>
+        </div>
+        <p className="text-gray-700 text-xl max-w-3xl mx-auto leading-relaxed">
+          Transform your inspection reports into <span className="font-semibold text-[#5C1B10]">data-backed negotiation strategies</span> with specific credit amounts
         </p>
+        <div className="mt-6 flex items-center justify-center space-x-2 text-sm text-gray-500">
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span>Claude Opus 4 AI Analysis</span>
+          </div>
+          <span>•</span>
+          <span>Real-time cost estimates</span>
+          <span>•</span>
+          <span>Market-based negotiations</span>
+        </div>
       </div>
 
       {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex items-center justify-center">
-          {[
-            { key: 'upload', icon: Upload, label: 'Upload Reports', desc: 'Add inspection reports' },
-            { key: 'analysis', icon: Calculator, label: 'AI Analysis', desc: 'Extract & cost issues' },
-            { key: 'strategy', icon: Target, label: 'Negotiation Strategy', desc: 'Get your game plan' }
-          ].map((step, index) => {
-            const isActive = currentStep === step.key;
-            const isCompleted = 
-              (step.key === 'upload' && reports.length > 0) ||
-              (step.key === 'analysis' && stats.completedAnalysis === stats.totalReports && stats.totalReports > 0) ||
-              (step.key === 'strategy' && currentStep === 'strategy');
-            
-            return (
-              <div key={step.key} className="flex items-center">
-                <div className="flex flex-col items-center">
+      <div className="mb-12">
+        <div className="relative max-w-4xl mx-auto">
+          <div className="flex items-center justify-between relative">
+            {/* Background progress line */}
+            <div className="absolute top-6 left-6 right-6 h-0.5 bg-gray-200 -z-10"></div>
+            <div className={`absolute top-6 left-6 h-0.5 bg-gradient-to-r from-green-500 to-[#5C1B10] transition-all duration-1000 -z-10 ${
+              currentStep === 'upload' ? 'w-0' :
+              currentStep === 'analysis' ? 'right-1/2' :
+              'right-6'
+            }`}></div>
+
+            {[
+              { key: 'upload', icon: Upload, label: 'Upload Reports', desc: 'Add inspection reports' },
+              { key: 'analysis', icon: Calculator, label: 'AI Analysis', desc: 'Extract & cost issues' },
+              { key: 'strategy', icon: Target, label: 'Negotiation Strategy', desc: 'Get your game plan' }
+            ].map((step, index) => {
+              const isActive = currentStep === step.key;
+              const isCompleted = 
+                (step.key === 'upload' && reports.length > 0) ||
+                (step.key === 'analysis' && stats.completedAnalysis === stats.totalReports && stats.totalReports > 0) ||
+                (step.key === 'strategy' && currentStep === 'strategy');
+              
+              return (
+                <div key={step.key} className="flex flex-col items-center relative">
                   <div className={`
-                    w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-colors
-                    ${isCompleted ? 'bg-green-500 text-white' : 
-                      isActive ? 'bg-[#5C1B10] text-white' : 'bg-gray-200 text-gray-500'}
+                    w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-all duration-500 transform
+                    ${isCompleted ? 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg scale-110' : 
+                      isActive ? 'bg-gradient-to-br from-[#5C1B10] to-[#8B2635] text-white shadow-lg scale-105' : 
+                      'bg-gray-100 text-gray-400 hover:bg-gray-200'}
+                    ${isActive ? 'animate-pulse' : ''}
                   `}>
                     {isCompleted ? (
                       <CheckCircle className="h-6 w-6" />
@@ -327,77 +350,94 @@ export default function NegotiationPage() {
                     )}
                   </div>
                   <div className="text-center">
-                    <p className={`font-medium ${isActive ? 'text-[#5C1B10]' : 'text-gray-600'}`}>
+                    <p className={`font-semibold text-sm mb-1 transition-colors ${
+                      isActive ? 'text-[#5C1B10]' : 
+                      isCompleted ? 'text-green-600' : 'text-gray-600'
+                    }`}>
                       {step.label}
                     </p>
-                    <p className="text-xs text-gray-500">{step.desc}</p>
+                    <p className="text-xs text-gray-500 max-w-24">{step.desc}</p>
                   </div>
+                  
+                  {isActive && (
+                    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                      <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce"></div>
+                    </div>
+                  )}
                 </div>
-                
-                {index < 2 && (
-                  <div className={`
-                    h-0.5 w-16 mx-4 transition-colors
-                    ${isCompleted ? 'bg-green-500' : 'bg-gray-300'}
-                  `} />
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
       {stats.totalReports > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-blue-500">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <FileText className="h-8 w-8 text-blue-600 mr-3" />
+                <div className="p-3 bg-blue-100 rounded-lg mr-4 group-hover:bg-blue-200 transition-colors">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalReports}</p>
-                  <p className="text-sm text-gray-600">Reports Uploaded</p>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{stats.totalReports}</p>
+                  <p className="text-sm text-gray-600 font-medium">Reports Uploaded</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-orange-500">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <AlertTriangle className="h-8 w-8 text-orange-600 mr-3" />
+                <div className="p-3 bg-orange-100 rounded-lg mr-4 group-hover:bg-orange-200 transition-colors">
+                  <AlertTriangle className="h-6 w-6 text-orange-600" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalIssues}</p>
-                  <p className="text-sm text-gray-600">Issues Found</p>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{stats.totalIssues}</p>
+                  <p className="text-sm text-gray-600 font-medium">Issues Found</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-green-500">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <DollarSign className="h-8 w-8 text-green-600 mr-3" />
+                <div className="p-3 bg-green-100 rounded-lg mr-4 group-hover:bg-green-200 transition-colors">
+                  <DollarSign className="h-6 w-6 text-green-600" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-3xl font-bold text-green-700 mb-1">
                     ${stats.estimatedCredits.toLocaleString()}
                   </p>
-                  <p className="text-sm text-gray-600">Est. Credits</p>
+                  <p className="text-sm text-gray-600 font-medium">Est. Credits</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-purple-500">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-purple-600 mr-3" />
+                <div className="p-3 bg-purple-100 rounded-lg mr-4 group-hover:bg-purple-200 transition-colors">
+                  <TrendingUp className="h-6 w-6 text-purple-600" />
+                </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-3xl font-bold text-gray-900 mb-1">
                     {stats.totalReports > 0 ? Math.round((stats.completedAnalysis / stats.totalReports) * 100) : 0}%
                   </p>
-                  <p className="text-sm text-gray-600">Analysis Complete</p>
+                  <p className="text-sm text-gray-600 font-medium">Analysis Complete</p>
                 </div>
               </div>
+              {stats.completedAnalysis === stats.totalReports && stats.totalReports > 0 && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-1">
+                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-1 rounded-full w-full"></div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -405,13 +445,24 @@ export default function NegotiationPage() {
 
       {/* Loading State */}
       {isLoadingReports ? (
-        <Card>
-          <CardContent className="p-12">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-[#5C1B10]" />
-              <div className="text-center">
-                <p className="text-lg font-medium text-gray-900">Loading Your Inspection Reports</p>
-                <p className="text-gray-600">Fetching completed inspection documents from your timelines...</p>
+        <Card className="border-0 shadow-2xl bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-16">
+            <div className="flex flex-col items-center justify-center space-y-6">
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
+                <div className="w-16 h-16 border-4 border-[#5C1B10] border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-[#5C1B10]" />
+                </div>
+              </div>
+              <div className="text-center space-y-2">
+                <p className="text-xl font-semibold text-gray-900">Loading Your Inspection Reports</p>
+                <p className="text-gray-600 max-w-md">Fetching completed inspection documents from your timelines...</p>
+                <div className="flex items-center justify-center space-x-1 pt-2">
+                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
               </div>
             </div>
           </CardContent>

@@ -12,7 +12,9 @@ import {
   AlertTriangle,
   Clock,
   ArrowRight,
-  Eye
+  Eye,
+  DollarSign,
+  Target
 } from "lucide-react";
 
 interface UploadedReport {
@@ -101,28 +103,38 @@ export function NegotiationAnalysis({
   const hasStarted = reports.some(r => r.analysisStatus !== 'pending');
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
-            AI Analysis Progress
+    <div className="space-y-8">
+      <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-blue-50/30">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <FileText className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent font-bold">
+                AI Analysis Progress
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-gray-500 font-medium">Claude Opus 4 Active</span>
+              </div>
+            </div>
           </CardTitle>
-          <p className="text-gray-600">
-            Our AI is extracting issues, estimating costs, and calculating negotiation values from your inspection reports
+          <p className="text-gray-700 leading-relaxed">
+            Our advanced AI is extracting issues, estimating costs, and calculating negotiation values from your inspection reports
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-2">
           <div className="space-y-4">
             {reports.map((report) => (
-              <div key={report.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div key={report.id} className="flex items-center justify-between p-6 border-2 border-gray-100 rounded-xl hover:border-gray-200 transition-all duration-300 hover:shadow-lg bg-white/70 backdrop-blur-sm">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
                     {getStatusIcon(report.analysisStatus)}
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">{report.name}</h3>
-                    <p className="text-sm text-gray-600 capitalize">{report.type} inspection report</p>
+                    <h3 className="font-semibold text-gray-900 text-lg">{report.name}</h3>
+                    <p className="text-sm text-gray-600 capitalize font-medium">{report.type} inspection report</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -138,10 +150,10 @@ export function NegotiationAnalysis({
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleViewAnalysis(report)}
-                            className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer flex items-center gap-1"
+                            className="group text-xs bg-gradient-to-r from-green-600 to-green-700 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center gap-2 font-semibold hover:scale-105"
                             title="Click to view detailed analysis"
                           >
-                            <Eye className="h-3 w-3" />
+                            <Eye className="h-3 w-3 group-hover:scale-110 transition-transform" />
                             ${(report.issues || []).reduce((sum, issue) => sum + (issue.negotiationValue || 0), 0).toLocaleString()} potential credits
                           </button>
                         </div>
@@ -153,7 +165,7 @@ export function NegotiationAnalysis({
                       )}
                     </div>
                   ) : null}
-                  <Badge className={getStatusColor(report.analysisStatus)}>
+                  <Badge className={`${getStatusColor(report.analysisStatus)} px-3 py-1 text-xs font-semibold transition-all duration-300`}>
                     {getStatusText(report.analysisStatus)}
                   </Badge>
                 </div>
@@ -161,12 +173,22 @@ export function NegotiationAnalysis({
             ))}
           </div>
 
-          <div className="mt-6 flex justify-between items-center">
-            <div className="text-sm text-gray-600">
+          <div className="mt-8 flex justify-between items-center p-6 bg-gradient-to-r from-gray-50 to-blue-50/50 rounded-xl border">
+            <div className="text-sm">
               {hasStarted ? (
-                `${reports.filter(r => r.analysisStatus === 'complete').length} of ${reports.length} reports analyzed`
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${allComplete ? 'bg-green-500' : 'bg-blue-500 animate-pulse'}`}></div>
+                  <span className="font-medium text-gray-700">
+                    {reports.filter(r => r.analysisStatus === 'complete').length} of {reports.length} reports analyzed
+                  </span>
+                </div>
               ) : (
-                `${reports.length} report${reports.length !== 1 ? 's' : ''} ready for analysis`
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium text-gray-700">
+                    {reports.length} report{reports.length !== 1 ? 's' : ''} ready for analysis
+                  </span>
+                </div>
               )}
             </div>
             <div className="flex space-x-3">
@@ -174,7 +196,7 @@ export function NegotiationAnalysis({
                 <Button
                   onClick={onStartAnalysis}
                   disabled={isAnalyzing}
-                  className="bg-[#5C1B10] hover:bg-[#4A1508] text-white"
+                  className="bg-gradient-to-r from-[#5C1B10] to-[#8B2635] hover:from-[#4A1508] hover:to-[#7A1E2B] text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-2.5 font-semibold"
                 >
                   {isAnalyzing ? (
                     <>
@@ -182,17 +204,20 @@ export function NegotiationAnalysis({
                       Starting Analysis...
                     </>
                   ) : (
-                    'Start AI Analysis'
+                    <>
+                      <span>Start AI Analysis</span>
+                      <div className="ml-2 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    </>
                   )}
                 </Button>
               )}
               {allComplete && (
                 <Button
                   onClick={onProceedToStrategy}
-                  className="bg-[#5C1B10] hover:bg-[#4A1508] text-white"
+                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-2.5 font-semibold group"
                 >
                   View Negotiation Strategy
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               )}
             </div>
@@ -202,37 +227,49 @@ export function NegotiationAnalysis({
 
       {/* Analysis Details */}
       {hasStarted && (
-        <Card>
-          <CardHeader>
-            <CardTitle>What Our AI Is Analyzing</CardTitle>
+        <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-purple-50/20 to-blue-50/30">
+          <CardHeader className="text-center pb-6">
+            <CardTitle className="text-2xl bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent font-bold">
+              What Our AI Is Analyzing
+            </CardTitle>
+            <p className="text-gray-600 mt-2">Powered by Claude Opus 4 - the most advanced AI model for inspection analysis</p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <AlertTriangle className="h-6 w-6 text-blue-600" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center group">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <AlertTriangle className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full opacity-75 animate-ping"></div>
                 </div>
-                <h3 className="font-medium text-gray-900 mb-2">Issue Identification</h3>
-                <p className="text-sm text-gray-600">
-                  Extracting and categorizing all reported issues by severity and urgency
+                <h3 className="font-bold text-gray-900 mb-3 text-lg">Issue Identification</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Advanced pattern recognition extracts and categorizes all reported issues by severity, urgency, and repair complexity
                 </p>
               </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <span className="text-green-600 font-bold text-lg">$</span>
+              <div className="text-center group">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <DollarSign className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full opacity-75 animate-ping" style={{animationDelay: '0.5s'}}></div>
                 </div>
-                <h3 className="font-medium text-gray-900 mb-2">Cost Estimation</h3>
-                <p className="text-sm text-gray-600">
-                  Calculating repair costs using local market data and current material prices
+                <h3 className="font-bold text-gray-900 mb-3 text-lg">Cost Estimation</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Real-time market analysis calculates accurate repair costs using current contractor rates and material prices
                 </p>
               </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <ArrowRight className="h-6 w-6 text-purple-600" />
+              <div className="text-center group">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <Target className="h-8 w-8 text-purple-600" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full opacity-75 animate-ping" style={{animationDelay: '1s'}}></div>
                 </div>
-                <h3 className="font-medium text-gray-900 mb-2">Negotiation Value</h3>
-                <p className="text-sm text-gray-600">
-                  Determining realistic credit amounts based on market conditions and risk
+                <h3 className="font-bold text-gray-900 mb-3 text-lg">Negotiation Strategy</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Strategic positioning determines optimal credit amounts based on market leverage and negotiation psychology
                 </p>
               </div>
             </div>
