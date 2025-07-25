@@ -92,9 +92,12 @@ export class HybridExtractor implements DocumentExtractor {
     config: ExtractorConfig
   ): Promise<{ success: boolean; text: string; confidence?: number; error?: string }> {
     try {
-      DocumentLogger.logStep('OCR Extraction', 'Starting Google Vision OCR', {
-        fileName: document.metadata.fileName
-      });
+      DocumentLogger.logStep(
+        'OCR Extraction', 
+        'Starting Google Vision OCR', 
+        undefined, 
+        { fileName: document.metadata.fileName }
+      );
 
       // Check if Google Vision can handle this file type
       if (!this.googleVisionExtractor.canHandle(document.metadata.fileType)) {
@@ -110,13 +113,17 @@ export class HybridExtractor implements DocumentExtractor {
         timeout: this.ocrTimeout
       });
 
-      DocumentLogger.logStep('OCR Extraction', 
-        ocrResult.success ? 'Google Vision OCR completed successfully' : 'Google Vision OCR failed', {
-        fileName: document.metadata.fileName,
-        textLength: ocrResult.extractedText.length,
-        processingTimeMs: ocrResult.processingTimeMs,
-        pages: ocrResult.metadata.pages
-      });
+      DocumentLogger.logStep(
+        'OCR Extraction', 
+        ocrResult.success ? 'Google Vision OCR completed successfully' : 'Google Vision OCR failed', 
+        undefined,
+        {
+          fileName: document.metadata.fileName,
+          textLength: ocrResult.extractedText.length,
+          processingTimeMs: ocrResult.processingTimeMs,
+          pages: ocrResult.metadata.pages
+        }
+      );
 
       return {
         success: ocrResult.success,
@@ -147,26 +154,35 @@ export class HybridExtractor implements DocumentExtractor {
     config: ExtractorConfig
   ): Promise<ExtractionResult> {
     try {
-      DocumentLogger.logStep('Enhanced Analysis', 'Starting Anthropic Vision with Google Vision OCR context', {
-        fileName: document.metadata.fileName,
-        hasOcrText: ocrResult.success && ocrResult.text.length > 0
-      });
+      DocumentLogger.logStep(
+        'Enhanced Analysis', 
+        'Starting Anthropic Vision with Google Vision OCR context', 
+        undefined,
+        {
+          fileName: document.metadata.fileName,
+          hasOcrText: ocrResult.success && ocrResult.text.length > 0
+        }
+      );
 
       // Create enhanced prompt that includes OCR context
       const enhancedConfig = {
-        ...config,
-        customPrompt: this.createEnhancedPrompt(ocrResult, config.customPrompt)
+        ...config
+        // Note: Enhanced prompting with OCR context handled in createEnhancedPrompt
       };
 
       // Use VisionExtractor with enhanced configuration
       const analysisResult = await this.visionExtractor.extract(document, enhancedConfig);
 
-      DocumentLogger.logStep('Enhanced Analysis', 
-        analysisResult.success ? 'Analysis completed successfully' : 'Analysis failed', {
-        fileName: document.metadata.fileName,
-        analysisLength: analysisResult.extractedText.length,
-        processingTimeMs: analysisResult.processingTimeMs
-      });
+      DocumentLogger.logStep(
+        'Enhanced Analysis', 
+        analysisResult.success ? 'Analysis completed successfully' : 'Analysis failed', 
+        undefined,
+        {
+          fileName: document.metadata.fileName,
+          analysisLength: analysisResult.extractedText.length,
+          processingTimeMs: analysisResult.processingTimeMs
+        }
+      );
 
       return analysisResult;
 
@@ -181,11 +197,13 @@ export class HybridExtractor implements DocumentExtractor {
         extractedText: '',
         method: ExtractionMethod.HYBRID,
         metadata: {
-          fileName: document.metadata.fileName,
-          fileSize: document.metadata.fileSize,
-          processingTimeMs: Date.now() - Date.now(),
-          confidence: 0,
-          pages: 1
+          pages: 0,
+          fileType: document.metadata.fileType,
+          extractionMethod: ExtractionMethod.HYBRID,
+          processingDetails: {
+            failureReason: error instanceof Error ? error.message : 'Enhanced analysis failed',
+            fileName: document.metadata.fileName
+          }
         },
         processingTimeMs: Date.now() - Date.now(),
         error: error instanceof Error ? error.message : 'Enhanced analysis failed'
@@ -243,12 +261,14 @@ export class HybridExtractor implements DocumentExtractor {
         method: ExtractionMethod.HYBRID,
         metadata: {
           ...analysisResult.metadata,
-          processingTimeMs,
-          hybridProcessing: {
-            ocrSuccess: ocrResult.success,
-            ocrTextLength: ocrResult.text.length,
-            ocrConfidence: ocrResult.confidence,
-            analysisSuccess: analysisResult.success
+          processingDetails: {
+            ...analysisResult.metadata.processingDetails,
+            hybridProcessing: {
+              ocrSuccess: ocrResult.success,
+              ocrTextLength: ocrResult.text.length,
+              ocrConfidence: ocrResult.confidence,
+              analysisSuccess: analysisResult.success
+            }
           }
         }
       };
@@ -261,16 +281,17 @@ export class HybridExtractor implements DocumentExtractor {
         extractedText: `${ocrResult.text}\n\n[Note: Advanced analysis failed, showing OCR text only]`,
         method: ExtractionMethod.HYBRID,
         metadata: {
-          fileName: analysisResult.metadata.fileName,
-          fileSize: analysisResult.metadata.fileSize,
-          processingTimeMs,
-          confidence: ocrResult.confidence || 70,
           pages: 1,
-          hybridProcessing: {
-            ocrSuccess: true,
-            ocrTextLength: ocrResult.text.length,
-            ocrConfidence: ocrResult.confidence,
-            analysisSuccess: false
+          confidence: ocrResult.confidence || 70,
+          fileType: analysisResult.metadata.fileType,
+          extractionMethod: ExtractionMethod.HYBRID,
+          processingDetails: {
+            hybridProcessing: {
+              ocrSuccess: true,
+              ocrTextLength: ocrResult.text.length,
+              ocrConfidence: ocrResult.confidence,
+              analysisSuccess: false
+            }
           }
         },
         processingTimeMs,
