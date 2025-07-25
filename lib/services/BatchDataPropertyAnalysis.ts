@@ -124,7 +124,7 @@ export class BatchDataPropertyAnalysisService {
             }
           }
         } catch (error) {
-          logger.debug(`❌ ${strategy.name} failed:`, error);
+          logger.debug(`❌ ${strategy.name} failed:`, error instanceof Error ? error : new Error(String(error)));
           continue;
         }
       }

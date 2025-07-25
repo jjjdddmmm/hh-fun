@@ -56,7 +56,7 @@ export class DocumentProcessingBoundary extends Component<Props, State> {
     });
 
     this.setState({
-      errorInfo: errorInfo.componentStack
+      errorInfo: errorInfo.componentStack || null
     });
   }
 

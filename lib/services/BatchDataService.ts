@@ -67,7 +67,7 @@ export class BatchDataService {
       } else if (method === 'POST' && params) {
         // Add body for POST requests
         requestOptions.body = JSON.stringify(params);
-        logger.debug(`📤 Request body:`, JSON.stringify(params).substring(0, 200) + '...');
+        logger.debug(`📤 Request body:`, { body: JSON.stringify(params).substring(0, 200) + '...' });
       }
 
       const response = await fetch(url.toString(), requestOptions);
@@ -244,7 +244,7 @@ export class BatchDataService {
       //   }
       // });
     } catch (error) {
-      logger.warn('Failed to track BatchData usage:', error);
+      logger.error('Failed to track BatchData usage:', error);
     }
   }
 

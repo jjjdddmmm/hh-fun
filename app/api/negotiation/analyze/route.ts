@@ -69,7 +69,9 @@ export async function POST(request: NextRequest) {
     // For now, analyze the extracted text with enhanced mock
     // This proves PDF extraction works before we add Claude
     const analysisPrompt = createAnalysisPrompt(extractedText, reportType);
-    logger.debug('Would send to Claude:', analysisPrompt.substring(0, 200) + '...');
+    logger.debug('Would send to Claude:', { 
+      promptPreview: analysisPrompt.substring(0, 200) + '...' 
+    });
 
     // Simulate processing time
     const processingDelay = 4000 + Math.random() * 4000; // 4-8 seconds
@@ -258,7 +260,7 @@ function generateIssuesFromText(text: string, reportType: string): any[] {
 
 // Fallback to enhanced mock analysis
 function handleMockAnalysis(reportType: string, fileName: string, reason: string) {
-  logger.debug('Using mock analysis:', reason);
+  logger.debug('Using mock analysis:', { reason });
   
   // Return mock response (abbreviated for space)
   return NextResponse.json({

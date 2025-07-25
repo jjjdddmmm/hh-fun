@@ -30,8 +30,8 @@ export async function GET() {
           const rawAnalysis = property.analyses[0].analysis;
           analysis = JSON.parse(rawAnalysis as string);
         } catch (error) {
-          logger.error('❌ Failed to parse analysis for property:', property.id, error);
-          logger.error('❌ Raw analysis that failed:', property.analyses[0].analysis);
+          logger.error('❌ Failed to parse analysis for property:', error, { propertyId: property.id });
+          logger.error('❌ Raw analysis that failed:', new Error('Parse failed'), { rawAnalysis: property.analyses[0].analysis });
         }
       } else {
       }
@@ -41,7 +41,7 @@ export async function GET() {
         try {
           parsedImages = JSON.parse(property.images as string);
         } catch (error) {
-          logger.error('❌ Failed to parse images for property:', property.id, error);
+          logger.error('❌ Failed to parse images for property:', error, { propertyId: property.id });
         }
       }
       

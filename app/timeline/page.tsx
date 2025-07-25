@@ -160,7 +160,7 @@ function TimelinePageContent() {
             }
           })
           .catch(error => {
-            logger.warn('Analytics loading failed (non-blocking):', error);
+            logger.error('Analytics loading failed (non-blocking):', error);
             // Set empty analytics to prevent layout shift
             setAnalytics({});
           });
@@ -249,7 +249,7 @@ function TimelinePageContent() {
             }
           })
           .catch(error => {
-            logger.warn('Analytics refresh failed (non-blocking):', error);
+            logger.error('Analytics refresh failed (non-blocking):', error);
           });
       }
     } catch (error) {
@@ -275,7 +275,7 @@ function TimelinePageContent() {
           }
         }
       } catch (error) {
-        logger.warn('Failed to load team data:', error);
+        logger.warn('Failed to load team data:', error instanceof Error ? error : new Error(String(error)));
       }
     }
     
@@ -295,7 +295,7 @@ function TimelinePageContent() {
           }
         }
       } catch (error) {
-        logger.warn('Failed to load documents data:', error);
+        logger.warn('Failed to load documents data:', error instanceof Error ? error : new Error(String(error)));
       }
     }
   };
@@ -324,7 +324,7 @@ function TimelinePageContent() {
 
   const handlePriceSave = () => {
     // Here you would typically save to the backend
-    logger.debug('Saving price:', editedPrice);
+    logger.debug('Saving price:', { price: editedPrice });
     setIsEditingPrice(false);
   };
 
@@ -336,7 +336,7 @@ function TimelinePageContent() {
   const handleDaysSave = (days: number) => {
     setEditedDays(days);
     // Here you would typically save to the backend
-    logger.debug('Saving days:', days);
+    logger.debug('Saving days:', { days });
   };
 
   const getStatusColor = (status: string) => {

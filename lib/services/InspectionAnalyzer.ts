@@ -234,7 +234,7 @@ export class InspectionAnalyzer {
 
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown AI error');
-        logger.warn(`AI analysis attempt ${attempt + 1} failed:`, lastError.message);
+        logger.error(`AI analysis attempt ${attempt + 1} failed:`, lastError);
         
         if (attempt === maxRetries) {
           throw lastError;

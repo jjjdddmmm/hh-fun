@@ -34,7 +34,7 @@ export async function uploadDocument(
   format: string;
 }> {
   try {
-    logger.debug('Cloudinary upload starting for:', options.fileName);
+    logger.debug('Cloudinary upload starting for:', { fileName: options.fileName });
     
     // Create folder structure: timeline/{timelineId}/{stepId}
     const folder = `timeline/${options.timelineId}/${options.stepId}`;
@@ -45,8 +45,8 @@ export async function uploadDocument(
       .replace(/_{2,}/g, '_') // Replace multiple underscores with single
       .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
     
-    logger.debug('Sanitized filename:', sanitizedFileName);
-    logger.debug('Upload folder:', folder);
+    logger.debug('Sanitized filename:', { sanitizedFileName });
+    logger.debug('Upload folder:', { folder });
     
     return new Promise((resolve, reject) => {
       // Determine resource type based on file type to preserve PDFs

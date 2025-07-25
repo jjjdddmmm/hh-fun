@@ -246,7 +246,9 @@ Respond with JSON only:
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
         stack: error instanceof Error ? error.stack : undefined
       });
-      logger.warn('🔄 Using fallback analysis for property:', propertyData.address || propertyData.zpid);
+      logger.warn('🔄 Using fallback analysis for property', { 
+        propertyAddress: propertyData.address || propertyData.zpid 
+      });
       return this.fallbackAnalysis(propertyData);
     }
   }
@@ -561,7 +563,9 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
         analysis: parsed.analysis || 'Property analysis completed successfully.'
       };
     } catch (error) {
-      logger.error('❌ Error parsing AI response for property:', propertyData.address || propertyData.zpid, error);
+      logger.error('❌ Error parsing AI response for property:', error instanceof Error ? error : new Error(String(error)), { 
+        propertyAddress: propertyData.address || propertyData.zpid 
+      });
       return this.fallbackAnalysis(propertyData);
     }
   }
@@ -695,7 +699,10 @@ Consider market psychology, seller motivation, property factors, and timing. Pro
     // Ensure score stays within bounds
     investmentScore = Math.max(1, Math.min(100, investmentScore));
     
-    logger.warn('🔄 Using calculated fallback investment score:', investmentScore, 'for property:', propertyData.address || propertyData.zpid);
+    logger.warn('🔄 Using calculated fallback investment score', { 
+      investmentScore, 
+      propertyAddress: propertyData.address || propertyData.zpid 
+    });
     
     return {
       marketValue: {

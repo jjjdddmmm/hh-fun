@@ -224,7 +224,7 @@ export default function NegotiationPage() {
           ));
           
         } catch (error) {
-          logger.error('Analysis failed for report:', report.name, error);
+          logger.error('Analysis failed for report:', error, { reportName: report.name });
           
           // Mark as error
           setReports(prev => prev.map(r => 

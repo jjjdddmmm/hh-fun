@@ -88,10 +88,10 @@ export async function GET(request: NextRequest) {
 
         if (response.ok) {
           logger.debug(`✅ ${test.method} ${test.path} - ${response.status}`);
-          logger.debug('Response:', JSON.stringify(responseData, null, 2));
+          logger.debug('Response:', { response: JSON.stringify(responseData, null, 2) });
         } else {
           logger.debug(`❌ ${test.method} ${test.path} - ${response.status} ${response.statusText}`);
-          logger.debug('Error response:', JSON.stringify(responseData, null, 2));
+          logger.debug('Error response:', { errorResponse: JSON.stringify(responseData, null, 2) });
         }
 
         // Add a small delay between requests

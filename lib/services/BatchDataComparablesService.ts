@@ -165,7 +165,7 @@ export class BatchDataComparablesService {
         }
 
       } catch (error) {
-        logger.debug(`❌ Failed ${config.method} ${config.endpoint}:`, error);
+        logger.debug(`❌ Failed ${config.method} ${config.endpoint}:`, error instanceof Error ? error : new Error(String(error)));
         continue;
       }
     }
@@ -220,7 +220,9 @@ export class BatchDataComparablesService {
     logger.debug(`✅ Found ${Array.isArray(properties) ? properties.length : 'unknown'} properties in area`);
     
     if (properties.length > 0) {
-      logger.debug('🔍 Sample BatchData property structure:', JSON.stringify(properties[0], null, 2).substring(0, 500) + '...');
+      logger.debug('🔍 Sample BatchData property structure:', { 
+        sampleProperty: JSON.stringify(properties[0], null, 2).substring(0, 500) + '...' 
+      });
     }
     
     return Array.isArray(properties) ? properties : [];
@@ -289,7 +291,7 @@ export class BatchDataComparablesService {
         comparables.push(comparable);
 
       } catch (error) {
-        logger.warn('Error processing property:', error);
+        logger.warn('Error processing property:', error instanceof Error ? error : new Error(String(error)));
         continue;
       }
     }
@@ -351,7 +353,7 @@ export class BatchDataComparablesService {
       };
       
     } catch (error) {
-      logger.warn('Error converting BatchData property:', error);
+      logger.warn('Error converting BatchData property:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -478,11 +480,11 @@ export class BatchDataComparablesService {
     // Debug logging for all properties to understand patterns
     logger.debug('🔍 Enhanced price extraction debug:');
     logger.debug(`  Property: ${property.address?.street || 'unknown'}`);
-    logger.debug('  - mls.soldPrice:', mlsSoldPrice);
-    logger.debug('  - sale.lastSale.price:', saleLastPrice);
-    logger.debug('  - intel.lastSoldPrice (derived):', intelPrice);
-    logger.debug('  - mls.price (listing):', mlsPrice);
-    logger.debug('  - valuation.estimatedValue:', valuationPrice);
+    logger.debug('  - mls.soldPrice:', { price: mlsSoldPrice });
+    logger.debug('  - sale.lastSale.price:', { price: saleLastPrice });
+    logger.debug('  - intel.lastSoldPrice (derived):', { price: intelPrice });
+    logger.debug('  - mls.price (listing):', { price: mlsPrice });
+    logger.debug('  - valuation.estimatedValue:', { price: valuationPrice });
     
     // Prioritize actual transaction prices (best to least reliable)
     // 1. Intel derived price (most reliable - combines assessor + MLS)

@@ -67,12 +67,14 @@ export async function POST(request: NextRequest) {
         0.5,
         property.propertyType || undefined
       ).then(result => {
-        logger.debug('📊 BatchData sandbox test result:', result ? `${result.comparables.length} comparables` : 'failed');
+        logger.debug('📊 BatchData sandbox test result:', { 
+          result: result ? `${result.comparables.length} comparables` : 'failed' 
+        });
         if (result && result.comparables.length > 0) {
           logger.debug('✅ Sample BatchData comparable:', result.comparables[0]);
         }
       }).catch(error => {
-        logger.debug('⚠️ BatchData sandbox test error:', error.message);
+        logger.error('⚠️ BatchData sandbox test error:', error);
       });
     }
 

@@ -610,7 +610,7 @@ export default function PropertyAnalysisPage() {
       }
       
       // Other errors should be logged but not break the flow
-      logger.error('Error checking timeline:', response.status, response.statusText);
+      logger.error('Error checking timeline:', new Error(`HTTP ${response.status}: ${response.statusText}`));
       return false;
     } catch (error) {
       logger.error('Error checking timeline:', error);

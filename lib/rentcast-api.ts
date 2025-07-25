@@ -78,8 +78,8 @@ export class RentcastAPI {
       
       if (!response.ok) {
         const errorText = await response.text();
-        logger.error(`Rentcast AVM API error:`, response.status, response.statusText);
-        logger.error('Error response:', errorText);
+        logger.error(`Rentcast AVM API error:`, new Error(`HTTP ${response.status}: ${response.statusText}`));
+        logger.error('Error response:', new Error(errorText));
         return null;
       }
       
@@ -134,9 +134,9 @@ export class RentcastAPI {
       });
       
       if (!response.ok) {
-        logger.error('Rentcast Property API error:', response.status, response.statusText);
+        logger.error('Rentcast Property API error:', new Error(`HTTP ${response.status}: ${response.statusText}`));
         const errorText = await response.text();
-        logger.error('Property error response:', errorText);
+        logger.error('Property error response:', new Error(errorText));
         return null;
       }
       
@@ -302,8 +302,8 @@ export class RentcastAPI {
   }
 
   private formatCompsResponse(rawData: any, filterPropertyType?: string, subjectAddress?: string): RentcastCompsResponse {
-    logger.debug('Formatting properties response data:', rawData);
-    logger.debug('Filtering for property type:', filterPropertyType);
+    logger.debug('Formatting properties response data:', { rawData });
+    logger.debug('Filtering for property type:', { filterPropertyType });
     
     // Handle properties endpoint response structure
     const propertiesArray = rawData.properties || rawData.results || rawData || [];
@@ -459,7 +459,7 @@ export class RentcastAPI {
     
     // Debug: Log all unique property types found in comparables
     const uniquePropertyTypes = Array.from(new Set(comparables.map(comp => comp.propertyType)));
-    logger.debug('Unique property types in comparables:', uniquePropertyTypes);
+    logger.debug('Unique property types in comparables:', { propertyTypes: uniquePropertyTypes });
     
     // Filter by property type if specified
     if (rentcastPropertyType) {
