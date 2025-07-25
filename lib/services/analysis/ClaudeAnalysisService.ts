@@ -289,7 +289,19 @@ Please provide your analysis as valid JSON only - no additional text or explanat
       });
 
       // Extract JSON from Claude's response (handles cases where Claude adds explanation)
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/);
+      let jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+      if (!jsonMatch) {
+        // Try to find JSON object directly
+        jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      }
+      if (!jsonMatch) {
+        // Try to find JSON after any text (Claude might add explanation before JSON)
+        const jsonStart = responseText.indexOf('{');
+        const jsonEnd = responseText.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+          jsonMatch = [responseText.substring(jsonStart, jsonEnd + 1)];
+        }
+      }
       
       if (!jsonMatch) {
         logger.error('No JSON found in Claude response', { responseText });
@@ -297,7 +309,10 @@ Please provide your analysis as valid JSON only - no additional text or explanat
       }
 
       const jsonText = jsonMatch[1] || jsonMatch[0];
+      logger.debug('Extracted JSON text', { jsonText: jsonText.substring(0, 500) });
+      
       const parsed = JSON.parse(jsonText);
+      logger.debug('Successfully parsed JSON', { issuesCount: parsed.issues?.length });
 
       if (!parsed.issues || !Array.isArray(parsed.issues)) {
         throw new Error('Invalid response structure: missing issues array');
