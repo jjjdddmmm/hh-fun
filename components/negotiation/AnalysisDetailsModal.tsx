@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,8 @@ import {
   Cpu,
   Hash,
   FileSearch,
-  Eye
+  Eye,
+  ArrowLeft
 } from "lucide-react";
 
 export interface AnalysisDetails {
@@ -76,6 +77,20 @@ export function AnalysisDetailsModal({
   isDebugMode = false
 }: AnalysisDetailsModalProps) {
   const [activeTab, setActiveTab] = useState("issues");
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, onClose]);
 
   if (!analysisDetails) return null;
 
@@ -150,28 +165,60 @@ export function AnalysisDetailsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Analysis Details: {reportName}</span>
+            <div className="flex items-center space-x-3">
+              <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-gray-100">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Analysis
+              </Button>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <span className="text-lg font-semibold">Analysis Details: {reportName}</span>
+            </div>
             <Button variant="outline" size="sm" onClick={exportAnalysis}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
           </DialogTitle>
-          <DialogDescription>
-            Detailed breakdown of the inspection report analysis
+          <DialogDescription className="flex items-center justify-between">
+            <span>Detailed breakdown of the inspection report analysis</span>
+            <span className="text-xs text-gray-400">Press ESC to close</span>
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className={`grid w-full ${isDebugMode ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-            <TabsTrigger value="issues">Issues Found</TabsTrigger>
-            <TabsTrigger value="breakdown">Cost Breakdown</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+          <TabsList className={`grid w-full ${isDebugMode ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'} bg-gray-100 p-1 rounded-lg`}>
+            <TabsTrigger 
+              value="issues" 
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Issues Found
+            </TabsTrigger>
+            <TabsTrigger 
+              value="breakdown"
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Cost Breakdown
+            </TabsTrigger>
             {isDebugMode && (
               <>
-                <TabsTrigger value="source">Source Text</TabsTrigger>
-                <TabsTrigger value="debug">Debug Info</TabsTrigger>
+                <TabsTrigger 
+                  value="source"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"
+                >
+                  <FileSearch className="h-4 w-4 mr-2" />
+                  Source Text
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="debug"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Debug Info
+                </TabsTrigger>
               </>
             )}
           </TabsList>
