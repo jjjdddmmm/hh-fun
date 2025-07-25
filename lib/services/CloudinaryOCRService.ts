@@ -126,7 +126,7 @@ export class CloudinaryOCRService {
         await cloudinary.uploader.destroy(uploadResult.public_id);
         logger.debug('Temporary OCR file cleaned up', { publicId: uploadResult.public_id });
       } catch (cleanupError) {
-        logger.warn('Failed to cleanup temporary OCR file', cleanupError);
+        logger.warn('Failed to cleanup temporary OCR file', { error: cleanupError instanceof Error ? cleanupError.message : 'Unknown cleanup error' });
       }
 
       return ocrResult;
