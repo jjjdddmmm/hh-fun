@@ -209,8 +209,8 @@ export function NegotiationWorkspace({
         ) : executiveSummary;
       
       return {
-        title: report?.name || 'Report',
-        subtitle: getReportTypeLabel(report?.type || 'other'),
+        title: getReportTypeLabel(report?.type || 'other'),
+        subtitle: report?.name || 'Report',
         issues: reportIssues,
         reportType: report?.type || 'inspection',
         summary: reportSummary,
