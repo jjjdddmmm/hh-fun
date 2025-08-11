@@ -29,6 +29,16 @@ export async function GET() {
         try {
           const rawAnalysis = property.analyses[0].analysis;
           analysis = JSON.parse(rawAnalysis as string);
+          
+          // Debug: Check if enhanced scoring data survived the round-trip
+          logger.debug('🔍 Analysis data loaded from database:', {
+            propertyId: property.id.slice(-8),
+            hasInvestmentScore: !!analysis?.investmentScore,
+            hasInvestmentGrade: !!analysis?.investmentGrade,
+            hasScoreBreakdown: !!analysis?.scoreBreakdown,
+            investmentScore: analysis?.investmentScore,
+            investmentGrade: analysis?.investmentGrade
+          });
         } catch (error) {
           logger.error('❌ Failed to parse analysis for property:', error, { propertyId: property.id });
           logger.error('❌ Raw analysis that failed:', new Error('Parse failed'), { rawAnalysis: property.analyses[0].analysis });

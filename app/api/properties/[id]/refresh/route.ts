@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -26,28 +26,23 @@ export async function POST(
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
     }
 
-    // Clear existing analysis data
-    const deletedAnalyses = await prisma.propertyAnalysis.deleteMany({
+    logger.debug(`🔄 Smart refresh initiated for property: ${propertyId}`);
+    
+    // Only clear the analysis data - preserve expensive BatchData property fields
+    await prisma.propertyAnalysis.deleteMany({
       where: { propertyId: propertyId }
     });
     
-
-    // Reset property to analyzing state
-    await prisma.property.update({
-      where: { id: propertyId },
-      data: {
-        address: "Analyzing...",
-        city: "Unknown",
-        state: "CA",
-        zipCode: "00000",
-        price: BigInt(50000000),
-        squareFootage: 2000,
-        bedrooms: 3,
-        bathrooms: 2,
-        yearBuilt: 2000,
-        propertyType: "Unknown"
-      }
-    });
+    logger.debug(`✅ Deleted old analysis data, BatchData property fields preserved`);
+    
+    // Check if property has BatchData (to avoid unnecessary API calls)
+    const hasBatchData = !!(property.estimatedValue || property.daysOnMarket || property.quickLists);
+    
+    if (hasBatchData) {
+      logger.debug(`💰 Property already has BatchData intelligence - will reuse existing data (saving ~$0.46)`);
+    } else {
+      logger.debug(`⚠️ Property missing BatchData - fresh analysis will fetch data`);
+    }
 
 
     return NextResponse.json({

@@ -14,7 +14,7 @@ export interface PageCountResult {
 }
 
 export class PDFPageCounter {
-  private static readonly MAX_CHUNK_SIZE = 25; // Safe limit under Google's 30-page limit
+  private static readonly MAX_CHUNK_SIZE = 15; // Safe limit for Google Vision non-imageless mode
   private static readonly GOOGLE_VISION_LIMIT = 30;
 
   /**

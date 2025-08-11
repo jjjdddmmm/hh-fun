@@ -10,7 +10,7 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId: _userId } = await auth();
     
     const body = await request.json();
     const { 
@@ -191,11 +191,11 @@ export async function POST(request: NextRequest) {
     // Log the request for analytics
     // TODO: Add API usage tracking when model is created
     /*
-    if (userId) {
+    if (_userId) {
       try {
         await prisma.apiUsage.create({
           data: {
-            userId,
+            userId: _userId,
             endpoint: '/api/deal-maker',
             method: 'POST',
             statusCode: 200,

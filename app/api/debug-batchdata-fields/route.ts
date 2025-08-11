@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from "@/lib/utils/logger";
 import { BatchDataService } from '@/lib/services/BatchDataService';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const batchData = new BatchDataService();
     

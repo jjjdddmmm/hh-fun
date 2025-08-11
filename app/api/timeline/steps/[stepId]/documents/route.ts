@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { documentVersionService } from '@/lib/services/DocumentVersionService';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { stepId: string } }
 ) {
   try {

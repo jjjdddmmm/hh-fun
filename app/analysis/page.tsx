@@ -866,7 +866,17 @@ export default function PropertyAnalysisPage() {
           {showInvestmentScore && selectedProperty?.analysis && (() => {
             // 🚀 Enhanced BatchData + AI Investment Scoring
             const analysis = selectedProperty.analysis;
-            const hasEnhancedScore = analysis.scoreBreakdown && analysis.investmentGrade;
+            const hasEnhancedScore = !!(analysis.scoreBreakdown && analysis.investmentGrade);
+            
+            // Debug: Log what we're checking for enhanced score
+            console.log('🔍 Frontend Enhanced Score Check:', {
+              hasScoreBreakdown: !!analysis.scoreBreakdown,
+              hasInvestmentGrade: !!analysis.investmentGrade,
+              hasEnhancedScore,
+              investmentScore: analysis.investmentScore,
+              investmentGrade: analysis.investmentGrade,
+              scoreBreakdownKeys: analysis.scoreBreakdown ? Object.keys(analysis.scoreBreakdown) : 'none'
+            });
             
             return (
               <div className="space-y-6">
@@ -904,7 +914,7 @@ export default function PropertyAnalysisPage() {
               <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
                 <CardHeader>
                   <CardTitle className="text-lg">
-                    <SectionHeader className="text-[#5C1B10]">
+                    <SectionHeader as="span" className="text-[#5C1B10]">
                       {hasEnhancedScore ? 'AI + BatchData Score Breakdown' : 'Basic Score Breakdown'}
                     </SectionHeader>
                   </CardTitle>
@@ -1208,7 +1218,7 @@ export default function PropertyAnalysisPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center text-base">
                     <TrendingUp className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                    <SectionHeader className="text-base text-[#5C1B10]">Key Positive Factors</SectionHeader>
+                    <SectionHeader as="span" className="text-base text-[#5C1B10]">Key Positive Factors</SectionHeader>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1229,7 +1239,7 @@ export default function PropertyAnalysisPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center text-base">
                       <AlertCircle className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                      <SectionHeader className="text-base text-[#5C1B10]">Red Flags & Concerns</SectionHeader>
+                      <SectionHeader as="span" className="text-base text-[#5C1B10]">Red Flags & Concerns</SectionHeader>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -1250,7 +1260,7 @@ export default function PropertyAnalysisPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center text-base">
                     <TrendingUp className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                    <SectionHeader className="text-base text-[#5C1B10]">Market Context & Trends</SectionHeader>
+                    <SectionHeader as="span" className="text-base text-[#5C1B10]">Market Context & Trends</SectionHeader>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1307,7 +1317,7 @@ export default function PropertyAnalysisPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center text-base">
                       <Handshake className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                      <SectionHeader className="text-base text-[#5C1B10]">Deal Maker: Negotiation Strategy</SectionHeader>
+                      <SectionHeader as="span" className="text-base text-[#5C1B10]">Deal Maker: Negotiation Strategy</SectionHeader>
                     </CardTitle>
                     <CardDescription className="font-ds-body text-[#020B0A] opacity-80">
                       Let&apos;s get you that home you didn&apos;t know you could afford
@@ -1401,7 +1411,7 @@ export default function PropertyAnalysisPage() {
                     <CardTitle className="flex items-center justify-between">
                       <div className="flex items-center text-base">
                         <Handshake className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                        <SectionHeader className="text-base text-[#5C1B10]">Deal Maker Negotiation Strategy</SectionHeader>
+                        <SectionHeader as="span" className="text-base text-[#5C1B10]">Deal Maker Negotiation Strategy</SectionHeader>
                       </div>
                       <Button
                         variant="ghost"
@@ -2867,7 +2877,9 @@ export default function PropertyAnalysisPage() {
                                   Loading...
                                 </>
                               ) : (
-                                'Comparables'
+                                <>
+                                  Comparables
+                                </>
                               )}
                             </button>
                             <button 

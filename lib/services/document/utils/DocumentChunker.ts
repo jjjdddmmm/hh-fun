@@ -7,6 +7,7 @@
 import { DocumentBuffer, SupportedFileType, DocumentProcessingError } from '../types/DocumentTypes';
 import { DocumentLogger } from './DocumentLogger';
 import { PDFPageCounter } from './PDFPageCounter';
+import { PDFDocument } from 'pdf-lib';
 
 export interface DocumentChunk {
   readonly buffer: Buffer;
@@ -31,7 +32,8 @@ export interface ChunkingResult {
 }
 
 export class DocumentChunker {
-  private static readonly CHUNK_SIZE = 25; // Safe limit under Google's 30-page limit
+  // Note: CHUNK_SIZE reserved for future use - Google Vision pagination
+  // private static readonly CHUNK_SIZE = 15;
 
   /**
    * Split a document into chunks if needed
@@ -214,17 +216,55 @@ export class DocumentChunker {
 
   /**
    * Extract specific pages from a PDF buffer
-   * NOTE: This currently returns the full PDF as Google quota increase is pending
-   * Once quota is increased to 100 pages, chunking won't be needed for most documents
+   * Uses pdf-lib to create a new PDF with only the specified page range
    */
   private static async extractPDFPages(
     pdfBuffer: Buffer,
     startPage: number,
     endPage: number
   ): Promise<Buffer> {
-    // Return full PDF until page extraction is implemented
-    // This is intentional as we're waiting for Google quota increase
-    return pdfBuffer;
+    try {
+      // Load the PDF document (ignore encryption for read-only operations)
+      const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+      
+      // Create a new PDF document
+      const newPdfDoc = await PDFDocument.create();
+      
+      // Copy pages from startPage to endPage (1-indexed to 0-indexed conversion)
+      const pagesToCopy = [];
+      for (let i = startPage - 1; i < endPage; i++) {
+        pagesToCopy.push(i);
+      }
+      
+      // Copy the pages
+      const copiedPages = await newPdfDoc.copyPages(pdfDoc, pagesToCopy);
+      
+      // Add the copied pages to the new document
+      for (const page of copiedPages) {
+        newPdfDoc.addPage(page);
+      }
+      
+      // Save the new PDF to a buffer
+      const pdfBytes = await newPdfDoc.save();
+      return Buffer.from(pdfBytes);
+      
+    } catch (error) {
+      DocumentLogger.logStep(
+        'PDF Page Extraction',
+        `Failed to extract pages ${startPage}-${endPage}`,
+        undefined,
+        { 
+          startPage, 
+          endPage, 
+          error: error instanceof Error ? error.message : 'Unknown error' 
+        }
+      );
+      
+      throw new DocumentProcessingError(
+        `Failed to extract pages: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'PAGE_EXTRACTION_FAILED'
+      );
+    }
   }
 
   /**

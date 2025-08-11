@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
 
     // SAFE IMPLEMENTATION: Keep RentCast as primary, test BatchData in parallel
     let compsData = null;
-    let batchDataResults = null;
     
     // BatchData testing with sandbox (cost-controlled)
     if (batchDataAPI) {

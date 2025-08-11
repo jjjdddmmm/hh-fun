@@ -7,8 +7,7 @@ import { auth } from '@clerk/nextjs/server';
 import { timelineService } from '@/lib/services/TimelineService';
 import { generalRateLimiter } from '@/lib/rate-limiter';
 import { 
-  updateTimelineStepSchema,
-  addStepCommentSchema
+  updateTimelineStepSchema
 } from '@/lib/validation/timeline';
 import { ZodError } from 'zod';
 
@@ -23,7 +22,7 @@ interface RouteParams {
 // ============================================================================
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: RouteParams
 ) {
   try {
@@ -180,7 +179,7 @@ export async function PUT(
 // ============================================================================
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: RouteParams
 ) {
   try {

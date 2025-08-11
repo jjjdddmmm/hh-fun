@@ -26,6 +26,13 @@ export interface BatchDataPropertyData {
   description?: string;
   photos?: string[];
   // BatchData enhanced fields
+  batchDataValuation?: {
+    amount: number;
+    valuationRange: {
+      low: number;
+      high: number;
+    };
+  };
   zestimate?: {
     amount: number;
     valuationRange: {
@@ -298,14 +305,25 @@ export class BatchDataPropertyAnalysisService {
       // Market insights - ensure these are properly extracted
       quickLists: property.quickLists || this.generateQuickLists(property),
       demographics: property.demographics || property.neighborhood || {},
-      // Add valuation data for zestimate
-      zestimate: property.valuation?.estimatedValue ? {
-        amount: property.valuation.estimatedValue,
-        valuationRange: {
-          low: property.valuation.estimatedValue * 0.95,
-          high: property.valuation.estimatedValue * 1.05
-        }
-      } : undefined,
+      // BatchData valuation (separate from Zestimate)
+      batchDataValuation: (() => {
+        logger.debug('🔍 BatchData valuation debug:', {
+          hasValuation: !!property.valuation,
+          valuationKeys: property.valuation ? Object.keys(property.valuation) : [],
+          estimatedValue: property.valuation?.estimatedValue,
+          rawValuation: property.valuation
+        });
+        
+        return property.valuation?.estimatedValue ? {
+          amount: property.valuation.estimatedValue,
+          valuationRange: {
+            low: property.valuation.estimatedValue * 0.95,
+            high: property.valuation.estimatedValue * 1.05
+          }
+        } : undefined;
+      })(),
+      // Zestimate should come from Zillow API, not BatchData
+      zestimate: undefined, // TODO: Fetch from Zillow API separately
       rentZestimate: property.rental?.estimatedRent || property.rentEstimate || 0
     };
     

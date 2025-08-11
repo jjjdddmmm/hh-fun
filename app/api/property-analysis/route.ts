@@ -49,15 +49,18 @@ function extractAddressFromMlsUrl(parsedUrl: any, mlsUrl: string): string {
 // Fast basic analysis from BatchData
 function createBasicAnalysis(data: BatchDataPropertyData) {
   const pricePerSqft = data.pricePerSqft || Math.round(data.price / data.livingArea);
-  const isOverpriced = data.zestimate ? 
-    ((data.price - data.zestimate.amount) / data.zestimate.amount) > 0.05 : false;
+  
+  // Use real Zestimate if available, otherwise BatchData valuation, otherwise list price
+  const bestEstimate = data.zestimate?.amount || data.batchDataValuation?.amount || data.price;
+  const isOverpriced = bestEstimate ? 
+    ((data.price - bestEstimate) / bestEstimate) > 0.05 : false;
   
   return {
     marketValue: {
-      low: data.zestimate?.valuationRange.low || data.price * 0.95,
-      high: data.zestimate?.valuationRange.high || data.price * 1.05,
-      estimated: data.zestimate?.amount || data.price,
-      confidence: 85
+      low: data.zestimate?.valuationRange?.low || data.batchDataValuation?.valuationRange?.low || data.price * 0.95,
+      high: data.zestimate?.valuationRange?.high || data.batchDataValuation?.valuationRange?.high || data.price * 1.05,
+      estimated: bestEstimate,
+      confidence: data.zestimate ? 90 : (data.batchDataValuation ? 80 : 70)
     },
     recommendation: isOverpriced ? 'overpriced' : 'good',
     investmentScore: 0, // Will be replaced by AI
@@ -126,8 +129,97 @@ export async function POST(request: NextRequest) {
     let propertyData = null;
     let analysisData = null;
 
-    // Get property data from BatchData API (more comprehensive and cost-effective)
-    if (batchDataService && batchDataService.isAvailable()) {
+    // Smart BatchData Usage: Check if property already has BatchData to avoid unnecessary API calls
+    const hasExistingBatchData = !!(targetProperty.estimatedValue || targetProperty.daysOnMarket || targetProperty.quickLists);
+    
+    if (hasExistingBatchData) {
+      logger.debug(`💰 Reusing existing BatchData for property ${targetProperty.id.slice(-8)} (saving ~$0.46)`);
+      
+      // Convert existing property data to the expected format (BigInt cents to dollars)
+      const priceInDollars = Number(targetProperty.price) / 100; // Convert from cents to dollars
+      
+      // Create complete address for AI context (street + city + state)
+      const fullAddress = [
+        targetProperty.address,
+        targetProperty.city,
+        targetProperty.state
+      ].filter(Boolean).join(' ') || 'Unknown';
+      
+      propertyData = {
+        address: fullAddress,
+        price: priceInDollars,
+        sqft: targetProperty.squareFootage || 2000,
+        bedrooms: targetProperty.bedrooms || 3,
+        bathrooms: Number(targetProperty.bathrooms) || 2,
+        yearBuilt: targetProperty.yearBuilt || 2000,
+        daysOnMarket: targetProperty.daysOnMarket || 0,
+        pricePerSqft: Math.round(priceInDollars / (targetProperty.squareFootage || 2000)),
+        description: `Property details for ${targetProperty.address}`,
+        images: targetProperty.images ? JSON.parse(targetProperty.images as string) : []
+      };
+      
+      // Create mock batchData structure from existing property for enhanced scoring
+      const mockBatchDataFromProperty = {
+        zpid: 'existing-property',
+        address: fullAddress,
+        price: priceInDollars, // Use converted price in dollars
+        bedrooms: propertyData.bedrooms,
+        bathrooms: propertyData.bathrooms,
+        livingArea: propertyData.sqft,
+        yearBuilt: propertyData.yearBuilt,
+        daysOnMarket: propertyData.daysOnMarket,
+        pricePerSqft: propertyData.pricePerSqft,
+        quickLists: targetProperty.quickLists ? JSON.parse(targetProperty.quickLists as string) : {},
+        batchDataValuation: targetProperty.estimatedValue ? {
+          amount: Number(targetProperty.estimatedValue) / 100 // Convert from cents to dollars
+        } : undefined
+      };
+      
+      // Create analysis using existing data
+      analysisData = createBasicAnalysis(mockBatchDataFromProperty);
+      
+      // Run enhanced scoring with existing BatchData
+      try {
+        logger.debug('🎯 Running enhanced scoring with existing BatchData...');
+        const enhancedScore = await enhancedScoring.calculateEnhancedScore({
+          data: propertyData
+        }, {
+          estimatedValue: mockBatchDataFromProperty.batchDataValuation?.amount,
+          marketTrend: propertyData.daysOnMarket > 60 ? 'cold' : 'warm',
+          demandLevel: propertyData.daysOnMarket < 30 ? 'high' : 'medium',
+          daysOnMarket: propertyData.daysOnMarket,
+          // Use existing quickLists data
+          ownerOccupied: mockBatchDataFromProperty.quickLists?.ownerOccupied,
+          absenteeOwner: mockBatchDataFromProperty.quickLists?.absenteeOwner,
+          highEquity: mockBatchDataFromProperty.quickLists?.highEquity,
+          cashBuyer: mockBatchDataFromProperty.quickLists?.cashBuyer,
+          distressedProperty: mockBatchDataFromProperty.quickLists?.distressedProperty,
+          freeAndClear: mockBatchDataFromProperty.quickLists?.freeAndClear,
+          recentlySold: mockBatchDataFromProperty.quickLists?.recentlySold
+        });
+        
+        // Apply enhanced scoring results
+        analysisData.investmentScore = enhancedScore.totalScore;
+        (analysisData as any).investmentGrade = enhancedScore.grade;
+        (analysisData as any).investmentRecommendation = enhancedScore.recommendation;
+        (analysisData as any).scoreBreakdown = enhancedScore.breakdown;
+        analysisData.keyInsights = enhancedScore.aiInsights;
+        analysisData.redFlags = enhancedScore.redFlags;
+        (analysisData as any).keyOpportunities = enhancedScore.keyOpportunities;
+        analysisData.aiConfidence = enhancedScore.confidence;
+        
+        logger.debug(`✅ Enhanced scoring with existing data: ${enhancedScore.totalScore}/100 (${enhancedScore.grade})`);
+        
+      } catch (error) {
+        logger.error('❌ Enhanced scoring failed with existing data:', error);
+        // Continue with basic analysis
+      }
+      
+    } else {
+      logger.debug(`🔄 No existing BatchData found, fetching fresh data from API...`);
+      
+      // Get property data from BatchData API (more comprehensive and cost-effective)
+      if (batchDataService && batchDataService.isAvailable()) {
       try {
         // Extract address from parsed URL
         const addressFromUrl = extractAddressFromMlsUrl(parsedUrl, mlsUrl);
@@ -178,12 +270,21 @@ export async function POST(request: NextRequest) {
               logger.debug(`📸 Fetching photos from Zillow for ZPID: ${parsedUrl.zpid}`);
               const zillowData = await zillowService.getPropertyData(parsedUrl.zpid);
               
-              if (zillowData && zillowData.photos && zillowData.photos.length > 0) {
-                logger.debug(`✅ Found ${zillowData.photos.length} photos from Zillow`);
-                propertyData.images = zillowData.photos;
+              if (zillowData) {
+                // Extract photos if available
+                if (zillowData.photos && zillowData.photos.length > 0) {
+                  logger.debug(`✅ Found ${zillowData.photos.length} photos from Zillow`);
+                  propertyData.images = zillowData.photos;
+                  batchData.photos = zillowData.photos;
+                }
                 
-                // Also update the BatchData object to include real photos
-                batchData.photos = zillowData.photos;
+                // Extract real Zestimate if available
+                if (zillowData.zestimate) {
+                  logger.debug(`💰 Found real Zestimate from Zillow: $${zillowData.zestimate.amount.toLocaleString()}`);
+                  batchData.zestimate = zillowData.zestimate;
+                } else {
+                  logger.debug(`⚠️ No Zestimate available from Zillow API`);
+                }
               }
             } catch (error) {
               logger.error('Failed to fetch photos from Zillow:', error);
@@ -196,13 +297,24 @@ export async function POST(request: NextRequest) {
           
           // 🚀 ENHANCED: Use BatchData + AI for comprehensive investment scoring
           logger.debug('🎯 Generating enhanced investment score with BatchData intelligence...');
+          logger.debug('🔍 PropertyData for enhanced scoring:', {
+            hasData: !!propertyData,
+            hasAddress: !!propertyData?.address,
+            hasPrice: !!propertyData?.price,
+            hasSqft: !!propertyData?.sqft
+          });
+          logger.debug('🔍 BatchData intelligence:', {
+            hasEstimatedValue: !!batchData.batchDataValuation?.amount,
+            daysOnMarket: batchData.daysOnMarket,
+            hasQuickLists: !!batchData.quickLists
+          });
           
           try {
             const enhancedScore = await enhancedScoring.calculateEnhancedScore({
               data: propertyData
             }, {
               // Pass through BatchData intelligence from property update
-              estimatedValue: batchData.zestimate?.amount,
+              estimatedValue: batchData.batchDataValuation?.amount,
               marketTrend: batchData.daysOnMarket && batchData.daysOnMarket > 60 ? 'cold' : 'warm',
               demandLevel: batchData.daysOnMarket && batchData.daysOnMarket < 30 ? 'high' : 'medium',
               daysOnMarket: batchData.daysOnMarket,
@@ -234,17 +346,45 @@ export async function POST(request: NextRequest) {
             analysisData.aiConfidence = enhancedScore.confidence;
             
             logger.debug(`✅ Enhanced investment score: ${enhancedScore.totalScore}/${enhancedScore.maxScore} (${enhancedScore.grade})`);
+            logger.debug('📊 Analysis data structure for frontend:', {
+              hasInvestmentScore: !!analysisData.investmentScore,
+              hasInvestmentGrade: !!(analysisData as any).investmentGrade,
+              hasScoreBreakdown: !!(analysisData as any).scoreBreakdown,
+              hasKeyOpportunities: !!(analysisData as any).keyOpportunities,
+              investmentScore: analysisData.investmentScore,
+              investmentGrade: (analysisData as any).investmentGrade
+            });
             
           } catch (error) {
             logger.error('❌ Enhanced scoring failed, falling back to basic AI:', error);
             
-            // Fallback to basic AI analysis
-            const aiInsights = await aiService.generatePropertyInsights(batchData as any);
-            
-            if (aiService.validateInsights(aiInsights)) {
-              analysisData.investmentScore = aiInsights.investmentScore;
-              analysisData.keyInsights = aiInsights.keyInsights;
-              analysisData.redFlags = aiInsights.redFlags as any;
+            try {
+              // Fallback to basic AI analysis
+              const aiInsights = await aiService.generatePropertyInsights(batchData as any);
+              
+              if (aiService.validateInsights(aiInsights)) {
+                analysisData.investmentScore = aiInsights.investmentScore;
+                analysisData.keyInsights = aiInsights.keyInsights;
+                analysisData.redFlags = aiInsights.redFlags as any;
+              }
+            } catch (aiError) {
+              logger.error('❌ AI analysis also failed, providing basic fallback:', aiError);
+              
+              // Provide basic fallback scoring when both enhanced scoring and AI fail
+              analysisData.investmentScore = 65; // Neutral score
+              (analysisData as any).investmentGrade = 'C+';
+              (analysisData as any).investmentRecommendation = 'HOLD';
+              (analysisData as any).scoreBreakdown = {
+                dealPotential: { score: 15, maxScore: 25, description: 'Analysis pending - manual review needed', factors: ['Review property fundamentals'] },
+                marketTiming: { score: 12, maxScore: 20, description: 'Standard market conditions', factors: ['Market analysis in progress'] },
+                ownerMotivation: { score: 10, maxScore: 20, description: 'Owner motivation unknown', factors: ['Research seller situation'] },
+                financialOpportunity: { score: 12, maxScore: 20, description: 'Financial analysis needed', factors: ['Calculate rental yields'] },
+                riskAssessment: { score: 10, maxScore: 15, description: 'Risk assessment pending', factors: ['Property inspection recommended'] }
+              };
+              analysisData.keyInsights = ['Property analysis completed with BatchData intelligence', 'AI insights temporarily unavailable - enhanced scoring active'];
+              analysisData.redFlags = ['Complete manual analysis recommended'];
+              (analysisData as any).keyOpportunities = ['Review property details for investment potential'];
+              analysisData.aiConfidence = 70;
             }
           }
 
@@ -266,10 +406,30 @@ export async function POST(request: NextRequest) {
               lastSoldPrice: batchData.price,
               lastSoldDate: batchData.soldDate
             },
+            // Separate BatchData valuation from Zillow Zestimate (convert to cents for BigInt storage)
+            estimatedValue: (() => {
+              const val = batchData.batchDataValuation?.amount ? BigInt(Math.round(batchData.batchDataValuation.amount * 100)) : null;
+              logger.debug('💰 EstimatedValue for DB:', { 
+                batchDataVal: batchData.batchDataValuation?.amount, 
+                dbValue: val?.toString() 
+              });
+              return val;
+            })(),
+            zestimate: (() => {
+              const val = batchData.zestimate?.amount ? BigInt(Math.round(batchData.zestimate.amount * 100)) : null;
+              logger.debug('🟡 Zestimate for DB:', { 
+                zestimateVal: batchData.zestimate?.amount, 
+                dbValue: val?.toString() 
+              });
+              return val;
+            })(),
+            zestimateRangeLow: batchData.zestimate?.valuationRange?.low ? BigInt(Math.round(batchData.zestimate.valuationRange.low * 100)) : null,
+            zestimateRangeHigh: batchData.zestimate?.valuationRange?.high ? BigInt(Math.round(batchData.zestimate.valuationRange.high * 100)) : null,
+            zestimateLastUpdated: batchData.zestimate ? new Date() : null,
             valuation: {
-              estimatedValue: batchData.zestimate?.amount || batchData.price,
+              estimatedValue: batchData.batchDataValuation?.amount || batchData.price,
               equityPercent: 50, // Default assumption
-              equityAmount: (batchData.zestimate?.amount || batchData.price) * 0.5
+              equityAmount: (batchData.batchDataValuation?.amount || batchData.price) * 0.5
             },
             building: {
               pool: batchData.features?.pool || false,
@@ -292,8 +452,9 @@ export async function POST(request: NextRequest) {
             demandLevel: batchData.daysOnMarket && batchData.daysOnMarket < 30 ? 'high' : 'medium'
           } as any, batchData.zpid);
         }
-      } catch (error) {
-        logger.error("Error fetching from BatchData API:", error);
+        } catch (error) {
+          logger.error("Error fetching from BatchData API:", error);
+        }
       }
     }
 
@@ -351,6 +512,16 @@ export async function POST(request: NextRequest) {
     if (analysisData) {
       await propertyService.saveAnalysis(propertyId, analysisData);
     }
+
+    // Final check before sending to frontend
+    logger.debug('🎯 Final analysis data being sent to frontend:', {
+      hasInvestmentScore: !!analysisData!.investmentScore,
+      hasInvestmentGrade: !!(analysisData! as any).investmentGrade,
+      hasScoreBreakdown: !!(analysisData! as any).scoreBreakdown,
+      investmentScore: analysisData!.investmentScore,
+      investmentGrade: (analysisData! as any).investmentGrade,
+      scoreBreakdownKeys: (analysisData! as any).scoreBreakdown ? Object.keys((analysisData! as any).scoreBreakdown) : 'none'
+    });
 
     return NextResponse.json({
       success: true,

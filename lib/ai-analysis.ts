@@ -132,8 +132,15 @@ export class PropertyAIAnalyzer {
   private anthropic: Anthropic;
   
   constructor() {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      logger.error('❌ ANTHROPIC_API_KEY not found in environment variables');
+      throw new Error('ANTHROPIC_API_KEY is required but not set');
+    }
+    
+    logger.debug('✅ ANTHROPIC_API_KEY loaded, length:', apiKey.length);
     this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY!,
+      apiKey: apiKey,
     });
   }
   

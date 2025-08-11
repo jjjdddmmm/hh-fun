@@ -3,7 +3,6 @@ import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { createAIAnalyzer } from "@/lib/ai-analysis";
-import { createZillowAPI } from "@/lib/zillow-api";
 
 export async function POST(request: NextRequest) {
   try {

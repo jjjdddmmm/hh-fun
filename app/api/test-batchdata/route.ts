@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { logger } from "@/lib/utils/logger";
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const apiKey = process.env.BATCH_DATA_API_KEY;
     

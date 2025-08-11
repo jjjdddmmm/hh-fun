@@ -16,7 +16,7 @@ function isAdminUser(userId: string): boolean {
   return adminUserIds.includes(userId);
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const { userId } = await auth();
     

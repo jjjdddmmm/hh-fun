@@ -1,7 +1,7 @@
 import { prisma } from '../prisma';
 import { logger } from "@/lib/utils/logger";
 import { ZillowPropertyData } from '../zillow-api';
-import { BatchDataPropertyData } from './BatchDataPropertyAnalysis';
+// import { BatchDataPropertyData } from './BatchDataPropertyAnalysis'; // Currently unused
 
 export interface CreatePropertyInput {
   userId: string;
@@ -148,8 +148,21 @@ export class PropertyService {
     if (data.quickLists?.lastSoldDate || data.intel?.lastSoldDate) {
       updateData.lastSaleDate = new Date(data.quickLists?.lastSoldDate || data.intel?.lastSoldDate);
     }
-    if (data.zestimate?.amount) {
-      updateData.estimatedValue = BigInt(Math.round(data.zestimate.amount * 100));
+    // Handle BatchData valuation vs Zillow Zestimate separately
+    if (data.estimatedValue && !updateData.estimatedValue) {
+      updateData.estimatedValue = data.estimatedValue; // Already converted in route
+    }
+    if (data.zestimate && !updateData.zestimate) {
+      updateData.zestimate = data.zestimate; // Already converted in route
+    }
+    if (data.zestimateRangeLow && !updateData.zestimateRangeLow) {
+      updateData.zestimateRangeLow = data.zestimateRangeLow; // Already converted in route
+    }
+    if (data.zestimateRangeHigh && !updateData.zestimateRangeHigh) {
+      updateData.zestimateRangeHigh = data.zestimateRangeHigh; // Already converted in route
+    }
+    if (data.zestimateLastUpdated && !updateData.zestimateLastUpdated) {
+      updateData.zestimateLastUpdated = data.zestimateLastUpdated; // Already set in route
     }
     if (data.valuation?.equityAmount) {
       updateData.equityAmount = BigInt(Math.round(data.valuation.equityAmount * 100));

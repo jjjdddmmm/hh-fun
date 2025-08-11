@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from "@/lib/utils/logger";
 import { createBatchDataComparablesService } from '@/lib/services/BatchDataComparablesService';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     logger.debug('🧪 Testing BatchData Comparables Service...');
     
