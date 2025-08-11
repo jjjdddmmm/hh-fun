@@ -162,11 +162,15 @@ export async function POST(request: NextRequest) {
       const mockBatchDataFromProperty = {
         zpid: 'existing-property',
         address: fullAddress,
+        city: targetProperty.city || 'Unknown',
+        state: targetProperty.state || 'Unknown',
+        zipcode: targetProperty.zipCode || '00000',
         price: priceInDollars, // Use converted price in dollars
         bedrooms: propertyData.bedrooms,
         bathrooms: propertyData.bathrooms,
         livingArea: propertyData.sqft,
         yearBuilt: propertyData.yearBuilt,
+        propertyType: targetProperty.propertyType || 'Single Family',
         daysOnMarket: propertyData.daysOnMarket,
         pricePerSqft: propertyData.pricePerSqft,
         quickLists: targetProperty.quickLists ? JSON.parse(targetProperty.quickLists as string) : {},
