@@ -138,7 +138,7 @@ export class PropertyAIAnalyzer {
       throw new Error('ANTHROPIC_API_KEY is required but not set');
     }
     
-    logger.debug('✅ ANTHROPIC_API_KEY loaded, length:', apiKey.length);
+    logger.debug('✅ ANTHROPIC_API_KEY loaded', { keyLength: apiKey.length });
     this.anthropic = new Anthropic({
       apiKey: apiKey,
     });
