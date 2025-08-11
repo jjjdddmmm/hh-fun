@@ -175,7 +175,11 @@ export async function POST(request: NextRequest) {
         pricePerSqft: propertyData.pricePerSqft,
         quickLists: targetProperty.quickLists ? JSON.parse(targetProperty.quickLists as string) : {},
         batchDataValuation: targetProperty.estimatedValue ? {
-          amount: Number(targetProperty.estimatedValue) / 100 // Convert from cents to dollars
+          amount: Number(targetProperty.estimatedValue) / 100, // Convert from cents to dollars
+          valuationRange: {
+            low: Number(targetProperty.estimatedValue) / 100 * 0.95,
+            high: Number(targetProperty.estimatedValue) / 100 * 1.05
+          }
         } : undefined
       };
       
