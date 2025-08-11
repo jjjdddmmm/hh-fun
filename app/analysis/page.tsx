@@ -13,6 +13,8 @@ import { Home, Plus, TrendingUp, DollarSign, MapPin, Square, Bed, Bath, AlertCir
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AppNavigation from "@/components/app-navigation";
 import AppFooter from "@/components/app-footer";
+import { useNotifications } from "@/lib/contexts/NotificationContext";
+import { useConfirmation } from "@/lib/contexts/ConfirmationContext";
 
 interface Property {
   id: string;
@@ -218,6 +220,8 @@ const calculateScoreBreakdown = (property: Property) => {
 export default function PropertyAnalysisPage() {
   const { user } = useUser();
   const router = useRouter();
+  const { showSuccess, showError, showWarning } = useNotifications();
+  const { confirm } = useConfirmation();
   const [properties, setProperties] = useState<Property[]>([]);
   const [newMlsUrl, setNewMlsUrl] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -317,7 +321,7 @@ export default function PropertyAnalysisPage() {
       
       if (result.message) {
         // Property already exists
-        alert(result.message);
+        showWarning(result.message, "Property Already Exists");
         setNewMlsUrl("");
         return;
       }
@@ -338,7 +342,7 @@ export default function PropertyAnalysisPage() {
       analyzeProperty(newProperty);
     } catch (error) {
       logger.error('❌ Failed to add property:', error);
-      alert(`Error: ${(error as Error).message}`);
+      showError(`Error: ${(error as Error).message}`, "Failed to Add Property");
     }
   };
 
@@ -388,7 +392,15 @@ export default function PropertyAnalysisPage() {
   };
 
   const deleteProperty = async (propertyId: string) => {
-    if (!confirm('Are you sure you want to delete this property? This will remove it from your dashboard but preserve the analysis data.')) {
+    const confirmed = await confirm({
+      title: "Delete Property",
+      description: "Are you sure you want to delete this property? This will remove it from your dashboard but preserve the analysis data.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "destructive"
+    });
+    
+    if (!confirmed) {
       return;
     }
 
@@ -403,14 +415,23 @@ export default function PropertyAnalysisPage() {
 
       // Remove from local state
       setProperties(prev => prev.filter(p => p.id !== propertyId));
+      showSuccess("Property deleted successfully");
     } catch (error) {
       logger.error('❌ Delete error:', error);
-      alert('Failed to delete property. Please try again.');
+      showError('Failed to delete property. Please try again.', "Delete Failed");
     }
   };
 
   const refreshProperty = async (property: Property) => {
-    if (!confirm('This will refresh the property data and re-run AI analysis. Continue?')) {
+    const confirmed = await confirm({
+      title: "Refresh Property Analysis",
+      description: "This will refresh the property data and re-run AI analysis. Continue?",
+      confirmText: "Refresh",
+      cancelText: "Cancel",
+      type: "info"
+    });
+    
+    if (!confirmed) {
       return;
     }
 
@@ -441,7 +462,7 @@ export default function PropertyAnalysisPage() {
       await loadProperties();
     } catch (error) {
       logger.error('❌ Refresh error:', error);
-      alert('Failed to refresh property. Please try again.');
+      showError('Failed to refresh property. Please try again.', "Refresh Failed");
       
       // Set back to error state
       setProperties(prev => 
@@ -588,8 +609,7 @@ export default function PropertyAnalysisPage() {
       }
     } catch (error) {
       logger.error('Error creating timeline:', error);
-      // You could add a toast notification here for better UX
-      alert(error instanceof Error ? error.message : 'Failed to create timeline. Please try again.');
+      showError(error instanceof Error ? error.message : 'Failed to create timeline. Please try again.', "Timeline Creation Failed");
     } finally {
       setCreatingTimeline(null);
     }
@@ -678,7 +698,7 @@ export default function PropertyAnalysisPage() {
 
   const runDealMakerAnalysis = async () => {
     if (!selectedProperty || !buyerProfile.maxBudget || !buyerProfile.downPaymentAvailable) {
-      alert('Please fill in your budget and down payment amount');
+      showWarning('Please fill in your budget and down payment amount', "Missing Information");
       return;
     }
 
@@ -706,11 +726,11 @@ export default function PropertyAnalysisPage() {
           setShowDealMaker(true);
         }
       } else {
-        alert('Failed to analyze negotiation strategy');
+        showError('Failed to analyze negotiation strategy', "Analysis Failed");
       }
     } catch (error) {
       logger.error('Error running Deal Maker:', error);
-      alert('Error analyzing property');
+      showError('Error analyzing property', "Deal Maker Error");
     } finally {
       setDealMakerLoading(false);
     }

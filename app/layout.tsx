@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
 import { Inter, Black_Han_Sans } from "next/font/google";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { NotificationProvider } from "@/lib/contexts/NotificationContext";
+import { ConfirmationProvider } from "@/lib/contexts/ConfirmationContext";
 import "./globals.css";
 
 const fontSans = Inter({
@@ -37,7 +39,11 @@ export default function RootLayout({
           )}
         >
           <ErrorBoundary>
-            {children}
+            <NotificationProvider>
+              <ConfirmationProvider>
+                {children}
+              </ConfirmationProvider>
+            </NotificationProvider>
           </ErrorBoundary>
         </body>
       </html>

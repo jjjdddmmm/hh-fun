@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNotifications } from "@/lib/contexts/NotificationContext";
 import { 
   Download, 
   FileText, 
@@ -77,6 +78,7 @@ export function AnalysisDetailsModal({
   isDebugMode = false
 }: AnalysisDetailsModalProps) {
   const [activeTab, setActiveTab] = useState("issues");
+  const { showSuccess, showError } = useNotifications();
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -134,7 +136,7 @@ export function AnalysisDetailsModal({
   const exportAnalysis = () => {
     if (!analysisDetails) {
       console.error('No analysis details available for export');
-      alert('No analysis data available to export');
+      showError('No analysis data available to export', "Export Failed");
       return;
     }
 
@@ -157,9 +159,10 @@ export function AnalysisDetailsModal({
       URL.revokeObjectURL(url);
       
       console.log('Export successful:', exportData);
+      showSuccess('Analysis data exported successfully', "Export Complete");
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      showError('Export failed. Please try again.', "Export Failed");
     }
   };
 

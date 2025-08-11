@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useConfirmation } from "@/lib/contexts/ConfirmationContext";
 import { 
   MapPin, 
   ExternalLink, 
@@ -47,6 +48,7 @@ export const PropertyCard = ({
   isCreatingTimeline = false
 }: PropertyCardProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { confirm } = useConfirmation();
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
@@ -58,7 +60,15 @@ export const PropertyCard = ({
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this property?')) {
+    const confirmed = await confirm({
+      title: "Delete Property",
+      description: "Are you sure you want to delete this property?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "destructive"
+    });
+    
+    if (confirmed) {
       await onDelete(property.id);
     }
   };
