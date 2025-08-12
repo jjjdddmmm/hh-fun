@@ -1469,8 +1469,8 @@ export default function PropertyAnalysisPage() {
                           {/* Recommendation badge temporarily hidden for cleaner design */}
                           {false && property.analysis && (
                             <div className="absolute top-3 left-3">
-                              <Badge className={`${getRecommendationColor(property.analysis.recommendation || 'pending')} border shadow-lg`}>
-                                {(property.analysis.recommendation || 'PENDING').toUpperCase()}
+                              <Badge className={`${getRecommendationColor(property.analysis?.recommendation || 'pending')} border shadow-lg`}>
+                                {(property.analysis?.recommendation || 'PENDING').toUpperCase()}
                               </Badge>
                             </div>
                           )}
