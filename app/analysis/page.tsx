@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Home, Plus, TrendingUp, DollarSign, MapPin, Square, Bed, Bath, AlertCircle, Loader2, X, ExternalLink, Users, Trash2, RefreshCw, Hammer, PartyPopper, Handshake, Calendar, Target, Shield, Lightbulb } from "lucide-react";
+import { Home, Plus, TrendingUp, DollarSign, MapPin, Square, Bed, Bath, AlertCircle, Loader2, X, ExternalLink, Users, Trash2, RefreshCw, Hammer, PartyPopper, Handshake, Calendar, Target, Shield, Lightbulb, ChevronDown, Clock } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AppNavigation from "@/components/app-navigation";
 import AppFooter from "@/components/app-footer";
@@ -231,7 +231,6 @@ export default function PropertyAnalysisPage() {
   const [areaData, setAreaData] = useState<any>(null);
   const [showInvestmentScore, setShowInvestmentScore] = useState(false);
   const [activeOfferTab, setActiveOfferTab] = useState<'strategy' | 'wizard' | 'education'>('strategy');
-  const [activeModalTab, setActiveModalTab] = useState<'offers'>('offers');
   const [wizardData, setWizardData] = useState({
     maxBudget: '',
     preferredPrice: '',
@@ -248,16 +247,17 @@ export default function PropertyAnalysisPage() {
   const [customStrategy, setCustomStrategy] = useState<any>(null);
   const [generatingStrategy, setGeneratingStrategy] = useState(false);
   const [creatingTimeline, setCreatingTimeline] = useState<string | null>(null);
-  const [dealMakerAnalysis, setDealMakerAnalysis] = useState<any>(null);
-  const [showDealMaker, setShowDealMaker] = useState(false);
-  const [dealMakerLoading, setDealMakerLoading] = useState(false);
-  const [buyerProfile, setBuyerProfile] = useState({
-    maxBudget: '',
-    downPaymentAvailable: '',
-    creditScore: '',
-    firstTimeBuyer: false,
-    investmentGoals: 'primary'
+  
+  // State for collapsible sections in Investment Score
+  const [expandedScoreSections, setExpandedScoreSections] = useState({
+    breakdown: false,
+    opportunities: false,
+    legacy: false,
+    positiveFactors: false,
+    redFlags: false,
+    marketContext: false
   });
+  const [loadingSections, setLoadingSections] = useState<string[]>([]);
 
   // Load user's properties
   useEffect(() => {
@@ -275,6 +275,21 @@ export default function PropertyAnalysisPage() {
       }));
     }
   }, [activeOfferTab, selectedProperty]);
+
+  // ESC key to close modal
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedProperty) {
+        setSelectedProperty(null);
+        setComparables(null);
+        setAreaData(null);
+        setShowInvestmentScore(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => document.removeEventListener('keydown', handleEscapeKey);
+  }, [selectedProperty]);
 
   const loadProperties = async () => {
     try {
@@ -518,7 +533,6 @@ export default function PropertyAnalysisPage() {
       if (aiAnalysis.success && aiAnalysis.negotiationAnalysis) {
         logger.debug('✅ AI strategy generated successfully');
         setCustomStrategy(aiAnalysis.negotiationAnalysis);
-        setDealMakerAnalysis(aiAnalysis.negotiationAnalysis);
       } else {
         throw new Error('Invalid AI response format');
       }
@@ -559,7 +573,6 @@ export default function PropertyAnalysisPage() {
       };
       
       setCustomStrategy(fallbackStrategy);
-      setDealMakerAnalysis(fallbackStrategy);
     } finally {
       setGeneratingStrategy(false);
     }
@@ -696,45 +709,6 @@ export default function PropertyAnalysisPage() {
     }
   };
 
-  const runDealMakerAnalysis = async () => {
-    if (!selectedProperty || !buyerProfile.maxBudget || !buyerProfile.downPaymentAvailable) {
-      showWarning('Please fill in your budget and down payment amount', "Missing Information");
-      return;
-    }
-
-    setDealMakerLoading(true);
-    try {
-      const response = await fetch('/api/deal-maker', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyId: selectedProperty.id,
-          buyerProfile: {
-            maxBudget: parseInt(buyerProfile.maxBudget),
-            downPaymentAvailable: parseInt(buyerProfile.downPaymentAvailable),
-            creditScore: buyerProfile.creditScore ? parseInt(buyerProfile.creditScore) : undefined,
-            firstTimeBuyer: buyerProfile.firstTimeBuyer,
-            investmentGoals: buyerProfile.investmentGoals
-          }
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setDealMakerAnalysis(result.negotiationAnalysis);
-          setShowDealMaker(true);
-        }
-      } else {
-        showError('Failed to analyze negotiation strategy', "Analysis Failed");
-      }
-    } catch (error) {
-      logger.error('Error running Deal Maker:', error);
-      showError('Error analyzing property', "Deal Maker Error");
-    } finally {
-      setDealMakerLoading(false);
-    }
-  };
 
   if (!user) {
     return (
@@ -754,9 +728,9 @@ export default function PropertyAnalysisPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-white">
       <AppNavigation />
-      {/* Full Analysis Modal */}
+      {/* Full Analysis Modal - Responsive */}
       {!!selectedProperty && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex md:items-center md:justify-center items-end justify-center">
           <div 
             className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
             onClick={() => {
@@ -766,22 +740,22 @@ export default function PropertyAnalysisPage() {
               setShowInvestmentScore(false);
             }}
           />
-          <div className="relative z-50 w-full max-w-4xl mx-8">
-            <div className="bg-[#F2F2F2] border-2 border-[#020B0A] rounded-2xl shadow-xl max-h-[85vh] overflow-hidden">
+          <div className="relative z-50 w-full max-w-4xl md:mx-8 mx-4">
+            <div className="bg-[#F2F2F2] border-2 border-[#020B0A] md:rounded-2xl rounded-t-2xl rounded-b-none shadow-xl md:max-h-[85vh] max-h-[90vh] overflow-hidden">
               <div 
-                className="p-6 w-full max-h-[85vh] overflow-y-auto"
+                className="md:p-6 p-4 w-full md:max-h-[85vh] max-h-[90vh] overflow-y-auto"
                 style={{
                   scrollbarWidth: 'thin',
                   scrollbarColor: '#5C1B10 #D9DADA'
                 }}
               >
               {!showInvestmentScore && (
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-2xl font-ds-heading text-[#5C1B10] tracking-[-0.01em]">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex-1 pr-4">
+                    <h2 className="md:text-2xl text-xl font-ds-heading text-[#5C1B10] tracking-[-0.01em] leading-tight">
                       {selectedProperty?.data?.address || 'Property Analysis'}
                     </h2>
-                    <p className="font-ds-body text-[#020B0A] opacity-80 leading-[150%]">
+                    <p className="font-ds-body text-[#020B0A] opacity-80 leading-[150%] md:text-base text-sm mt-1">
                       {comparables ? 'Comparable Properties' : 
                        areaData ? 'Area & Neighborhood Analysis' : 
                        'Comprehensive AI-powered analysis'}
@@ -796,9 +770,9 @@ export default function PropertyAnalysisPage() {
                       setAreaData(null);
                       setShowInvestmentScore(false);
                     }}
-                    className="h-8 w-8 p-0"
+                    className="md:h-8 md:w-8 h-10 w-10 p-0 flex-shrink-0"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="md:h-4 md:w-4 h-5 w-5" />
                   </Button>
                 </div>
               )}
@@ -898,255 +872,258 @@ export default function PropertyAnalysisPage() {
               scoreBreakdownKeys: analysis.scoreBreakdown ? Object.keys(analysis.scoreBreakdown) : 'none'
             });
             
+            // Helper function to get TL;DR summary
+            const getTLDRSummary = () => {
+              const score = analysis.investmentScore;
+              const daysOnMarket = selectedProperty.data?.daysOnMarket || 0;
+              
+              if (score >= 80) {
+                return `Excellent opportunity - property is ${Math.abs(((selectedProperty.data?.price || 0) - (analysis.marketValue?.estimated || selectedProperty.data?.price || 0)) / (selectedProperty.data?.price || 1) * 100).toFixed(0)}% ${(selectedProperty.data?.price || 0) > (analysis.marketValue?.estimated || selectedProperty.data?.price || 0) ? 'overpriced' : 'undervalued'} with ${daysOnMarket} days on market. Act quickly before it's gone.`;
+              } else if (score >= 60) {
+                return `Good potential with room to negotiate. Property shows ${analysis.keyInsights?.length || 0} positive factors but ${analysis.redFlags?.length || 0} concerns to address.`;
+              } else if (score >= 40) {
+                return `Proceed with caution - ${analysis.redFlags?.length || 0} red flags identified. Consider only with significant price reduction.`;
+              }
+              return `Not recommended - better opportunities available in this market. ${analysis.redFlags?.length || 0} major concerns outweigh benefits.`;
+            };
+
             return (
               <div className="space-y-6">
 
-              {/* Enhanced Investment Grade & Recommendation */}
-              {hasEnhancedScore && (
-                <Card className="shadow-lg border-2 border-green-200 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-4xl font-bold text-green-700 mb-2">
-                          {analysis.investmentGrade}
-                        </div>
-                        <div className="text-lg font-semibold text-gray-800">
-                          {analysis.investmentRecommendation}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          AI Confidence: {analysis.aiConfidence}%
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-3xl font-bold text-blue-700">
-                          {analysis.investmentScore}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          out of 100 points
-                        </div>
-                      </div>
+              {/* TL;DR Section - New Addition */}
+              <Card className="shadow-lg border-2 border-[#5C1B10] bg-[#FAD9D4] rounded-2xl">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Lightbulb className="w-5 h-5 text-[#5C1B10] mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h3 className="font-semibold text-[#5C1B10] mb-1">Quick Summary</h3>
+                      <p className="text-sm text-[#020B0A]">{getTLDRSummary()}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Enhanced Score Breakdown */}
-              <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    <SectionHeader as="span" className="text-[#5C1B10]">
-                      {hasEnhancedScore ? 'AI + BatchData Score Breakdown' : 'Basic Score Breakdown'}
-                    </SectionHeader>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {hasEnhancedScore ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {/* Deal Potential */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-ds-body font-medium text-[#020B0A]">💰 Deal Potential</span>
-                          <span className="font-ds-body font-bold text-[#5C1B10]">
-                            {analysis.scoreBreakdown.dealPotential.score}/{analysis.scoreBreakdown.dealPotential.maxScore}
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                          <div 
-                            className="bg-green-600 h-3 rounded-full" 
-                            style={{width: `${(analysis.scoreBreakdown.dealPotential.score / analysis.scoreBreakdown.dealPotential.maxScore) * 100}%`}}
-                          ></div>
-                        </div>
-                        <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
-                          {analysis.scoreBreakdown.dealPotential.description}
-                        </p>
-                        {analysis.scoreBreakdown.dealPotential.factors.length > 0 && (
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            {analysis.scoreBreakdown.dealPotential.factors.slice(0, 3).map((factor: string, idx: number) => (
-                              <li key={idx} className="flex items-center">
-                                <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
-                                {factor}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Market Timing */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-ds-body font-medium text-[#020B0A]">📈 Market Timing</span>
-                          <span className="font-ds-body font-bold text-[#5C1B10]">
-                            {analysis.scoreBreakdown.marketTiming.score}/{analysis.scoreBreakdown.marketTiming.maxScore}
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                          <div 
-                            className="bg-blue-600 h-3 rounded-full" 
-                            style={{width: `${(analysis.scoreBreakdown.marketTiming.score / analysis.scoreBreakdown.marketTiming.maxScore) * 100}%`}}
-                          ></div>
-                        </div>
-                        <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
-                          {analysis.scoreBreakdown.marketTiming.description}
-                        </p>
-                        {analysis.scoreBreakdown.marketTiming.factors.length > 0 && (
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            {analysis.scoreBreakdown.marketTiming.factors.slice(0, 3).map((factor: string, idx: number) => (
-                              <li key={idx} className="flex items-center">
-                                <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
-                                {factor}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Owner Motivation */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-ds-body font-medium text-[#020B0A]">🎯 Owner Motivation</span>
-                          <span className="font-ds-body font-bold text-[#5C1B10]">
-                            {analysis.scoreBreakdown.ownerMotivation.score}/{analysis.scoreBreakdown.ownerMotivation.maxScore}
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                          <div 
-                            className="bg-purple-600 h-3 rounded-full" 
-                            style={{width: `${(analysis.scoreBreakdown.ownerMotivation.score / analysis.scoreBreakdown.ownerMotivation.maxScore) * 100}%`}}
-                          ></div>
-                        </div>
-                        <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
-                          {analysis.scoreBreakdown.ownerMotivation.description}
-                        </p>
-                        {analysis.scoreBreakdown.ownerMotivation.factors.length > 0 && (
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            {analysis.scoreBreakdown.ownerMotivation.factors.slice(0, 3).map((factor: string, idx: number) => (
-                              <li key={idx} className="flex items-center">
-                                <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
-                                {factor}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Financial Opportunity */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-ds-body font-medium text-[#020B0A]">💵 Financial Opportunity</span>
-                          <span className="font-ds-body font-bold text-[#5C1B10]">
-                            {analysis.scoreBreakdown.financialOpportunity.score}/{analysis.scoreBreakdown.financialOpportunity.maxScore}
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                          <div 
-                            className="bg-yellow-600 h-3 rounded-full" 
-                            style={{width: `${(analysis.scoreBreakdown.financialOpportunity.score / analysis.scoreBreakdown.financialOpportunity.maxScore) * 100}%`}}
-                          ></div>
-                        </div>
-                        <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
-                          {analysis.scoreBreakdown.financialOpportunity.description}
-                        </p>
-                        {analysis.scoreBreakdown.financialOpportunity.factors.length > 0 && (
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            {analysis.scoreBreakdown.financialOpportunity.factors.slice(0, 3).map((factor: string, idx: number) => (
-                              <li key={idx} className="flex items-center">
-                                <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
-                                {factor}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Risk Assessment */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-ds-body font-medium text-[#020B0A]">⚠️ Risk Assessment</span>
-                          <span className="font-ds-body font-bold text-[#5C1B10]">
-                            {analysis.scoreBreakdown.riskAssessment.score}/{analysis.scoreBreakdown.riskAssessment.maxScore}
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                          <div 
-                            className="bg-red-600 h-3 rounded-full" 
-                            style={{width: `${(analysis.scoreBreakdown.riskAssessment.score / analysis.scoreBreakdown.riskAssessment.maxScore) * 100}%`}}
-                          ></div>
-                        </div>
-                        <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
-                          {analysis.scoreBreakdown.riskAssessment.description}
-                        </p>
-                        {analysis.scoreBreakdown.riskAssessment.factors.length > 0 && (
-                          <ul className="text-xs text-gray-600 space-y-1">
-                            {analysis.scoreBreakdown.riskAssessment.factors.slice(0, 3).map((factor: string, idx: number) => (
-                              <li key={idx} className="flex items-center">
-                                <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
-                                {factor}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    // Fallback to basic scoring display
-                    <div className="text-center py-8">
-                      <div className="text-6xl font-bold text-[#5C1B10] mb-4">
-                        {analysis.investmentScore}
-                      </div>
-                      <div className="text-lg text-gray-600 mb-4">
-                        Investment Score (Legacy)
-                      </div>
-                      <p className="text-sm text-gray-500">
-                        Enhanced BatchData + AI scoring will be available for new analyses
-                      </p>
-                    </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
-              
-              {/* AI Insights & Opportunities */}
-              {hasEnhancedScore && analysis.keyOpportunities && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Key Opportunities */}
-                  <Card className="shadow-lg border-2 border-green-200 bg-green-50 rounded-2xl">
-                    <CardHeader>
-                      <CardTitle className="text-lg text-green-800">
-                        🎆 Key Opportunities
+
+
+              {/* Enhanced Score Breakdown - Only show if no legacy */}
+              {hasEnhancedScore && (
+                <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
+                  <CardHeader 
+                    className="cursor-pointer"
+                    onClick={() => {
+                      if (!expandedScoreSections.breakdown) {
+                        setLoadingSections(prev => [...prev, 'breakdown']);
+                        setTimeout(() => {
+                          setLoadingSections(prev => prev.filter(s => s !== 'breakdown'));
+                        }, 300);
+                      }
+                      setExpandedScoreSections(prev => ({ ...prev, breakdown: !prev.breakdown }));
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        <SectionHeader as="span" className="text-[#5C1B10]">
+                          <Home className="inline w-5 h-5 mr-2" />
+                          Score Details
+                        </SectionHeader>
                       </CardTitle>
-                    </CardHeader>
+                      <ChevronDown className={`w-5 h-5 text-[#5C1B10] transition-transform ${expandedScoreSections.breakdown ? 'rotate-180' : ''}`} />
+                    </div>
+                  </CardHeader>
+                  {expandedScoreSections.breakdown && (
                     <CardContent>
-                      <ul className="space-y-2">
-                        {analysis.keyOpportunities.slice(0, 5).map((opportunity: string, idx: number) => (
-                          <li key={idx} className="flex items-start text-sm text-green-700">
-                            <span className="w-2 h-2 bg-green-500 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
-                            {opportunity}
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Red Flags */}
-                  {analysis.redFlags && analysis.redFlags.length > 0 && (
-                    <Card className="shadow-lg border-2 border-red-200 bg-red-50 rounded-2xl">
-                      <CardHeader>
-                        <CardTitle className="text-lg text-red-800">
-                          🚩 Red Flags
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {analysis.redFlags.slice(0, 5).map((redFlag: string, idx: number) => (
-                            <li key={idx} className="flex items-start text-sm text-red-700">
-                              <span className="w-2 h-2 bg-red-500 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
-                              {redFlag}
-                            </li>
+                      {loadingSections.includes('breakdown') ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="space-y-3">
+                              <div className="flex justify-between items-center">
+                                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                <div className="h-4 bg-gray-200 rounded w-12 animate-pulse"></div>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-3 animate-pulse"></div>
+                              <div className="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
+                            </div>
                           ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Deal Potential */}
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="font-ds-body font-medium text-[#020B0A]">
+                              <DollarSign className="inline w-4 h-4 mr-1" />
+                              Deal Potential
+                            </span>
+                            <span className="font-ds-body font-bold text-[#5C1B10]">
+                              {analysis.scoreBreakdown.dealPotential.score}/{analysis.scoreBreakdown.dealPotential.maxScore}
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#D9DADA] rounded-full h-3">
+                            <div 
+                              className="bg-[#5C1B10] h-3 rounded-full" 
+                              style={{width: `${(analysis.scoreBreakdown.dealPotential.score / analysis.scoreBreakdown.dealPotential.maxScore) * 100}%`}}
+                            ></div>
+                          </div>
+                          <p className="text-sm font-ds-body text-[#020B0A] font-semibold">
+                            UNDERVALUED
+                          </p>
+                        </div>
+
+                        {/* Market Timing */}
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="font-ds-body font-medium text-[#020B0A]">
+                              <Clock className="inline w-4 h-4 mr-1" />
+                              Market Timing
+                            </span>
+                            <span className="font-ds-body font-bold text-[#5C1B10]">
+                              {analysis.scoreBreakdown.marketTiming.score}/{analysis.scoreBreakdown.marketTiming.maxScore}
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#D9DADA] rounded-full h-3">
+                            <div 
+                              className="bg-[#5C1B10] h-3 rounded-full" 
+                              style={{width: `${(analysis.scoreBreakdown.marketTiming.score / analysis.scoreBreakdown.marketTiming.maxScore) * 100}%`}}
+                            ></div>
+                          </div>
+                          <p className="text-sm font-ds-body text-[#020B0A] font-semibold">
+                            OPTIMAL
+                          </p>
+                        </div>
+
+
+                        {/* Financial Opportunity */}
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="font-ds-body font-medium text-[#020B0A]">
+                              <TrendingUp className="inline w-4 h-4 mr-1" />
+                              Financial Opportunity
+                            </span>
+                            <span className="font-ds-body font-bold text-[#5C1B10]">
+                              {analysis.scoreBreakdown.financialOpportunity.score}/{analysis.scoreBreakdown.financialOpportunity.maxScore}
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#D9DADA] rounded-full h-3">
+                            <div 
+                              className="bg-[#5C1B10] h-3 rounded-full" 
+                              style={{width: `${(analysis.scoreBreakdown.financialOpportunity.score / analysis.scoreBreakdown.financialOpportunity.maxScore) * 100}%`}}
+                            ></div>
+                          </div>
+                          <p className="text-sm font-ds-body text-[#020B0A] font-semibold">
+                            PROFITABLE
+                          </p>
+                        </div>
+
+                        {/* Risk Assessment */}
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="font-ds-body font-medium text-[#020B0A]">
+                              <AlertCircle className="inline w-4 h-4 mr-1" />
+                              Risk Assessment
+                            </span>
+                            <span className="font-ds-body font-bold text-[#5C1B10]">
+                              {analysis.scoreBreakdown.riskAssessment.score}/{analysis.scoreBreakdown.riskAssessment.maxScore}
+                            </span>
+                          </div>
+                          <div className="w-full bg-[#D9DADA] rounded-full h-3">
+                            <div 
+                              className="bg-[#5C1B10] h-3 rounded-full" 
+                              style={{width: `${(analysis.scoreBreakdown.riskAssessment.score / analysis.scoreBreakdown.riskAssessment.maxScore) * 100}%`}}
+                            ></div>
+                          </div>
+                          <p className="text-sm font-ds-body text-[#020B0A] font-semibold">
+                            LOW RISK
+                          </p>
+                        </div>
+                        </div>
+                      )}
+                    </CardContent>
                   )}
-                </div>
+                </Card>
+              )}
+              
+              {/* AI Insights & Opportunities - Collapsible */}
+              {hasEnhancedScore && analysis.keyOpportunities && (
+                <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
+                  <CardHeader 
+                    className="cursor-pointer"
+                    onClick={() => {
+                      if (!expandedScoreSections.opportunities) {
+                        setLoadingSections(prev => [...prev, 'opportunities']);
+                        setTimeout(() => {
+                          setLoadingSections(prev => prev.filter(s => s !== 'opportunities'));
+                        }, 300);
+                      }
+                      setExpandedScoreSections(prev => ({ ...prev, opportunities: !prev.opportunities }));
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        <SectionHeader as="span" className="text-[#5C1B10]">
+                          <Lightbulb className="inline w-5 h-5 mr-2" />
+                          Key Insights
+                        </SectionHeader>
+                      </CardTitle>
+                      <ChevronDown className={`w-5 h-5 text-[#5C1B10] transition-transform ${expandedScoreSections.opportunities ? 'rotate-180' : ''}`} />
+                    </div>
+                  </CardHeader>
+                  {expandedScoreSections.opportunities && (
+                    <CardContent>
+                      {loadingSections.includes('opportunities') ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {[1, 2].map((i) => (
+                            <div key={i} className="p-4 bg-gray-100 border-2 border-gray-200 rounded-2xl">
+                              <div className="h-5 bg-gray-200 rounded w-32 mb-3 animate-pulse"></div>
+                              <div className="space-y-2">
+                                {[1, 2, 3].map((j) => (
+                                  <div key={j} className="flex items-start">
+                                    <div className="w-2 h-2 bg-gray-300 rounded-full mr-3 mt-1.5 animate-pulse"></div>
+                                    <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Key Opportunities */}
+                        <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl">
+                          <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
+                            <TrendingUp className="w-4 h-4 mr-2" />
+                            Opportunities
+                          </h4>
+                          <ul className="space-y-2">
+                            {analysis.keyOpportunities.slice(0, 3).map((opportunity: string, idx: number) => (
+                              <li key={idx} className="flex items-start text-sm text-blue-700">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
+                                {opportunity}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        {/* Red Flags */}
+                        {analysis.redFlags && analysis.redFlags.length > 0 && (
+                          <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl">
+                            <h4 className="font-semibold text-red-800 mb-3 flex items-center">
+                              <AlertCircle className="w-4 h-4 mr-2" />
+                              Concerns
+                            </h4>
+                            <ul className="space-y-2">
+                              {analysis.redFlags.slice(0, 3).map((redFlag: string, idx: number) => (
+                                <li key={idx} className="flex items-start text-sm text-red-700">
+                                  <span className="w-2 h-2 bg-red-500 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
+                                  {redFlag}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        </div>
+                      )}
+                    </CardContent>
+                  )}
+                </Card>
               )}
               
               {/* Legacy Score Breakdown for older analyses */}
@@ -1233,380 +1210,134 @@ export default function PropertyAnalysisPage() {
                 );
               })()}
 
-              {/* Key Positive Factors */}
+              {/* Key Positive Factors - Collapsible */}
               <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-base">
-                    <TrendingUp className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                    <SectionHeader as="span" className="text-base text-[#5C1B10]">Key Positive Factors</SectionHeader>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {selectedProperty.analysis.keyInsights.map((insight, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                        <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                        <span className="font-ds-body text-[#020B0A]">{insight}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Red Flags & Concerns */}
-              {selectedProperty.analysis.redFlags.length > 0 && (
-                <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
-                  <CardHeader>
-                    <CardTitle className="flex items-center text-base">
-                      <AlertCircle className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                      <SectionHeader as="span" className="text-base text-[#5C1B10]">Red Flags & Concerns</SectionHeader>
+                <CardHeader 
+                  className="cursor-pointer"
+                  onClick={() => setExpandedScoreSections(prev => ({ ...prev, positiveFactors: !prev.positiveFactors }))}
+                >
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      <SectionHeader as="span" className="text-[#5C1B10]">
+                        <Shield className="inline w-5 h-5 mr-2" />
+                        Key Positive Factors
+                      </SectionHeader>
                     </CardTitle>
-                  </CardHeader>
+                    <ChevronDown className={`w-5 h-5 text-[#5C1B10] transition-transform ${expandedScoreSections.positiveFactors ? 'rotate-180' : ''}`} />
+                  </div>
+                </CardHeader>
+                {expandedScoreSections.positiveFactors && (
                   <CardContent>
                     <div className="space-y-3">
-                      {selectedProperty.analysis.redFlags.map((flag, index) => (
+                      {selectedProperty.analysis.keyInsights.map((insight, index) => (
                         <div key={index} className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
                           <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="font-ds-body text-[#020B0A]">{flag}</span>
+                          <span className="font-ds-body text-[#020B0A]">{insight}</span>
                         </div>
                       ))}
                     </div>
                   </CardContent>
-                </Card>
-              )}
-
-              {/* Market Context */}
-              <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-base">
-                    <TrendingUp className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                    <SectionHeader as="span" className="text-base text-[#5C1B10]">Market Context & Trends</SectionHeader>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                        <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                        <div className="flex-1">
-                          <span className="font-ds-body text-[#020B0A]">
-                            <strong>Price Positioning:</strong> This property is priced <strong>{selectedProperty.analysis.marketAnalysis.pricePerSqftComparison}</strong> relative to comparable properties in the local market area.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                        <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                        <div className="flex-1">
-                          <span className="font-ds-body text-[#020B0A]">
-                            <strong>Market Activity:</strong> Current buyer demand in this area is <strong>{selectedProperty.analysis.marketAnalysis.demandLevel}</strong>, indicating market momentum and competition levels.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                        <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                        <div className="flex-1">
-                          <span className="font-ds-body text-[#020B0A]">
-                            <strong>Appreciation Outlook:</strong> Expected value growth trajectory shows <strong>{selectedProperty.analysis.marketAnalysis.appreciation}</strong> potential based on market trends and fundamentals.
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Market Trend Summary */}
-                    <div className="mt-4 p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                      <div className="flex items-start gap-3">
-                        <MapPin className="h-5 w-5 text-[#5C1B10] mt-0.5 flex-shrink-0" />
-                        <div>
-                          <div className="font-ds-body font-medium text-[#020B0A] mb-1">Market Trend: {selectedProperty.analysis.marketAnalysis.marketTrend}</div>
-                          <div className="text-sm font-ds-body text-[#020B0A] opacity-80">
-                            This property is positioned in a <strong>{selectedProperty.analysis.marketAnalysis.marketTrend}</strong> market with <strong>{selectedProperty.analysis.marketAnalysis.demandLevel}</strong> buyer demand. 
-                            Current pricing appears <strong>{selectedProperty.analysis.marketAnalysis.pricePerSqftComparison}</strong> relative to comparable properties in the area.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
+                )}
               </Card>
 
-              {/* Deal Maker Negotiation Strategy */}
-              {!showDealMaker && (
+              {/* Red Flags & Concerns - Collapsible */}
+              {selectedProperty.analysis.redFlags.length > 0 && (
                 <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
-                  <CardHeader>
-                    <CardTitle className="flex items-center text-base">
-                      <Handshake className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                      <SectionHeader as="span" className="text-base text-[#5C1B10]">Deal Maker: Negotiation Strategy</SectionHeader>
-                    </CardTitle>
-                    <CardDescription className="font-ds-body text-[#020B0A] opacity-80">
-                      Let&apos;s get you that home you didn&apos;t know you could afford
-                    </CardDescription>
+                  <CardHeader 
+                    className="cursor-pointer"
+                    onClick={() => setExpandedScoreSections(prev => ({ ...prev, redFlags: !prev.redFlags }))}
+                  >
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">
+                        <SectionHeader as="span" className="text-[#5C1B10]">
+                          <X className="inline w-5 h-5 mr-2" />
+                          Red Flags & Concerns
+                        </SectionHeader>
+                      </CardTitle>
+                      <ChevronDown className={`w-5 h-5 text-[#5C1B10] transition-transform ${expandedScoreSections.redFlags ? 'rotate-180' : ''}`} />
+                    </div>
                   </CardHeader>
+                  {expandedScoreSections.redFlags && (
+                    <CardContent>
+                      <div className="space-y-3">
+                        {selectedProperty.analysis.redFlags.map((flag, index) => (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                            <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
+                            <span className="font-ds-body text-[#020B0A]">{flag}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              )}
+
+              {/* Market Context - Collapsible */}
+              <Card className="shadow-lg border-2 border-[#D9DADA] bg-white rounded-2xl">
+                <CardHeader 
+                  className="cursor-pointer"
+                  onClick={() => setExpandedScoreSections(prev => ({ ...prev, marketContext: !prev.marketContext }))}
+                >
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      <SectionHeader as="span" className="text-[#5C1B10]">
+                        <MapPin className="inline w-5 h-5 mr-2" />
+                        Market Context & Trends
+                      </SectionHeader>
+                    </CardTitle>
+                    <ChevronDown className={`w-5 h-5 text-[#5C1B10] transition-transform ${expandedScoreSections.marketContext ? 'rotate-180' : ''}`} />
+                  </div>
+                </CardHeader>
+                {expandedScoreSections.marketContext && (
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium text-[#020B0A]">Maximum Budget</label>
-                          <Input
-                            type="number"
-                            placeholder="500000"
-                            value={buyerProfile.maxBudget}
-                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, maxBudget: e.target.value }))}
-                            className="mt-1"
-                          />
+                    <div className="space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                          <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
+                          <div className="flex-1">
+                            <span className="font-ds-body text-[#020B0A]">
+                              <strong>Price Positioning:</strong> This property is priced <strong>{selectedProperty.analysis.marketAnalysis.pricePerSqftComparison}</strong> relative to comparable properties in the local market area.
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-[#020B0A]">Down Payment Available</label>
-                          <Input
-                            type="number"
-                            placeholder="100000"
-                            value={buyerProfile.downPaymentAvailable}
-                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, downPaymentAvailable: e.target.value }))}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-[#020B0A]">Credit Score (Optional)</label>
-                          <Input
-                            type="number"
-                            placeholder="720"
-                            value={buyerProfile.creditScore}
-                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, creditScore: e.target.value }))}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-[#020B0A]">Investment Goals</label>
-                          <select
-                            value={buyerProfile.investmentGoals}
-                            onChange={(e) => setBuyerProfile(prev => ({ ...prev, investmentGoals: e.target.value }))}
-                            className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md"
-                          >
-                            <option value="primary">Primary Residence</option>
-                            <option value="rental">Rental Property</option>
-                            <option value="flip">Fix & Flip</option>
-                            <option value="vacation">Vacation Home</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="firstTimeBuyer"
-                          checked={buyerProfile.firstTimeBuyer}
-                          onChange={(e) => setBuyerProfile(prev => ({ ...prev, firstTimeBuyer: e.target.checked }))}
-                          className="rounded"
-                        />
-                        <label htmlFor="firstTimeBuyer" className="text-sm font-medium text-[#020B0A]">
-                          First Time Home Buyer
-                        </label>
-                      </div>
-                      <Button
-                        onClick={runDealMakerAnalysis}
-                        disabled={dealMakerLoading}
-                        className="w-full bg-[#5C1B10] hover:bg-[#4A160C] text-white"
-                      >
-                        {dealMakerLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Analyzing Negotiation Strategy...
-                          </>
-                        ) : (
-                          <>
-                            <Handshake className="h-4 w-4 mr-2" />
-                            Run Deal Maker Analysis
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
-              {/* Deal Maker Results */}
-              {showDealMaker && dealMakerAnalysis && (
-                <Card className="shadow-lg border-2 border-[#5C1B10] bg-white rounded-2xl">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center text-base">
-                        <Handshake className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                        <SectionHeader as="span" className="text-base text-[#5C1B10]">Deal Maker Negotiation Strategy</SectionHeader>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowDealMaker(false);
-                          setDealMakerAnalysis(null);
-                        }}
-                        className="h-8 w-8 p-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Recommended Offer */}
-                    <div className="p-6 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl">
-                      <div className="text-center space-y-2">
-                        <h3 className="text-lg font-semibold text-[#5C1B10]">Recommended Offer</h3>
-                        <div className="text-3xl font-bold text-[#020B0A]">
-                          ${dealMakerAnalysis.recommendedOffer.amount.toLocaleString()}
+                        <div className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                          <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
+                          <div className="flex-1">
+                            <span className="font-ds-body text-[#020B0A]">
+                              <strong>Market Activity:</strong> Current buyer demand in this area is <strong>{selectedProperty.analysis.marketAnalysis.demandLevel}</strong>, indicating market momentum and competition levels.
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="text-sm text-[#020B0A] opacity-80">Confidence:</span>
-                          <div className="flex items-center">
-                            <div className="w-32 bg-[#D9DADA] rounded-full h-2">
-                              <div
-                                className="bg-[#5C1B10] h-2 rounded-full"
-                                style={{ width: `${dealMakerAnalysis.recommendedOffer.confidence}%` }}
-                              />
+
+                        <div className="flex items-start gap-3 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                          <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
+                          <div className="flex-1">
+                            <span className="font-ds-body text-[#020B0A]">
+                              <strong>Appreciation Outlook:</strong> Expected value growth trajectory shows <strong>{selectedProperty.analysis.marketAnalysis.appreciation}</strong> potential based on market trends and fundamentals.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Market Trend Summary */}
+                      <div className="mt-4 p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                        <div className="flex items-start gap-3">
+                          <MapPin className="h-5 w-5 text-[#5C1B10] mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-ds-body font-medium text-[#020B0A] mb-1">Market Trend: {selectedProperty.analysis.marketAnalysis.marketTrend}</div>
+                            <div className="text-sm font-ds-body text-[#020B0A] opacity-80">
+                              This property is positioned in a <strong>{selectedProperty.analysis.marketAnalysis.marketTrend}</strong> market with <strong>{selectedProperty.analysis.marketAnalysis.demandLevel}</strong> buyer demand. 
+                              Current pricing appears <strong>{selectedProperty.analysis.marketAnalysis.pricePerSqftComparison}</strong> relative to comparable properties in the area.
                             </div>
-                            <span className="ml-2 text-sm font-medium">{dealMakerAnalysis.recommendedOffer.confidence}%</span>
                           </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 space-y-2">
-                        {dealMakerAnalysis.recommendedOffer.reasoning.map((reason: string, idx: number) => (
-                          <div key={idx} className="flex items-start gap-2">
-                            <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0" />
-                            <span className="text-sm">{reason}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Alternative Offers */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
-                        <h4 className="font-medium text-[#5C1B10] mb-2">Aggressive</h4>
-                        <div className="text-xl font-bold">${dealMakerAnalysis.alternativeOffers.aggressive.amount.toLocaleString()}</div>
-                        <div className="text-sm text-[#020B0A] opacity-80 mt-1">
-                          Success Rate: {dealMakerAnalysis.alternativeOffers.aggressive.successProbability}%
-                        </div>
-                      </div>
-                      <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
-                        <h4 className="font-medium text-[#5C1B10] mb-2">Moderate</h4>
-                        <div className="text-xl font-bold">${dealMakerAnalysis.alternativeOffers.moderate.amount.toLocaleString()}</div>
-                        <div className="text-sm text-[#020B0A] opacity-80 mt-1">
-                          Success Rate: {dealMakerAnalysis.alternativeOffers.moderate.successProbability}%
-                        </div>
-                      </div>
-                      <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
-                        <h4 className="font-medium text-[#5C1B10] mb-2">Conservative</h4>
-                        <div className="text-xl font-bold">${dealMakerAnalysis.alternativeOffers.conservative.amount.toLocaleString()}</div>
-                        <div className="text-sm text-[#020B0A] opacity-80 mt-1">
-                          Success Rate: {dealMakerAnalysis.alternativeOffers.conservative.successProbability}%
                         </div>
                       </div>
                     </div>
-
-                    {/* Seller Motivation */}
-                    <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
-                      <h4 className="font-medium text-[#5C1B10] mb-3">Seller Motivation Analysis</h4>
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="text-sm">Motivation Level:</span>
-                        <Badge className={`${
-                          dealMakerAnalysis.sellerMotivation.level === 'high' ? 'bg-green-100 text-green-800' :
-                          dealMakerAnalysis.sellerMotivation.level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {dealMakerAnalysis.sellerMotivation.level.toUpperCase()}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        {dealMakerAnalysis.sellerMotivation.indicators.map((indicator: string, idx: number) => (
-                          <div key={idx} className="flex items-start gap-2">
-                            <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0" />
-                            <span className="text-sm">{indicator}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Negotiation Strategies */}
-                    {dealMakerAnalysis.negotiationStrategies.map((strategy: any, idx: number) => (
-                      <div key={idx} className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl">
-                        <h4 className="font-medium text-[#5C1B10] mb-3">{strategy.strategy}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <h5 className="text-sm font-medium mb-2">Talking Points</h5>
-                            <ul className="space-y-1">
-                              {strategy.talkingPoints.map((point: string, i: number) => (
-                                <li key={i} className="text-sm flex items-start gap-2">
-                                  <span className="text-[#5C1B10]">•</span>
-                                  <span>{point}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <h5 className="text-sm font-medium mb-2">Leverage Points</h5>
-                            <ul className="space-y-1">
-                              {strategy.leverage.map((point: string, i: number) => (
-                                <li key={i} className="text-sm flex items-start gap-2">
-                                  <span className="text-[#5C1B10]">•</span>
-                                  <span>{point}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                        {strategy.risks.length > 0 && (
-                          <div className="mt-3">
-                            <h5 className="text-sm font-medium mb-2 text-red-700">Risks</h5>
-                            <ul className="space-y-1">
-                              {strategy.risks.map((risk: string, i: number) => (
-                                <li key={i} className="text-sm flex items-start gap-2">
-                                  <span className="text-red-600">!</span>
-                                  <span>{risk}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Hidden Opportunities */}
-                    {dealMakerAnalysis.hiddenOpportunities.length > 0 && (
-                      <div className="p-4 bg-green-50 border-2 border-green-200 rounded-2xl">
-                        <h4 className="font-medium text-green-800 mb-3 flex items-center">
-                          <TrendingUp className="h-4 w-4 mr-2" />
-                          Hidden Opportunities
-                        </h4>
-                        <ul className="space-y-2">
-                          {dealMakerAnalysis.hiddenOpportunities.map((opp: string, idx: number) => (
-                            <li key={idx} className="text-sm flex items-start gap-2">
-                              <span className="text-green-600">✓</span>
-                              <span>{opp}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Deal Breakers */}
-                    {dealMakerAnalysis.dealBreakers.length > 0 && (
-                      <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl">
-                        <h4 className="font-medium text-red-800 mb-3 flex items-center">
-                          <AlertCircle className="h-4 w-4 mr-2" />
-                          Deal Breakers
-                        </h4>
-                        <ul className="space-y-2">
-                          {dealMakerAnalysis.dealBreakers.map((breaker: string, idx: number) => (
-                            <li key={idx} className="text-sm flex items-start gap-2">
-                              <span className="text-red-600">×</span>
-                              <span>{breaker}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                   </CardContent>
-                </Card>
-              )}
+                )}
+              </Card>
+
               </div>
             );
           })()}
@@ -1910,118 +1641,6 @@ export default function PropertyAnalysisPage() {
                         </div>
                       </div>
 
-                      {dealMakerAnalysis && (
-                        <>
-                          {/* Suggested Offer Range */}
-                          <div className="p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                            <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-2">AI Suggested Offer Range</h3>
-                            <div className="flex items-center justify-between">
-                              <div className="text-center">
-                                <div className="text-lg font-bold font-ds-body text-[#5C1B10]">
-                                  ${dealMakerAnalysis.alternativeOffers.aggressive.amount.toLocaleString()}
-                                </div>
-                                <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Aggressive</div>
-                                <div className="text-xs font-ds-body text-[#020B0A] opacity-60">
-                                  {dealMakerAnalysis.alternativeOffers.aggressive.successProbability}% success
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-xl font-bold font-ds-body text-[#5C1B10]">
-                                  ${dealMakerAnalysis.recommendedOffer.amount.toLocaleString()}
-                                </div>
-                                <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Recommended</div>
-                                <div className="text-xs font-ds-body text-[#020B0A] opacity-60">
-                                  {dealMakerAnalysis.recommendedOffer.confidence}% confidence
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-lg font-bold font-ds-body text-[#5C1B10]">
-                                  ${dealMakerAnalysis.alternativeOffers.conservative.amount.toLocaleString()}
-                                </div>
-                                <div className="text-sm font-ds-body text-[#020B0A] opacity-80">Conservative</div>
-                                <div className="text-xs font-ds-body text-[#020B0A] opacity-60">
-                                  {dealMakerAnalysis.alternativeOffers.conservative.successProbability}% success
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Seller Motivation */}
-                          <div className="p-4 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                            <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3 flex items-center">
-                              Seller Motivation: 
-                              <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
-                                dealMakerAnalysis.sellerMotivation.level === 'high' ? 'bg-green-100 text-green-800' :
-                                dealMakerAnalysis.sellerMotivation.level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {dealMakerAnalysis.sellerMotivation.level.toUpperCase()}
-                              </span>
-                            </h3>
-                            <div className="space-y-2">
-                              {dealMakerAnalysis.sellerMotivation.indicators.map((indicator: string, index: number) => (
-                                <div key={index} className="flex items-start gap-2">
-                                  <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                                  <span className="text-sm font-ds-body text-[#020B0A]">{indicator}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Negotiation Strategies */}
-                          {dealMakerAnalysis.negotiationStrategies.map((strategy: any, stratIndex: number) => (
-                            <div key={stratIndex}>
-                              <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-3">{strategy.strategy}</h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                                <div>
-                                  <h4 className="text-sm font-medium font-ds-body text-[#5C1B10] mb-2">Talking Points</h4>
-                                  {strategy.talkingPoints.map((point: string, index: number) => (
-                                    <div key={index} className="flex items-start gap-2 p-3 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg mb-2">
-                                      <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                                      <span className="text-sm font-ds-body text-[#020B0A]">{point}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-medium font-ds-body text-[#5C1B10] mb-2">Your Leverage</h4>
-                                  {strategy.leverage.map((point: string, index: number) => (
-                                    <div key={index} className="flex items-start gap-2 p-3 bg-[#F2F2F2] border-2 border-[#D9DADA] rounded-2xl shadow-lg mb-2">
-                                      <div className="w-2 h-2 bg-[#5C1B10] rounded-full mt-2 flex-shrink-0"></div>
-                                      <span className="text-sm font-ds-body text-[#020B0A]">{point}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                              {strategy.risks.length > 0 && (
-                                <div className="p-3 bg-red-50 border-2 border-red-200 rounded-2xl">
-                                  <h4 className="text-sm font-medium font-ds-body text-red-800 mb-2">Risks to Consider</h4>
-                                  {strategy.risks.map((risk: string, index: number) => (
-                                    <div key={index} className="flex items-start gap-2 mb-1">
-                                      <span className="text-red-600 mt-1">!</span>
-                                      <span className="text-sm font-ds-body text-red-700">{risk}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-
-                          {/* Hidden Opportunities */}
-                          {dealMakerAnalysis.hiddenOpportunities.length > 0 && (
-                            <div className="p-4 bg-green-50 border-2 border-green-200 rounded-2xl">
-                              <h3 className="font-semibold font-ds-heading text-green-800 mb-3">Hidden Opportunities</h3>
-                              <div className="space-y-2">
-                                {dealMakerAnalysis.hiddenOpportunities.map((opp: string, index: number) => (
-                                  <div key={index} className="flex items-start gap-2">
-                                    <span className="text-green-600 mt-1">✓</span>
-                                    <span className="text-sm font-ds-body text-green-700">{opp}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
 
                     </div>
                   )}
