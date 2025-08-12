@@ -49,6 +49,31 @@ export function NegotiationAnalysis({
   const [selectedReportName, setSelectedReportName] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+
+  // Enhanced analysis messages with emojis and more specificity
+  const getEnhancedAnalysisMessage = (message: string, reportType: string) => {
+    const messageMap: Record<string, string> = {
+      'Scanning electrical systems...': '⚡ Checking electrical panels and circuits...',
+      'Checking plumbing components...': '🚰 Inspecting water systems and fixtures...',
+      'Analyzing HVAC system...': '🌡️ Evaluating heating and cooling systems...',
+      'Reviewing interior conditions...': '🏠 Examining walls, floors, and ceilings...',
+      'Inspecting chimney structure...': '🔥 Analyzing chimney and fireplace safety...',
+      'Analyzing flue condition...': '💨 Checking ventilation and airflow...',
+      'Checking fireplace safety...': '🔥 Evaluating fire safety systems...',
+      'Scanning sewer line...': '🚿 Inspecting drainage and sewer systems...',
+      'Checking for blockages...': '🔍 Detecting clogs and obstructions...',
+      'Analyzing pipe integrity...': '🔧 Assessing pipe condition and leaks...',
+      'Checking pool equipment...': '🏊 Evaluating pumps and filtration...',
+      'Analyzing water systems...': '💧 Testing water quality and circulation...',
+      'Reviewing safety features...': '🛡️ Checking safety equipment and barriers...',
+      'Analyzing report content...': '📋 Processing inspection findings...',
+      'Identifying issues...': '🔍 Cataloging problems and defects...',
+      'Calculating costs...': '💰 Estimating repair and replacement costs...'
+    };
+    
+    return messageMap[message] || message;
+  };
+
   // Check if we're in debug mode - temporarily always enabled for testing
   const isDebugMode = true; // process.env.NODE_ENV === 'development' || 
     // (typeof window !== 'undefined' && window.location.search.includes('debug=true'));
@@ -60,12 +85,23 @@ export function NegotiationAnalysis({
       setIsModalOpen(true);
     }
   };
-  const getStatusIcon = (status: UploadedReport['analysisStatus']) => {
+  const getStatusIcon = (status: UploadedReport['analysisStatus'], tempMessage?: string) => {
     switch (status) {
       case 'pending':
         return <Clock className="h-5 w-5 text-gray-400" />;
       case 'analyzing':
-        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
+        // Different spinner intensity based on analysis stage
+        const isDeepAnalysis = tempMessage?.includes('Calculating') || tempMessage?.includes('Estimating') || tempMessage?.includes('💰');
+        return (
+          <div className="relative">
+            <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+            {isDeepAnalysis && (
+              <div className="absolute inset-0 animate-ping">
+                <div className="h-5 w-5 rounded-full bg-blue-400 opacity-30"></div>
+              </div>
+            )}
+          </div>
+        );
       case 'complete':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'error':
@@ -99,38 +135,36 @@ export function NegotiationAnalysis({
     }
   };
 
+
   const allComplete = reports.length > 0 && reports.every(r => r.analysisStatus === 'complete');
   const hasStarted = reports.some(r => r.analysisStatus !== 'pending');
 
   return (
     <div className="space-y-8">
-      <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-blue-50/30">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-3 text-xl">
+      <div className="bg-gray-100 rounded-xl border-2 border-gray-300 p-6">
+        <div className="pb-4">
+          <div className="flex items-center gap-3 text-xl">
             <div className="p-2 bg-blue-100 rounded-lg">
               <FileText className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent font-bold">
+              <span className="text-gray-900 font-bold">
                 AI Analysis Progress
               </span>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs text-gray-500 font-medium">Claude Opus 4 Active</span>
               </div>
             </div>
-          </CardTitle>
-          <p className="text-gray-700 leading-relaxed">
+          </div>
+          <p className="text-gray-700 leading-relaxed mt-4">
             Our advanced AI is extracting issues, estimating costs, and calculating negotiation values from your inspection reports
           </p>
-        </CardHeader>
-        <CardContent className="pt-2">
+        </div>
+        <div className="pt-2">
           <div className="space-y-4">
             {reports.map((report) => (
               <div key={report.id} className="flex items-center justify-between p-6 border-2 border-gray-100 rounded-xl hover:border-gray-200 transition-all duration-300 hover:shadow-lg bg-white/70 backdrop-blur-sm">
                 <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    {getStatusIcon(report.analysisStatus)}
-                  </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 text-lg">{report.name}</h3>
                     <p className="text-sm text-gray-600 capitalize font-medium">{report.type} inspection report</p>
@@ -145,26 +179,25 @@ export function NegotiationAnalysis({
                           : `${report.tempIssueCount || 0} issue${(report.tempIssueCount || 0) !== 1 ? 's' : ''} found...`
                         }
                       </p>
-                      {report.analysisStatus === 'complete' && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleViewAnalysis(report)}
-                            className="group text-xs bg-gradient-to-r from-green-600 to-green-700 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center gap-2 font-semibold hover:scale-105"
-                            title="Click to view detailed analysis"
-                          >
-                            <Eye className="h-3 w-3 group-hover:scale-110 transition-transform" />
-                            ${(report.issues || []).reduce((sum, issue) => sum + (issue.negotiationValue || 0), 0).toLocaleString()} potential credits
-                          </button>
-                        </div>
-                      )}
                       {report.analysisStatus === 'analyzing' && report.tempMessage && (
-                        <p className="text-xs text-blue-600 italic">
-                          {report.tempMessage}
+                        <p className="text-xs text-blue-600 italic mt-1 animate-pulse">
+                          {getEnhancedAnalysisMessage(report.tempMessage, report.type)}
                         </p>
                       )}
                     </div>
                   ) : null}
-                  <Badge className={`${getStatusColor(report.analysisStatus)} px-3 py-1 text-xs font-semibold transition-all duration-300`}>
+                  {report.analysisStatus === 'analyzing' && (
+                    <div className="flex-shrink-0">
+                      {getStatusIcon(report.analysisStatus, report.tempMessage)}
+                    </div>
+                  )}
+                  <Badge 
+                    className={`${getStatusColor(report.analysisStatus)} px-3 py-1 text-xs font-semibold transition-all duration-300 ${
+                      report.analysisStatus === 'complete' ? 'cursor-pointer hover:scale-105 hover:shadow-md' : ''
+                    }`}
+                    onClick={report.analysisStatus === 'complete' ? () => handleViewAnalysis(report) : undefined}
+                    title={report.analysisStatus === 'complete' ? 'Click to view detailed analysis' : undefined}
+                  >
                     {getStatusText(report.analysisStatus)}
                   </Badge>
                 </div>
@@ -172,7 +205,7 @@ export function NegotiationAnalysis({
             ))}
           </div>
 
-          <div className="mt-8 flex justify-between items-center p-6 bg-gradient-to-r from-gray-50 to-blue-50/50 rounded-xl border">
+          <div className="mt-6 flex justify-between items-center px-6 py-3 bg-gradient-to-r from-gray-50 to-blue-50/50 rounded-xl border">
             <div className="text-sm">
               {hasStarted ? (
                 <span className="font-medium text-gray-700">
@@ -205,29 +238,29 @@ export function NegotiationAnalysis({
                 </Button>
               )}
               {allComplete && (
-                <Button
+                <button
                   onClick={onProceedToStrategy}
-                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-2.5 font-semibold group"
+                  className="bg-[#5C1B10] hover:bg-[#4A1508] text-white rounded-lg px-6 py-2.5 font-semibold transition-all duration-300 group whitespace-nowrap flex items-center"
                 >
-                  View Negotiation Strategy
-                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
+                  <span>View Negotiation Strategy</span>
+                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                </button>
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Analysis Details */}
       {hasStarted && (
-        <Card className="border-0 shadow-xl bg-gradient-to-br from-white via-purple-50/20 to-blue-50/30">
-          <CardHeader className="text-center pb-6">
-            <CardTitle className="text-2xl bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent font-bold">
+        <div className="bg-gray-100 rounded-xl border-2 border-gray-300 p-6">
+          <div className="text-center pb-6">
+            <h2 className="text-2xl text-gray-900 font-bold">
               What Our AI Is Analyzing
-            </CardTitle>
+            </h2>
             <p className="text-gray-600 mt-2">Powered by Claude Opus 4 - the most advanced AI model for inspection analysis</p>
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center group">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
@@ -257,8 +290,8 @@ export function NegotiationAnalysis({
                 </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Analysis Details Modal */}

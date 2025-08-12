@@ -7,7 +7,7 @@ import type { Property, ModalState } from '@/components/property-analysis/types'
 interface UseModalStateReturn extends ModalState {
   openModal: (property: Property, tab?: 'offers') => void;
   closeModal: () => void;
-  setActiveOfferTab: (tab: 'strategy' | 'wizard' | 'education') => void;
+  setActiveOfferTab: (tab: 'strategy') => void;
   setActiveModalTab: (tab: 'offers') => void;
   toggleInvestmentScore: () => void;
   openDealMaker: (property: Property) => void;
@@ -17,7 +17,7 @@ interface UseModalStateReturn extends ModalState {
 export const useModalState = (): UseModalStateReturn => {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showInvestmentScore, setShowInvestmentScore] = useState(false);
-  const [activeOfferTab, setActiveOfferTab] = useState<'strategy' | 'wizard' | 'education'>('strategy');
+  const [activeOfferTab, setActiveOfferTab] = useState<'strategy'>('strategy');
   const [activeModalTab, setActiveModalTab] = useState<'offers'>('offers');
   const [showDealMaker, setShowDealMaker] = useState(false);
 
@@ -49,7 +49,7 @@ export const useModalState = (): UseModalStateReturn => {
     setSelectedProperty(null);
   }, []);
 
-  const handleSetActiveOfferTab = useCallback((tab: 'strategy' | 'wizard' | 'education') => {
+  const handleSetActiveOfferTab = useCallback((tab: 'strategy') => {
     setActiveOfferTab(tab);
   }, []);
 

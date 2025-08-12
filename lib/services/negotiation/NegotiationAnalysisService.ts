@@ -48,9 +48,9 @@ export class NegotiationAnalysisService {
         description: issue.description,
         location: issue.location,
         estimatedCost: {
-          low: issue.estimatedCost.low,
-          high: issue.estimatedCost.high,
-          average: (issue.estimatedCost.low + issue.estimatedCost.high) / 2
+          low: issue.estimatedCost?.low || 0,
+          high: issue.estimatedCost?.high || 0,
+          average: ((issue.estimatedCost?.low || 0) + (issue.estimatedCost?.high || 0)) / 2
         },
         negotiationValue: issue.negotiationValue,
         leverageScore,
@@ -182,12 +182,12 @@ export class NegotiationAnalysisService {
     }
     
     // Cost weight (higher costs = more leverage)
-    const avgCost = (issue.estimatedCost.low + issue.estimatedCost.high) / 2;
+    const avgCost = ((issue.estimatedCost?.low || 0) + (issue.estimatedCost?.high || 0)) / 2;
     if (avgCost > 5000) score += 1;
     if (avgCost > 10000) score += 1;
     
     // Professional requirement adds credibility
-    if (issue.estimatedCost.professional) score += 1;
+    if (issue.estimatedCost?.professional) score += 1;
     
     return Math.max(1, Math.min(10, score));
   }
@@ -201,7 +201,7 @@ export class NegotiationAnalysisService {
     // Adjust for specific factors
     if (issue.severity === 'safety') rate += 15;
     if (issue.urgency === 'immediate') rate += 10;
-    if (issue.estimatedCost.professional) rate += 5;
+    if (issue.estimatedCost?.professional) rate += 5;
     
     return Math.max(20, Math.min(95, rate));
   }
@@ -239,11 +239,13 @@ export class NegotiationAnalysisService {
       evidence.push('Professional inspector marked as immediate priority');
     }
     
-    if (issue.estimatedCost.professional) {
+    if (issue.estimatedCost?.professional) {
       evidence.push('Requires licensed professional contractor');
     }
     
-    evidence.push(`Current market rates: $${issue.estimatedCost.low.toLocaleString()} - $${issue.estimatedCost.high.toLocaleString()}`);
+    const lowCost = issue.estimatedCost?.low || 0;
+    const highCost = issue.estimatedCost?.high || 0;
+    evidence.push(`Current market rates: $${lowCost.toLocaleString()} - $${highCost.toLocaleString()}`);
     
     if (issue.riskLevel === 'high') {
       evidence.push('High risk of additional damage if not addressed');
@@ -286,7 +288,7 @@ export class NegotiationAnalysisService {
       alternatives.push('Split cost 50/50');
     }
     
-    if (issue.estimatedCost.professional) {
+    if (issue.estimatedCost?.professional) {
       alternatives.push('Seller provides licensed contractor warranty');
     }
     

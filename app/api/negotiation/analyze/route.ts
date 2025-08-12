@@ -29,38 +29,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Process document using our clean DocumentProcessor service
-    const { DocumentProcessor } = await import('@/lib/services/document');
+    // Process document using LlamaParse
+    const { LlamaParseProcessor } = await import('@/lib/services/document/LlamaParseProcessor');
     
-    const processor = new DocumentProcessor();
-    const processingContext = {
-      startTime: Date.now(),
-      requestId: `req_${Date.now()}`,
+    // Convert file to buffer
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    
+    const extractionResult = await LlamaParseProcessor.processDocument(
+      fileBuffer,
+      file.name,
       reportType
-    };
-
-    const extractionResult = await processor.processDocument(
-      file,
-      {
-        preferredMethod: undefined, // Let the processor decide the best method
-        fallbackEnabled: true,
-        timeout: 120000, // 2 minutes
-        extractorConfig: {
-          maxTokens: 8192,
-          timeout: 60000,
-          retries: 2
-        }
-      },
-      processingContext
     );
 
     if (!extractionResult.success) {
-      return handleMockAnalysis(reportType, file.name, extractionResult.error || 'PDF extraction failed - using enhanced analysis');
+      return handleMockAnalysis(reportType, file.name, extractionResult.error || 'LlamaParse extraction failed');
     }
 
     // Check if we got meaningful text
     const extractedText = extractionResult.extractedText;
-    const pdfMetadata = extractionResult.metadata;
+    const pdfMetadata = {
+      pages: Math.ceil(extractedText.length / 2000), // Rough estimate
+      processingTime: extractionResult.processingTime,
+      method: 'llamaparse'
+    };
     
     if (!extractedText || extractedText.trim().length < 100) {
       logger.debug('PDF has minimal text, using enhanced mock analysis');
@@ -223,7 +214,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           pages: pdfMetadata.pages,
           wordCount: extractedText.split(/\s+/).length,
-          inspector: (pdfMetadata.processingDetails as any)?.pdfInfo?.Author || 'Professional Inspector',
+          inspector: 'Professional Inspector',
           inspectionDate: new Date(Date.now() - Math.random() * 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           propertyAddress: extractTextBetween(extractedText, 'Property Address:', '\n') || 'See inspection report'
         }

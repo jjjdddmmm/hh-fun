@@ -228,7 +228,7 @@ Please return your analysis as a JSON object with this exact structure:
 
 \`\`\`json
 {
-  "issues": [
+  "primaryIssues": [
     {
       "id": "issue_1",
       "category": "CATEGORY_NAME",
@@ -249,14 +249,41 @@ Please return your analysis as a JSON object with this exact structure:
       "reasoning": "Why this is a legitimate issue requiring repair"
     }
   ],
+  "additionalIssues": {
+    "count": 0,
+    "totalValue": 0,
+    "breakdown": {
+      "minor": 0,
+      "cosmetic": 0,
+      "maintenance": 0
+    },
+    "items": [
+      {
+        "id": "additional_1",
+        "category": "CATEGORY_NAME",
+        "severity": "minor|cosmetic",
+        "description": "Brief description",
+        "estimatedCost": 0,
+        "negotiationValue": 0
+      }
+    ]
+  },
   "summary": {
     "documentType": "${reportType}",
     "totalIssuesFound": 0,
-    "highConfidenceIssues": 0,
+    "primaryIssuesCount": 0,
+    "additionalIssuesCount": 0,
+    "totalEstimatedValue": 0,
     "analysisNotes": "Brief summary of report condition"
   }
 }
 \`\`\`
+
+**Instructions for Tiered Analysis:**
+1. **Primary Issues** (max 5): Focus on safety concerns, major repairs, and high-cost items that are most important for negotiations
+2. **Additional Issues**: Include remaining minor maintenance, cosmetic, and lower-priority items
+3. **Prioritization**: Order primary issues by: Safety > Major structural/systems > High cost > Urgency
+4. **Additional Issues**: Can be brief descriptions with estimated costs - these provide comprehensive coverage without overwhelming detail
 
 COST ESTIMATION GUIDELINES:
 - Research current contractor rates for your area
@@ -314,13 +341,24 @@ Please provide your analysis as valid JSON only - no additional text or explanat
       const parsed = JSON.parse(jsonText);
       logger.debug('Successfully parsed JSON', { issuesCount: parsed.issues?.length });
 
-      if (!parsed.issues || !Array.isArray(parsed.issues)) {
-        throw new Error('Invalid response structure: missing issues array');
+      // Handle both old format (issues) and new format (primaryIssues + additionalIssues)
+      let primaryIssues: any[] = [];
+      let additionalIssues: any = { count: 0, totalValue: 0, items: [] };
+      
+      if (parsed.primaryIssues && Array.isArray(parsed.primaryIssues)) {
+        // New tiered format
+        primaryIssues = parsed.primaryIssues;
+        additionalIssues = parsed.additionalIssues || { count: 0, totalValue: 0, items: [] };
+      } else if (parsed.issues && Array.isArray(parsed.issues)) {
+        // Legacy format - treat all as primary issues
+        primaryIssues = parsed.issues;
+      } else {
+        throw new Error('Invalid response structure: missing primaryIssues or issues array');
       }
 
-      // Process and validate issues
-      const issues: InspectionIssue[] = parsed.issues.map((issue: any, index: number) => ({
-        id: issue.id || `claude_issue_${index + 1}`,
+      // Process and validate primary issues
+      const processedPrimaryIssues: InspectionIssue[] = primaryIssues.map((issue: any, index: number) => ({
+        id: issue.id || `claude_primary_${index + 1}`,
         category: issue.category || 'GENERAL',
         severity: issue.severity || 'minor',
         urgency: issue.urgency || 'long-term',
@@ -339,17 +377,30 @@ Please provide your analysis as valid JSON only - no additional text or explanat
         reasoning: issue.reasoning || 'Identified through AI analysis of inspection report'
       }));
 
-      const totalEstimatedCost = issues.reduce((sum, issue) => sum + issue.negotiationValue, 0);
-      const averageConfidence = issues.reduce((sum, issue) => sum + issue.confidence, 0) / Math.max(1, issues.length);
+      // Process additional issues (simplified format)
+      const processedAdditionalIssues = (additionalIssues.items || []).map((issue: any, index: number) => ({
+        id: issue.id || `claude_additional_${index + 1}`,
+        category: issue.category || 'MAINTENANCE',
+        severity: issue.severity || 'minor',
+        description: issue.description || 'Additional maintenance item',
+        estimatedCost: typeof issue.estimatedCost === 'number' ? issue.estimatedCost : (issue.estimatedCost?.mostLikely || 0),
+        negotiationValue: issue.negotiationValue || (typeof issue.estimatedCost === 'number' ? issue.estimatedCost : 0)
+      }));
+
+      // Combine all issues for compatibility with existing code
+      const allIssues = [...processedPrimaryIssues, ...processedAdditionalIssues];
+      
+      const totalEstimatedCost = allIssues.reduce((sum, issue) => sum + issue.negotiationValue, 0);
+      const averageConfidence = processedPrimaryIssues.reduce((sum, issue) => sum + issue.confidence, 0) / Math.max(1, processedPrimaryIssues.length);
 
       return {
         success: true,
-        issues,
+        issues: allIssues,
         modelUsed: model,
         processingTime,
         confidence: averageConfidence,
         summary: {
-          totalIssues: issues.length,
+          totalIssues: allIssues.length,
           totalEstimatedCost,
           averageConfidence
         }

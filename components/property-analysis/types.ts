@@ -94,24 +94,11 @@ export interface BuyerProfile {
   investmentGoals: 'primary' | 'investment' | 'flip';
 }
 
-export interface WizardData {
-  maxBudget: string;
-  preferredPrice: string;
-  downPayment: string;
-  closingTimeline: string;
-  moveInFlexibility: string;
-  contingencies: {
-    inspection: boolean;
-    financing: boolean;
-    appraisal: boolean;
-    saleOfHome: boolean;
-  };
-}
 
 export interface ModalState {
   selectedProperty: Property | null;
   showInvestmentScore: boolean;
-  activeOfferTab: 'strategy' | 'wizard' | 'education';
+  activeOfferTab: 'strategy';
   activeModalTab: 'offers';
   showDealMaker: boolean;
 }

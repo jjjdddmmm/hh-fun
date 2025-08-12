@@ -314,7 +314,6 @@ export default function NegotiationPage() {
             { key: 'analysis', icon: Calculator, label: 'AI Analysis', desc: 'Extract & cost issues' },
             { key: 'strategy', icon: Target, label: 'Negotiation Strategy', desc: 'Get your game plan' }
           ].map((step, index) => {
-            const isActive = currentStep === step.key;
             const isCompleted = 
               (step.key === 'upload' && reports.length > 0) ||
               (step.key === 'analysis' && stats.completedAnalysis === stats.totalReports && stats.totalReports > 0) ||
@@ -325,8 +324,7 @@ export default function NegotiationPage() {
                 <div className="flex flex-col items-center">
                   <div className={`
                     w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-colors
-                    ${isCompleted ? 'bg-green-500 text-white' : 
-                      isActive ? 'bg-[#5C1B10] text-white' : 'bg-gray-200 text-gray-500'}
+                    ${isCompleted ? 'bg-[#5C1B10] text-white' : 'bg-gray-200 text-gray-500'}
                   `}>
                     {isCompleted ? (
                       <CheckCircle className="h-6 w-6" />
@@ -335,7 +333,7 @@ export default function NegotiationPage() {
                     )}
                   </div>
                   <div className="text-center">
-                    <p className={`font-medium ${isActive ? 'text-[#5C1B10]' : 'text-gray-600'}`}>
+                    <p className={`font-medium ${isCompleted ? 'text-[#5C1B10]' : 'text-gray-600'}`}>
                       {step.label}
                     </p>
                     <p className="text-xs text-gray-500">{step.desc}</p>
@@ -345,7 +343,7 @@ export default function NegotiationPage() {
                 {index < 2 && (
                   <div className={`
                     h-0.5 w-16 mx-4 transition-colors
-                    ${isCompleted ? 'bg-green-500' : 'bg-gray-300'}
+                    ${isCompleted ? 'bg-[#5C1B10]' : 'bg-gray-300'}
                   `} />
                 )}
               </div>
@@ -357,55 +355,55 @@ export default function NegotiationPage() {
       {/* Stats Cards - only show after analysis has been initiated */}
       {stats.totalReports > 0 && hasInitiatedAnalysis && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-blue-500">
-            <CardContent className="p-6">
+          <div className="group hover:shadow-sm transition-all duration-300 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-800" style={{boxShadow: '3px 3px 0px #666, -2px 0px 0px #ddd'}}>
+            <div className="p-6 flex items-center">
               <div className="flex items-center">
-                <div className="p-3 bg-blue-100 rounded-lg mr-4 group-hover:bg-blue-200 transition-colors">
-                  <FileText className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-gray-50 rounded-lg mr-4 group-hover:bg-gray-100 transition-colors">
+                  <FileText className="h-6 w-6 text-gray-600" />
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900 mb-1">{stats.totalReports}</p>
                   <p className="text-sm text-gray-600 font-medium">Reports Uploaded</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
           
-          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-orange-500">
-            <CardContent className="p-6">
+          <div className="group hover:shadow-sm transition-all duration-300 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-800" style={{boxShadow: '3px 3px 0px #666, -2px 0px 0px #ddd'}}>
+            <div className="p-6 flex items-center">
               <div className="flex items-center">
-                <div className="p-3 bg-orange-100 rounded-lg mr-4 group-hover:bg-orange-200 transition-colors">
-                  <AlertTriangle className="h-6 w-6 text-orange-600" />
+                <div className="p-3 bg-gray-50 rounded-lg mr-4 group-hover:bg-gray-100 transition-colors">
+                  <AlertTriangle className="h-6 w-6 text-gray-600" />
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900 mb-1">{stats.totalIssues}</p>
                   <p className="text-sm text-gray-600 font-medium">Issues Found</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
           
-          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-green-500">
-            <CardContent className="p-6">
+          <div className="group hover:shadow-sm transition-all duration-300 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-800" style={{boxShadow: '3px 3px 0px #666, -2px 0px 0px #ddd'}}>
+            <div className="p-6 flex items-center">
               <div className="flex items-center">
-                <div className="p-3 bg-green-100 rounded-lg mr-4 group-hover:bg-green-200 transition-colors">
-                  <DollarSign className="h-6 w-6 text-green-600" />
+                <div className="p-3 bg-gray-50 rounded-lg mr-4 group-hover:bg-gray-100 transition-colors">
+                  <DollarSign className="h-6 w-6 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-green-700 mb-1">
+                  <p className="text-3xl font-bold text-gray-900 mb-1">
                     ${stats.estimatedCredits.toLocaleString()}
                   </p>
                   <p className="text-sm text-gray-600 font-medium">Est. Credits</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
           
-          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-l-4 border-l-purple-500">
-            <CardContent className="p-6">
+          <div className="group hover:shadow-sm transition-all duration-300 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-800" style={{boxShadow: '3px 3px 0px #666, -2px 0px 0px #ddd'}}>
+            <div className="p-6 flex items-center">
               <div className="flex items-center">
-                <div className="p-3 bg-purple-100 rounded-lg mr-4 group-hover:bg-purple-200 transition-colors">
-                  <TrendingUp className="h-6 w-6 text-purple-600" />
+                <div className="p-3 bg-gray-50 rounded-lg mr-4 group-hover:bg-gray-100 transition-colors">
+                  <TrendingUp className="h-6 w-6 text-gray-600" />
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900 mb-1">
@@ -414,15 +412,8 @@ export default function NegotiationPage() {
                   <p className="text-sm text-gray-600 font-medium">Analysis Complete</p>
                 </div>
               </div>
-              {stats.completedAnalysis === stats.totalReports && stats.totalReports > 0 && (
-                <div className="mt-2">
-                  <div className="w-full bg-gray-200 rounded-full h-1">
-                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-1 rounded-full w-full"></div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
 
