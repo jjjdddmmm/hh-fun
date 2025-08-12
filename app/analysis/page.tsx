@@ -230,7 +230,22 @@ export default function PropertyAnalysisPage() {
   const [loadingComps, setLoadingComps] = useState<string | null>(null); // Track which property ID is loading
   const [areaData, setAreaData] = useState<any>(null);
   const [showInvestmentScore, setShowInvestmentScore] = useState(false);
-  const [activeOfferTab, setActiveOfferTab] = useState<'strategy'>('strategy');
+  const [activeOfferTab, setActiveOfferTab] = useState<'strategy' | 'wizard' | 'education'>('strategy');
+  const [wizardData, setWizardData] = useState({
+    maxBudget: '',
+    preferredPrice: '',
+    downPayment: '',
+    closingTimeline: '30 days',
+    moveInFlexibility: 'Need immediate possession',
+    contingencies: {
+      inspection: true,
+      financing: true,
+      appraisal: true,
+      saleOfHome: false
+    }
+  });
+  const [customStrategy, setCustomStrategy] = useState<any>(null);
+  const [generatingStrategy, setGeneratingStrategy] = useState(false);
   const [creatingTimeline, setCreatingTimeline] = useState<string | null>(null);
   
   // State for collapsible sections in Investment Score
@@ -251,6 +266,15 @@ export default function PropertyAnalysisPage() {
     }
   }, [user]);
 
+  // Auto-populate wizard data when switching to wizard tab
+  useEffect(() => {
+    if (activeOfferTab === 'wizard' && selectedProperty && !wizardData.maxBudget) {
+      setWizardData(prev => ({
+        ...prev,
+        maxBudget: selectedProperty.data?.price?.toString() || ''
+      }));
+    }
+  }, [activeOfferTab, selectedProperty]);
 
   // ESC key to close modal
   useEffect(() => {
@@ -466,6 +490,93 @@ export default function PropertyAnalysisPage() {
     }
   };
 
+  const generateCustomStrategy = async () => {
+    
+    if (!selectedProperty || !wizardData.maxBudget || !wizardData.preferredPrice) {
+      logger.error('Property or budget information missing');
+      return;
+    }
+    
+    setGeneratingStrategy(true);
+    
+    try {
+      logger.debug('🤖 Generating AI-powered offer strategy with BatchData intelligence...');
+      
+      // Call the actual DealMaker AI service with all BatchData intelligence
+      const response = await fetch('/api/deal-maker', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          propertyId: selectedProperty.id,
+          buyerProfile: {
+            maxBudget: parseInt(wizardData.maxBudget),
+            downPaymentAvailable: parseInt(wizardData.downPayment) || Math.round(parseInt(wizardData.preferredPrice) * 0.2),
+            preferredPrice: parseInt(wizardData.preferredPrice),
+            closingTimeline: wizardData.closingTimeline || 'normal',
+            firstTimeBuyer: false, // Default assumption for now
+            creditScore: 'excellent', // Default assumption for qualified buyers
+            cashReserves: parseInt(wizardData.maxBudget) * 0.1, // Estimate 10% of budget as reserves
+            specificNeeds: [] // No specific needs by default
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate AI strategy');
+      }
+
+      const aiAnalysis = await response.json();
+      
+      if (aiAnalysis.success && aiAnalysis.negotiationAnalysis) {
+        logger.debug('✅ AI strategy generated successfully');
+        setCustomStrategy(aiAnalysis.negotiationAnalysis);
+      } else {
+        throw new Error('Invalid AI response format');
+      }
+      
+    } catch (error) {
+      logger.error('❌ Error generating AI strategy:', error);
+      
+      // Fallback to basic analysis if AI fails
+      logger.debug('📊 Falling back to basic analysis...');
+      const listPrice = selectedProperty.data?.price || 0;
+      const preferredPrice = parseInt(wizardData.preferredPrice);
+      const marketValue = selectedProperty.analysis?.marketValue.estimated || listPrice;
+      const daysOnMarket = selectedProperty.data?.daysOnMarket || 0;
+      
+      const fallbackStrategy = {
+        recommendedOffer: {
+          amount: Math.min(preferredPrice, Math.round(marketValue * 0.98)), // Slightly below market value
+          confidence: 65,
+          reasoning: [
+            'AI analysis temporarily unavailable - using market-based calculation',
+            `Property market value: ${formatPrice(marketValue)}`,
+            `${daysOnMarket} days on market provides negotiation context`
+          ]
+        },
+        sellerMotivation: {
+          level: daysOnMarket > 60 ? 'HIGH' : daysOnMarket > 30 ? 'MEDIUM' : 'LOW',
+          indicators: [`Property listed for ${daysOnMarket} days`],
+          timeOnMarket: `${daysOnMarket} days`
+        },
+        negotiationStrategies: [{
+          strategy: 'Market-Based Approach',
+          talkingPoints: ['Offer based on current market conditions'],
+          leverage: ['Market timing', 'Property evaluation']
+        }],
+        hiddenOpportunities: ['Basic market analysis suggests negotiation potential'],
+        dealBreakers: selectedProperty.analysis?.redFlags || [],
+        confidenceScore: 65
+      };
+      
+      setCustomStrategy(fallbackStrategy);
+    } finally {
+      setGeneratingStrategy(false);
+    }
+  };
 
   const createTimeline = async (property: Property) => {
     if (!property.data) {
@@ -1340,327 +1451,76 @@ export default function PropertyAnalysisPage() {
           {!comparables && selectedProperty?.analysis && !showInvestmentScore && (
             <div className="space-y-6">
 
-              {/* AI-Powered Offer Strategy - Streamlined */}
+              {/* Smart Offer Strategy - Now the primary focus */}
+
+              {/* Smart Offer Strategy - Direct display without tabs */}
               <Card className="shadow-lg border-2 border-[#D9DADA] bg-[#F2F2F2] rounded-2xl">
                 <CardHeader>
                   <CardTitle className="flex items-center text-lg font-ds-heading text-[#5C1B10] tracking-[-0.01em]">
                     <Handshake className="h-5 w-5 mr-2 text-[#5C1B10]" />
-                    AI Offer Strategy
+                    Smart Offer Strategy by Sarah Chen
                   </CardTitle>
                   <CardDescription className="font-ds-body text-[#020B0A] opacity-80 leading-[150%]">
-                    Property-specific AI insights and negotiation intelligence
+                    Local expert insights to help you understand offer components and build winning strategies
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Tab Navigation - Optimized for Maximum Value */}
+                  <div className="flex space-x-1 mb-6 bg-[#D9DADA] p-1 rounded-2xl border-2 border-[#020B0A]">
+                    <button
+                      onClick={() => {
+                        setActiveOfferTab('strategy');
+                        setCustomStrategy(null);
+                      }}
+                      className={`flex-1 py-2 px-4 rounded-xl text-sm font-medium font-ds-body transition-colors ${
+                        activeOfferTab === 'strategy'
+                          ? 'bg-[#FAD9D4] text-[#5C1B10] border-2 border-[#020B0A] shadow-md'
+                          : 'text-[#020B0A] hover:bg-[#F2F2F2] hover:text-[#5C1B10]'
+                      }`}
+                    >
+                      🎯 Smart Offer Strategy
+                    </button>
+                    <button
+                      onClick={() => setActiveOfferTab('wizard')}
+                      className={`flex-1 py-2 px-4 rounded-xl text-sm font-medium font-ds-body transition-colors ${
+                        activeOfferTab === 'wizard'
+                          ? 'bg-[#FAD9D4] text-[#5C1B10] border-2 border-[#020B0A] shadow-md'
+                          : 'text-[#020B0A] hover:bg-[#F2F2F2] hover:text-[#5C1B10]'
+                      }`}
+                    >
+                      🧙‍♂️ Offer Wizard
+                    </button>
+                    <button
+                      onClick={() => setActiveOfferTab('education')}
+                      className={`flex-1 py-2 px-4 rounded-xl text-sm font-medium font-ds-body transition-colors ${
+                        activeOfferTab === 'education'
+                          ? 'bg-[#FAD9D4] text-[#5C1B10] border-2 border-[#020B0A] shadow-md'
+                          : 'text-[#020B0A] hover:bg-[#F2F2F2] hover:text-[#5C1B10]'
+                      }`}
+                    >
+                      📚 Learn More
+                    </button>
+                  </div>
 
-                  {/* AI-Driven Offer Strategy - Single Unified View */}
-                  <div className="space-y-6">
-                    
-                    {/* AI Recommended Offer - Hero Section */}
-                    <div className="p-6 bg-gradient-to-r from-[#5C1B10] to-[#020B0A] text-white rounded-2xl shadow-lg">
-                      <h3 className="font-semibold font-ds-heading mb-4 flex items-center text-xl">
-                        <span className="text-2xl mr-3">🤖</span>
-                        AI Recommended Offer
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        
-                        {/* Primary Recommendation */}
-                        <div className="md:col-span-2 bg-[#FAD9D4] text-[#5C1B10] p-6 rounded-xl border-2 border-white">
-                          <div className="text-center mb-4">
-                            <div className="text-4xl font-bold mb-2">
-                              {formatPrice(Math.round((selectedProperty.data?.price || 0) * 0.93))}
-                            </div>
-                            <div className="text-lg font-medium">Recommended Offer (7% below asking)</div>
-                            <div className="text-sm opacity-80">65% acceptance probability</div>
-                          </div>
-                          
-                          {/* AI Reasoning */}
-                          <div className="bg-white/50 p-4 rounded-lg">
-                            <h4 className="font-medium mb-2 flex items-center">
-                              <span className="mr-2">🧠</span>
-                              Why This Works
-                            </h4>
-                            <div className="space-y-1 text-sm">
-                              <div>• {(selectedProperty.data?.daysOnMarket || 0) > 60 ? 'Property has been on market 60+ days - seller motivated' : 'Fresh listing with room for negotiation'}</div>
-                              <div>• Market analysis shows {((selectedProperty.data?.price || 0) > (selectedProperty.analysis?.marketValue?.estimated || selectedProperty.data?.price || 0)) ? 'overpriced by market standards' : 'fair market pricing'}</div>
-                              <div>• Investment score of {selectedProperty.analysis.investmentScore}/100 indicates {selectedProperty.analysis.investmentScore > 75 ? 'strong value potential' : selectedProperty.analysis.investmentScore > 50 ? 'moderate opportunity' : 'proceed with caution'}</div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Alternative Offers */}
-                        <div className="space-y-3">
-                          <div className="bg-white/10 p-4 rounded-xl border border-white/20 text-center">
-                            <div className="text-xl font-bold text-[#FAD9D4]">
-                              {formatPrice(Math.round((selectedProperty.data?.price || 0) * 0.97))}
-                            </div>
-                            <div className="text-sm opacity-90">Conservative</div>
-                            <div className="text-xs opacity-75">85% success</div>
-                          </div>
-                          <div className="bg-white/10 p-4 rounded-xl border border-white/20 text-center">
-                            <div className="text-xl font-bold text-[#FAD9D4]">
-                              {formatPrice(Math.round((selectedProperty.data?.price || 0) * 0.88))}
-                            </div>
-                            <div className="text-sm opacity-90">Aggressive</div>
-                            <div className="text-xs opacity-75">35% success</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Market Psychology Analysis */}
-                    <div className="p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl shadow-lg">
-                      <h3 className="font-semibold font-ds-heading text-blue-800 mb-4 flex items-center">
-                        <span className="text-xl mr-2">🔍</span>
-                        Market Psychology Analysis
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
-                        {/* Seller Motivation */}
-                        <div className="bg-white/70 p-4 rounded-xl border border-blue-300">
-                          <h4 className="font-medium text-blue-800 mb-2 flex items-center">
-                            <Target className="w-4 h-4 mr-2" />
-                            Seller Motivation: {(selectedProperty.data?.daysOnMarket || 0) > 90 ? 'HIGH' : (selectedProperty.data?.daysOnMarket || 0) > 60 ? 'MODERATE' : 'LOW'}
-                          </h4>
-                          <div className="text-sm text-blue-700 space-y-1">
-                            <div>• Days on Market: {selectedProperty.data?.daysOnMarket || 'Unknown'}</div>
-                            <div>• {(selectedProperty.data?.daysOnMarket || 0) > 90 ? 'Likely highly motivated to sell' : (selectedProperty.data?.daysOnMarket || 0) > 60 ? 'Increasing flexibility expected' : 'Limited negotiation room'}</div>
-                          </div>
-                        </div>
-
-                        {/* Market Position */}
-                        <div className="bg-white/70 p-4 rounded-xl border border-blue-300">
-                          <h4 className="font-medium text-blue-800 mb-2 flex items-center">
-                            <TrendingUp className="w-4 h-4 mr-2" />
-                            Market Position
-                          </h4>
-                          <div className="text-sm text-blue-700 space-y-1">
-                            <div>• List: {formatPrice(selectedProperty.data?.price)}</div>
-                            <div>• Est Value: {formatPrice(selectedProperty.analysis?.marketValue?.estimated || selectedProperty.data?.price)}</div>
-                            <div className={`font-medium ${(selectedProperty.data?.price || 0) > (selectedProperty.analysis?.marketValue?.estimated || selectedProperty.data?.price || 0) ? 'text-red-600' : 'text-green-600'}`}>
-                              • {(selectedProperty.data?.price || 0) > (selectedProperty.analysis?.marketValue?.estimated || selectedProperty.data?.price || 0) ? 'Overpriced' : 'Fair Value'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Smart Negotiation Playbook */}
-                    <div className="p-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl shadow-lg">
-                      <h3 className="font-semibold font-ds-heading text-yellow-800 mb-4 flex items-center">
-                        <span className="text-xl mr-2">💡</span>
-                        Smart Negotiation Playbook
-                      </h3>
+                  {/* Smart Offer Strategy Tab - Lead with data-driven recommendations */}
+                  {activeOfferTab === 'strategy' && (
+                    <div className="space-y-6">
                       
-                      {/* Key Leverage Points */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <h4 className="font-medium text-yellow-800 mb-3">Your Leverage</h4>
-                          <div className="space-y-2">
-                            {selectedProperty.analysis.negotiationStrategy?.leverage?.slice(0, 3).map((point: string, idx: number) => (
-                              <div key={idx} className="flex items-start text-sm text-yellow-700">
-                                <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                {point}
-                              </div>
-                            )) || (
-                              <div className="space-y-2">
-                                <div className="flex items-start text-sm text-yellow-700">
-                                  <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                  {(selectedProperty.data?.daysOnMarket || 0) > 60 ? 'Extended market time shows seller motivation' : 'Cash equivalent offer strength'}
-                                </div>
-                                <div className="flex items-start text-sm text-yellow-700">
-                                  <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                  Quick closing timeline advantage
-                                </div>
-                                <div className="flex items-start text-sm text-yellow-700">
-                                  <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                  Pre-approval strength in competitive market
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium text-yellow-800 mb-3">Negotiation Tactics</h4>
-                          <div className="space-y-2">
-                            {selectedProperty.analysis.negotiationStrategy?.tactics?.slice(0, 3).map((tactic: string, idx: number) => (
-                              <div key={idx} className="flex items-start text-sm text-yellow-700">
-                                <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                {tactic}
-                              </div>
-                            )) || (
-                              <div className="space-y-2">
-                                <div className="flex items-start text-sm text-yellow-700">
-                                  <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                  Lead with quick closing timeline
-                                </div>
-                                <div className="flex items-start text-sm text-yellow-700">
-                                  <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                  Emphasize cash equivalent financing
-                                </div>
-                                <div className="flex items-start text-sm text-yellow-700">
-                                  <span className="text-yellow-600 mr-2 mt-1">•</span>
-                                  {(selectedProperty.data?.daysOnMarket || 0) > 60 ? 'Reference extended market time diplomatically' : 'Position as serious, qualified buyer'}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Deal-Specific Warnings */}
-                    {selectedProperty.analysis.redFlags && selectedProperty.analysis.redFlags.length > 0 && (
-                      <div className="p-6 bg-red-50 border-2 border-red-200 rounded-2xl shadow-lg">
-                        <h3 className="font-semibold font-ds-heading text-red-800 mb-4 flex items-center">
-                          <span className="text-xl mr-2">⚠️</span>
-                          Deal-Specific Warnings
-                        </h3>
-                        <div className="space-y-2">
-                          {selectedProperty.analysis.redFlags.slice(0, 3).map((flag: string, idx: number) => (
-                            <div key={idx} className="flex items-start text-sm text-red-700">
-                              <AlertCircle className="w-4 h-4 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
-                              {flag}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Disclaimer */}
-                  <div className="mt-6 p-4 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-5 w-5 text-[#5C1B10] mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium font-ds-heading text-[#5C1B10]">Educational Purposes Only</p>
-                        <p className="text-sm font-ds-body text-[#020B0A] opacity-80 mt-1">
-                          This analysis is for educational purposes and should not be considered real estate advice. 
-                          Always consult with a licensed real estate professional before making any offers.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                </CardContent>
-              </Card>
-
-              {/* Close Analysis Button */}
-              <div className="flex gap-4 mt-6">
-                <button
-                  onClick={() => setShowInvestmentScore(true)}
-                  className="flex-1 inline-flex items-center justify-center px-5 py-2 bg-[#FAD9D4] border-2 border-[#020B0A] rounded-md font-medium text-[#020B0A] transition-colors hover:bg-[#F5C7C1]"
-                  style={{ 
-                    boxShadow: "0px 2px 2px rgba(0, 0, 0, 0.15), inset 0px 4px 0px rgba(255, 255, 255, 0.2), inset 0px -5px 0px rgba(0, 0, 0, 0.15)" 
-                  }}
-                >
-                  <Target className="h-4 w-4 mr-2" />
-                  Investment Score
-                </button>
-                <button
-                  onClick={() => window.open(selectedProperty.mlsUrl, '_blank')}
-                  className="flex-1 inline-flex items-center justify-center px-5 py-2 bg-[#F2F2F2] border-2 border-[#020B0A] rounded-md font-medium text-[#020B0A] transition-colors hover:bg-[#E5E5E5]"
-                  style={{ 
-                    boxShadow: "0px 2px 2px rgba(0, 0, 0, 0.15), inset 0px 4px 0px rgba(255, 255, 255, 0.2), inset 0px -5px 0px rgba(0, 0, 0, 0.15)" 
-                  }}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Original Listing
-                </button>
-                <button
-                  onClick={() => setSelectedProperty(null)}
-                  className="flex-1 inline-flex items-center justify-center px-5 py-2 bg-[#F2F2F2] border-2 border-[#020B0A] rounded-md font-medium text-[#020B0A] transition-colors hover:bg-[#E5E5E5]"
-                  style={{ 
-                    boxShadow: "0px 2px 2px rgba(0, 0, 0, 0.15), inset 0px 4px 0px rgba(255, 255, 255, 0.2), inset 0px -5px 0px rgba(0, 0, 0, 0.15)" 
-                  }}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Close Analysis
-                </button>
-              </div>
-            </div>
-          )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-            <Home className="h-4 w-4" />
-            <span>Property Analysis</span>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            AI-Powered Property Analysis
-          </h1>
-          <p className="text-xl text-gray-600">
-            Get comprehensive market analysis, value assessments, and investment insights for any property.
-          </p>
-        </div>
-
-        {/* Add Property Section */}
-        <Card className="mb-12 shadow-lg border-2 border-[#D9DADA] bg-[#F2F2F2] rounded-2xl">
-          <CardHeader>
-            <CardTitle className="flex items-center text-2xl font-ds-heading text-[#5C1B10] tracking-[-0.01em]">
-              <Plus className="w-6 h-6 mr-3" />
-              Add Property to Analyze
-            </CardTitle>
-            <CardDescription className="font-ds-body text-[#020B0A] opacity-80 leading-[150%]">
-              Paste MLS listing URLs from Zillow, Realtor.com, Redfin, or other sites
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <Input
-                type="url"
-                placeholder="https://www.zillow.com/homedetails/..."
-                value={newMlsUrl}
-                onChange={(e) => setNewMlsUrl(e.target.value)}
-                className="font-ds-body"
-              />
-              <Button 
-                onClick={addProperty}
-                disabled={!newMlsUrl.trim()}
-                className="px-8 py-2 bg-[#FAD9D4] text-[#5C1B10] border-2 border-[#020B0A] rounded-md font-medium font-ds-body hover:bg-[#F5C7C1] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                style={{ 
-                  boxShadow: "0px 2px 2px rgba(0, 0, 0, 0.15), inset 0px 4px 0px rgba(255, 255, 255, 0.2), inset 0px -5px 0px rgba(0, 0, 0, 0.15)" 
-                }}
-              >
-                Add Property
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Properties List */}
-        {properties.length > 0 ? (
-          <>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {properties.map((property) => (
-                <ErrorBoundary key={property.id}>
-                  <Card className="h-full flex flex-col relative shadow-lg border-2 border-[#D9DADA] bg-[#F2F2F2] rounded-2xl">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg font-medium font-ds-heading text-[#5C1B10] line-clamp-2 mb-1 tracking-[-0.01em]">
-                            {property.address}
-                          </CardTitle>
-                          {property.status === 'analyzed' && property.data && (
-                            <div className="flex items-center gap-1 text-sm text-[#020B0A] opacity-70">
-                              <MapPin className="h-3 w-3" />
-                              <span className="truncate">
-                                {[property.city, property.state, property.zipCode].filter(Boolean).join(', ') || 'Location information loading...'}
-                              </span>
-                            </div>
-                          )}
-                          {property.status !== 'analyzed' && (
-                            <div className="flex items-center gap-1 text-sm text-[#020B0A] opacity-70">
-                              <MapPin className="h-3 w-3" />
-                              <span className="truncate">Property location loading...</span>
+                      {/* BatchData Intelligence Analysis - Always Show */}
+                      <div className="space-y-6">
+                        
+                        {/* Property Intelligence Overview */}
+                        <div className="p-6 bg-[#FAD9D4] border-2 border-[#D9DADA] rounded-2xl shadow-lg">
+                          <h3 className="font-semibold font-ds-heading text-[#5C1B10] mb-4 flex items-center">
+                            <span className="text-xl mr-2">🎯</span>
+                            Smart Offer Analysis
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            
+                            {/* Market Position */}
+                            <div className="bg-white/50 p-4 rounded-xl border border-[#D9DADA]">
+                              <h4 className="font-medium text-[#5C1B10] mb-2">Market Position</h4>
+                              <div className="text-sm text-[#020B0A] space-y-1">
                                 <div>List Price: <span className="font-medium">{formatPrice(selectedProperty.data?.price)}</span></div>
                                 <div>Est. Value: <span className="font-medium">{formatPrice(selectedProperty.analysis?.marketValue?.estimated || selectedProperty.data?.price)}</span></div>
                                 <div className={`font-medium ${(selectedProperty.data?.price || 0) > (selectedProperty.analysis?.marketValue?.estimated || selectedProperty.data?.price || 0) ? 'text-red-600' : 'text-green-600'}`}>
