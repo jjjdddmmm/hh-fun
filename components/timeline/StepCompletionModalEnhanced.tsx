@@ -218,7 +218,7 @@ export function StepCompletionModalEnhanced({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md border-2">
+      <DialogContent className="sm:max-w-md border-2 mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
