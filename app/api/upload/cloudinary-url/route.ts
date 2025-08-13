@@ -34,16 +34,9 @@ export async function POST(request: NextRequest) {
       folder: folder || `timeline/${userId}`,
     };
     
-    // Add optional parameters only if provided
+    // Tags should be a string for signature
     if (tags && tags.length > 0) {
       signatureParams.tags = tags.join(',');
-    }
-    
-    if (context && Object.keys(context).length > 0) {
-      // Context parameters need to be flattened for signature
-      Object.entries(context).forEach(([key, value]) => {
-        signatureParams[`context[${key}]`] = value;
-      });
     }
 
     // Generate signature

@@ -64,17 +64,17 @@ export function useCloudinaryUpload(options: UseCloudinaryUploadOptions = {}) {
       formData.append('api_key', api_key);
       formData.append('folder', folder);
       
-      // Add tags
-      if (tags && tags.length > 0) {
-        formData.append('tags', tags.join(','));
+      // Add tags - tags should already be a string from server
+      if (tags) {
+        if (Array.isArray(tags)) {
+          formData.append('tags', tags.join(','));
+        } else {
+          formData.append('tags', tags);
+        }
       }
       
-      // Add context
-      if (context) {
-        Object.entries(context).forEach(([key, value]) => {
-          formData.append(`context[${key}]`, value);
-        });
-      }
+      // Context is not needed for the upload itself
+      // Cloudinary will use folder structure for organization
 
       // Create XMLHttpRequest for progress tracking
       return new Promise((resolve, reject) => {
