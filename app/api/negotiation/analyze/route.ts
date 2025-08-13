@@ -47,9 +47,13 @@ export async function POST(request: NextRequest) {
         fileBuffer = Buffer.from(arrayBuffer);
         documentName = fileName || 'document.pdf';
       } catch (error) {
-        logger.error('Error downloading from Cloudinary:', error);
+        logger.error('Error downloading from Cloudinary:', {
+          error: error instanceof Error ? error.message : error,
+          url: cloudinaryUrl,
+          status: error instanceof Error && 'status' in error ? (error as any).status : 'unknown'
+        });
         return NextResponse.json({ 
-          error: 'Failed to download document from storage' 
+          error: `Failed to download document from storage: ${error instanceof Error ? error.message : 'Unknown error'}` 
         }, { status: 400 });
       }
     } else if (file) {
