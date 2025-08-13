@@ -32,11 +32,22 @@ export async function POST(request: NextRequest) {
     
     if (cloudinaryUrl) {
       // Handle Cloudinary URL - download with proper headers
+      logger.debug('Attempting to download from Cloudinary', {
+        url: cloudinaryUrl,
+        fileName: fileName
+      });
+      
       try {
         const response = await fetch(cloudinaryUrl, {
           headers: {
             'User-Agent': 'hh.fun-analysis/1.0'
           }
+        });
+        
+        logger.debug('Cloudinary response', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
         });
         
         if (!response.ok) {
