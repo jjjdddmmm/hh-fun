@@ -96,10 +96,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Save Cloudinary document error:', {
       error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined,
-      fileName: body?.fileName,
-      stepId: body?.stepId,
-      timelineId: body?.timelineId
+      stack: error instanceof Error ? error.stack : undefined
     });
 
     if (error instanceof z.ZodError) {
