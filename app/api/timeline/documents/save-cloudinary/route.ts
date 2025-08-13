@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     logger.info('Cloudinary document saved successfully', {
       documentId: document.id,
       fileName: document.fileName,
-      fileSize: document.fileSize
+      fileSize: Number(document.fileSize) // Convert BigInt to number for logging
     });
 
     return NextResponse.json({
