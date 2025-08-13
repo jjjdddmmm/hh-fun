@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       originalName: validatedData.fileName,
       mimeType,
       fileSize: validatedData.fileSize,
-      documentType: 'OTHER',
+      documentType: validatedData.fileName, // Use filename as document type for proper versioning
       storageProvider: 'CLOUDINARY',
       storageKey: validatedData.storageKey,
       downloadUrl: validatedData.downloadUrl,

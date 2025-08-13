@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       originalName: file.name,
       mimeType: file.type,
       fileSize: finalBuffer.length, // Use optimized size
-      documentType: 'OTHER', // We can enhance this logic later
+      documentType: validatedData.fileName, // Use filename as document type for proper versioning
       storageProvider: 'CLOUDINARY',
       storageKey: uploadResult.publicId,
       downloadUrl: uploadResult.url,
