@@ -151,17 +151,89 @@ function getMimeType(extension: string): string {
 function getDocumentTypeFromFilename(filename: string): string {
   const lowerName = filename.toLowerCase();
   
-  // Check for common document types in filename
-  if (lowerName.includes('contract') || lowerName.includes('agreement')) return 'CONTRACT';
-  if (lowerName.includes('financial') || lowerName.includes('bank') || lowerName.includes('loan')) return 'FINANCIAL';
-  if (lowerName.includes('inspection') || lowerName.includes('inspect')) return 'INSPECTION';
-  if (lowerName.includes('appraisal') || lowerName.includes('apprai')) return 'APPRAISAL';
-  if (lowerName.includes('insurance')) return 'INSURANCE';
-  if (lowerName.includes('title')) return 'TITLE';
-  if (lowerName.includes('mortgage') || lowerName.includes('mtg')) return 'MORTGAGE';
-  if (lowerName.includes('closing') || lowerName.includes('settlement')) return 'CLOSING';
-  if (lowerName.includes('correspondence') || lowerName.includes('email') || lowerName.includes('letter')) return 'CORRESPONDENCE';
-  if (lowerName.includes('receipt') || lowerName.includes('invoice')) return 'RECEIPT';
+  // INSPECTION - Most common type, check thoroughly
+  if (lowerName.includes('inspection') || 
+      lowerName.includes('inspect') ||
+      lowerName.includes('home') || 
+      lowerName.includes('property') ||
+      lowerName.includes('sewer') ||
+      lowerName.includes('chimney') ||
+      lowerName.includes('pool') ||
+      lowerName.includes('hvac') ||
+      lowerName.includes('electrical') ||
+      lowerName.includes('plumbing') ||
+      lowerName.includes('foundation') ||
+      lowerName.includes('roof') ||
+      lowerName.includes('pest') ||
+      lowerName.includes('termite') ||
+      lowerName.includes('walkthrough') ||
+      lowerName.includes('final walk') ||
+      lowerName.includes('report') && (lowerName.includes('home') || lowerName.includes('property'))) {
+    return 'INSPECTION';
+  }
+  
+  // APPRAISAL
+  if (lowerName.includes('appraisal') || lowerName.includes('apprai') || lowerName.includes('valuation')) {
+    return 'APPRAISAL';
+  }
+  
+  // CONTRACT
+  if (lowerName.includes('contract') || 
+      lowerName.includes('agreement') ||
+      lowerName.includes('purchase') && lowerName.includes('agreement') ||
+      lowerName.includes('sales') && lowerName.includes('contract')) {
+    return 'CONTRACT';
+  }
+  
+  // FINANCIAL
+  if (lowerName.includes('financial') || 
+      lowerName.includes('bank') || 
+      lowerName.includes('loan') ||
+      lowerName.includes('pre-approval') ||
+      lowerName.includes('preapproval') ||
+      lowerName.includes('mortgage') ||
+      lowerName.includes('financing')) {
+    return 'FINANCIAL';
+  }
+  
+  // INSURANCE
+  if (lowerName.includes('insurance') || 
+      lowerName.includes('homeowner') ||
+      lowerName.includes('coverage') ||
+      lowerName.includes('policy')) {
+    return 'INSURANCE';
+  }
+  
+  // TITLE
+  if (lowerName.includes('title') || 
+      lowerName.includes('deed') ||
+      lowerName.includes('ownership')) {
+    return 'TITLE';
+  }
+  
+  // CLOSING
+  if (lowerName.includes('closing') || 
+      lowerName.includes('settlement') ||
+      lowerName.includes('hud-1') ||
+      lowerName.includes('final') && lowerName.includes('statement')) {
+    return 'CLOSING';
+  }
+  
+  // CORRESPONDENCE
+  if (lowerName.includes('correspondence') || 
+      lowerName.includes('email') || 
+      lowerName.includes('letter') ||
+      lowerName.includes('communication')) {
+    return 'CORRESPONDENCE';
+  }
+  
+  // RECEIPT
+  if (lowerName.includes('receipt') || 
+      lowerName.includes('invoice') ||
+      lowerName.includes('payment') ||
+      lowerName.includes('bill')) {
+    return 'RECEIPT';
+  }
   
   // Default to OTHER for unrecognized types
   return 'OTHER';
