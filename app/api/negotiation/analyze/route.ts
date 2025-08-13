@@ -32,13 +32,17 @@ export async function POST(request: NextRequest) {
     
     if (cloudinaryUrl) {
       // Handle Cloudinary URL - download with proper headers
+      // Fix Cloudinary URL format - PDFs should use /raw/upload/ not /image/upload/
+      const correctedUrl = cloudinaryUrl.replace('/image/upload/', '/raw/upload/');
+      
       logger.debug('Attempting to download from Cloudinary', {
-        url: cloudinaryUrl,
+        originalUrl: cloudinaryUrl,
+        correctedUrl: correctedUrl,
         fileName: fileName
       });
       
       try {
-        const response = await fetch(cloudinaryUrl, {
+        const response = await fetch(correctedUrl, {
           headers: {
             'User-Agent': 'hh.fun-analysis/1.0'
           }
