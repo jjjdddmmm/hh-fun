@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
         documentName = fileName || 'document.pdf';
       } catch (error) {
         logger.error('Error downloading from Cloudinary:', {
-          error: error instanceof Error ? error.message : error,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
           url: cloudinaryUrl,
           status: error instanceof Error && 'status' in error ? (error as any).status : 'unknown'
         });
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
     const claudeResult = await ClaudeAnalysisService.analyzeInspectionReport(
       extractedText,
       reportType,
-      file.name
+      documentName
     );
 
     let issues: any[];
