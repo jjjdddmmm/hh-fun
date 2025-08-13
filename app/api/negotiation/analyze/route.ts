@@ -23,26 +23,56 @@ export async function POST(request: NextRequest) {
     // Parse form data
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const cloudinaryUrl = formData.get('cloudinaryUrl') as string;
+    const fileName = formData.get('fileName') as string;
     const reportType = formData.get('reportType') as string || 'home_general';
     
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    let fileBuffer: Buffer;
+    let documentName: string;
+    
+    if (cloudinaryUrl) {
+      // Handle Cloudinary URL - download with proper headers
+      try {
+        const response = await fetch(cloudinaryUrl, {
+          headers: {
+            'User-Agent': 'hh.fun-analysis/1.0'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch from Cloudinary: ${response.status}`);
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        fileBuffer = Buffer.from(arrayBuffer);
+        documentName = fileName || 'document.pdf';
+      } catch (error) {
+        logger.error('Error downloading from Cloudinary:', error);
+        return NextResponse.json({ 
+          error: 'Failed to download document from storage' 
+        }, { status: 400 });
+      }
+    } else if (file) {
+      // Handle direct file upload
+      fileBuffer = Buffer.from(await file.arrayBuffer());
+      documentName = file.name;
+    } else {
+      return NextResponse.json({ 
+        error: 'No file or document URL provided' 
+      }, { status: 400 });
     }
 
     // Process document using LlamaParse
     const { LlamaParseProcessor } = await import('@/lib/services/document/LlamaParseProcessor');
     
-    // Convert file to buffer
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    
     const extractionResult = await LlamaParseProcessor.processDocument(
       fileBuffer,
-      file.name,
+      documentName,
       reportType
     );
 
     if (!extractionResult.success) {
-      return handleMockAnalysis(reportType, file.name, extractionResult.error || 'LlamaParse extraction failed');
+      return handleMockAnalysis(reportType, documentName, extractionResult.error || 'LlamaParse extraction failed');
     }
 
     // Check if we got meaningful text
@@ -55,12 +85,12 @@ export async function POST(request: NextRequest) {
     
     if (!extractedText || extractedText.trim().length < 100) {
       logger.debug('PDF has minimal text, using enhanced mock analysis');
-      return handleMockAnalysis(reportType, file.name, 'PDF contains minimal readable text');
+      return handleMockAnalysis(reportType, documentName, 'PDF contains minimal readable text');
     }
 
     // Analyze with Claude Opus 4 (real AI analysis)
     logger.info('Starting Claude Opus 4 analysis', {
-      documentName: file.name,
+      documentName: documentName,
       reportType,
       textLength: extractedText.length
     });
@@ -84,7 +114,7 @@ export async function POST(request: NextRequest) {
       analysisConfidence = claudeResult.confidence;
       
       logger.info('Claude analysis successful', {
-        documentName: file.name,
+        documentName: documentName,
         modelUsed: claudeResult.modelUsed,
         issuesFound: issues.length,
         totalValue: totalNegotiationValue,
@@ -93,7 +123,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Fallback to keyword-based analysis
       logger.warn('Claude analysis failed, using fallback', {
-        documentName: file.name,
+        documentName: documentName,
         error: claudeResult.error
       });
       
@@ -115,7 +145,7 @@ export async function POST(request: NextRequest) {
     
     // Create detailed analysis data for audit modal
     const detailedAnalysis = {
-      documentName: file.name,
+      documentName: documentName,
       documentType: reportType,
       analysisTimestamp: new Date().toISOString(),
       issues: issues.map(issue => ({

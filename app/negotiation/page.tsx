@@ -270,16 +270,25 @@ export default function NegotiationPage() {
   };
 
   const analyzeDatabaseDocument = async (documentData: any, reportType: string) => {
-    // Download the document from Cloudinary and analyze it
-    const response = await fetch(documentData.downloadUrl);
+    // For documents already in Cloudinary, send the URL directly to the analysis endpoint
+    const formData = new FormData();
+    formData.append('cloudinaryUrl', documentData.downloadUrl);
+    formData.append('fileName', documentData.originalName);
+    formData.append('reportType', reportType);
+    formData.append('documentId', documentData.id);
+    
+    const response = await fetch('/api/negotiation/analyze', {
+      method: 'POST',
+      body: formData
+    });
+    
     if (!response.ok) {
-      throw new Error('Failed to download document');
+      const error = await response.json();
+      throw new Error(error.error || 'Analysis failed');
     }
     
-    const blob = await response.blob();
-    const file = new File([blob], documentData.originalName, { type: 'application/pdf' });
-    
-    return await analyzeUploadedFile(file, reportType);
+    const result = await response.json();
+    return result.analysis;
   };
 
   const generateMockIssues = (reportType: string): InspectionIssue[] => {
