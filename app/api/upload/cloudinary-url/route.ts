@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     logger.debug('Generated Cloudinary upload URL', {
       userId,
-      folder: params.folder,
+      folder: signatureParams.folder,
       timestamp
     });
 
