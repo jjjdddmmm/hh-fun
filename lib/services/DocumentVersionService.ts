@@ -191,11 +191,17 @@ export class DocumentVersionService {
     newDocumentId: string,
     sessionId: string
   ): Promise<void> {
-    // ONLY look for previous versions from DIFFERENT sessions
+    // Get the new document's filename to check for exact matches
+    const newDocument = await prisma.timelineDocument.findUniqueOrThrow({
+      where: { id: newDocumentId }
+    });
+    
+    // ONLY look for previous versions from DIFFERENT sessions with SAME filename
     const previousVersion = await prisma.timelineDocument.findFirst({
       where: {
         stepId,
         documentType: documentType as any, // Cast to enum type
+        fileName: newDocument.fileName, // Only version documents with same filename
         isCurrentVersion: true,
         completionSessionId: { not: sessionId }, // Exclude same session
         id: { not: newDocumentId } // Don't match the new document

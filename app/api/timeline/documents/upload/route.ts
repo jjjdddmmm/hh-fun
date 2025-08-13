@@ -56,11 +56,8 @@ export async function POST(request: NextRequest) {
       stepCategory
     });
     
-    // Create a safe document type from filename (remove special characters)
-    const safeDocumentType = validatedData.fileName
-      .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
-      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
-      .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+    // Determine document type from file extension or default to OTHER
+    const documentType = getDocumentTypeFromFilename(validatedData.fileName);
 
     // Validate required fields
     const validatedData = uploadSchema.parse({
@@ -157,7 +154,7 @@ export async function POST(request: NextRequest) {
       originalName: file.name,
       mimeType: file.type,
       fileSize: finalBuffer.length, // Use optimized size
-      documentType: safeDocumentType, // Use sanitized filename as document type
+      documentType: documentType, // Use enum-compatible document type
       storageProvider: 'CLOUDINARY',
       storageKey: uploadResult.publicId,
       downloadUrl: uploadResult.url,
@@ -220,4 +217,24 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Helper function to determine document type from filename
+function getDocumentTypeFromFilename(filename: string): string {
+  const lowerName = filename.toLowerCase();
+  
+  // Check for common document types in filename
+  if (lowerName.includes('contract') || lowerName.includes('agreement')) return 'CONTRACT';
+  if (lowerName.includes('financial') || lowerName.includes('bank') || lowerName.includes('loan')) return 'FINANCIAL';
+  if (lowerName.includes('inspection') || lowerName.includes('inspect')) return 'INSPECTION';
+  if (lowerName.includes('appraisal') || lowerName.includes('apprai')) return 'APPRAISAL';
+  if (lowerName.includes('insurance')) return 'INSURANCE';
+  if (lowerName.includes('title')) return 'TITLE';
+  if (lowerName.includes('mortgage') || lowerName.includes('mtg')) return 'MORTGAGE';
+  if (lowerName.includes('closing') || lowerName.includes('settlement')) return 'CLOSING';
+  if (lowerName.includes('correspondence') || lowerName.includes('email') || lowerName.includes('letter')) return 'CORRESPONDENCE';
+  if (lowerName.includes('receipt') || lowerName.includes('invoice')) return 'RECEIPT';
+  
+  // Default to OTHER for unrecognized types
+  return 'OTHER';
 }
