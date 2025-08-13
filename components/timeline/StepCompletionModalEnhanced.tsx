@@ -13,7 +13,6 @@ import { Upload, X, File, CheckCircle, Loader2, AlertCircle, Cloud } from "lucid
 import { TimelineStepWithRelations } from "@/lib/types/timeline";
 import { documentVersionService } from "@/lib/services/DocumentVersionService";
 import { useCloudinaryUpload } from "@/lib/hooks/useCloudinaryUpload";
-import { Progress } from "@/components/ui/progress";
 
 interface StepCompletionModalProps {
   step: TimelineStepWithRelations | null;
@@ -43,7 +42,8 @@ export function StepCompletionModalEnhanced({
   const [isDragOver, setIsDragOver] = useState(false);
   const [completionSessionId, setCompletionSessionId] = useState<string>('');
   const [previousCompletions, setPreviousCompletions] = useState<number>(0);
-  const [uploadingFiles, setUploadingFiles] = useState<Map<string, { progress: number; error?: string }>>(new Map());
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [uploadErrors, setUploadErrors] = useState<Map<string, string>>(new Map());
 
   // Cloudinary upload hook
   const cloudinaryUpload = useCloudinaryUpload({
@@ -53,10 +53,7 @@ export function StepCompletionModalEnhanced({
       step_id: step.id,
       timeline_id: step.timelineId,
       category: step.category
-    } : undefined,
-    onProgress: (progress) => {
-      logger.debug('Upload progress', progress);
-    }
+    } : undefined
   });
 
   // Reset form when step changes or modal opens
@@ -65,7 +62,8 @@ export function StepCompletionModalEnhanced({
       setActualCost('');
       setSelectedFiles([]);
       setIsDragOver(false);
-      setUploadingFiles(new Map());
+      setUploadingFiles(new Set());
+      setUploadErrors(new Map());
       
       const initializeSession = async () => {
         try {
@@ -146,21 +144,16 @@ export function StepCompletionModalEnhanced({
     if (largeFiles.length > 0) {
       try {
         // Update UI to show uploading state
-        const uploadMap = new Map<string, { progress: number; error?: string }>();
+        const uploadingSet = new Set<string>();
         largeFiles.forEach(file => {
-          uploadMap.set(file.name, { progress: 0 });
+          uploadingSet.add(file.name);
         });
-        setUploadingFiles(uploadMap);
+        setUploadingFiles(uploadingSet);
 
         // Upload each large file
         for (const file of largeFiles) {
           try {
-            // Update progress for this file
-            setUploadingFiles(prev => {
-              const updated = new Map(prev);
-              updated.set(file.name, { progress: 10 });
-              return updated;
-            });
+            // File is uploading - state already set
 
             const result = await cloudinaryUpload.uploadFile(file);
             
@@ -172,10 +165,10 @@ export function StepCompletionModalEnhanced({
                 fileSize: file.size
               });
 
-              // Mark as complete
+              // Remove from uploading set
               setUploadingFiles(prev => {
-                const updated = new Map(prev);
-                updated.set(file.name, { progress: 100 });
+                const updated = new Set(prev);
+                updated.delete(file.name);
                 return updated;
               });
             }
@@ -184,8 +177,13 @@ export function StepCompletionModalEnhanced({
             
             // Mark as error
             setUploadingFiles(prev => {
+              const updated = new Set(prev);
+              updated.delete(file.name);
+              return updated;
+            });
+            setUploadErrors(prev => {
               const updated = new Map(prev);
-              updated.set(file.name, { progress: 0, error: 'Upload failed' });
+              updated.set(file.name, 'Upload failed');
               return updated;
             });
           }
@@ -301,7 +299,8 @@ export function StepCompletionModalEnhanced({
                 <div className="max-h-40 overflow-y-auto space-y-2">
                   {selectedFiles.map((file, index) => {
                     const isLarge = file.size > DIRECT_UPLOAD_THRESHOLD;
-                    const uploadStatus = uploadingFiles.get(file.name);
+                    const isUploading = uploadingFiles.has(file.name);
+                    const uploadError = uploadErrors.get(file.name);
                     
                     return (
                       <div
@@ -318,18 +317,21 @@ export function StepCompletionModalEnhanced({
                               <p className="text-xs text-gray-500">
                                 {formatFileSize(file.size)}
                               </p>
-                              {isLarge && (
+                              {isLarge && !isUploading && (
                                 <span className="text-xs text-blue-600 flex items-center gap-1">
                                   <Cloud className="h-3 w-3" />
                                   Direct upload
                                 </span>
                               )}
+                              {isUploading && (
+                                <span className="text-xs text-gray-600 flex items-center gap-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Uploading...
+                                </span>
+                              )}
                             </div>
-                            {uploadStatus && uploadStatus.progress > 0 && uploadStatus.progress < 100 && (
-                              <Progress value={uploadStatus.progress} className="h-1 mt-1" />
-                            )}
-                            {uploadStatus?.error && (
-                              <p className="text-xs text-red-600 mt-1">{uploadStatus.error}</p>
+                            {uploadError && (
+                              <p className="text-xs text-red-600 mt-1">{uploadError}</p>
                             )}
                           </div>
                         </div>
