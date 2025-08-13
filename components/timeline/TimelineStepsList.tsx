@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { TimelineWithRelations, StepStatus, StepCategory, StepPriority, checkStepDependencies } from "@/lib/types/timeline";
 import { StepCompletionModal } from "./StepCompletionModal";
+import { StepCompletionModalEnhanced } from "./StepCompletionModalEnhanced";
 import { StepEditModal } from "./StepEditModal";
 
 interface TimelineStepsListProps {
@@ -365,6 +366,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
   const handleStepCompletion = async (data: {
     actualCost?: number;
     documents: File[];
+    cloudinaryDocuments?: Array<{ url: string; publicId: string; fileName: string; fileSize: number }>;
     completionSessionId: string;
   }) => {
     if (!completionModal.step) return;
@@ -374,6 +376,40 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
       setIsUpdating(completionModal.step.id);
       // Upload documents to Cloudinary first (if any)
       let uploadedDocuments: any[] = [];
+      
+      // Handle documents already uploaded to Cloudinary (large files)
+      if (data.cloudinaryDocuments && data.cloudinaryDocuments.length > 0) {
+        // Save the cloudinary documents to database
+        for (const cloudDoc of data.cloudinaryDocuments) {
+          try {
+            const saveResponse = await fetch('/api/timeline/documents/save-cloudinary', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                timelineId: timeline.id,
+                stepId: completionModal.step.id,
+                fileName: cloudDoc.fileName,
+                downloadUrl: cloudDoc.url,
+                storageKey: cloudDoc.publicId,
+                fileSize: cloudDoc.fileSize,
+                completionSessionId: data.completionSessionId
+              })
+            });
+            
+            if (!saveResponse.ok) {
+              throw new Error(`Failed to save Cloudinary document: ${cloudDoc.fileName}`);
+            }
+            
+            const savedDoc = await saveResponse.json();
+            uploadedDocuments.push(savedDoc.document);
+          } catch (error) {
+            logger.error('Error saving Cloudinary document:', error);
+            throw error;
+          }
+        }
+      }
+      
+      // Handle regular file uploads (small files)
       if (data.documents.length > 0) {
         const uploadPromises = data.documents.map(async (file) => {
           const formData = new FormData();
@@ -892,8 +928,8 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
         </Card>
       )}
 
-      {/* Step Completion Modal */}
-      <StepCompletionModal
+      {/* Step Completion Modal - Use Enhanced version for large file support */}
+      <StepCompletionModalEnhanced
         step={completionModal.step}
         isOpen={completionModal.isOpen}
         onClose={closeCompletionModal}
