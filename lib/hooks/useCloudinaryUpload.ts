@@ -117,7 +117,22 @@ export function useCloudinaryUpload(options: UseCloudinaryUploadOptions = {}) {
             
             resolve(result);
           } else {
-            const error = new Error(`Upload failed: ${xhr.statusText}`);
+            let errorMessage = `Upload failed with status ${xhr.status}: ${xhr.statusText}`;
+            try {
+              const errorResponse = JSON.parse(xhr.responseText);
+              errorMessage = errorResponse.error?.message || errorMessage;
+            } catch (e) {
+              // Use default error message if response isn't JSON
+            }
+            
+            logger.error('Cloudinary upload failed', {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              response: xhr.responseText,
+              fileName: file.name
+            });
+            
+            const error = new Error(errorMessage);
             setError(error);
             setIsUploading(false);
             options.onError?.(error);

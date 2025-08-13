@@ -28,22 +28,26 @@ export async function POST(request: NextRequest) {
     // Generate timestamp for signature
     const timestamp = Math.round(new Date().getTime() / 1000);
     
-    // Create signature parameters
-    const params = {
+    // Create signature parameters - only include parameters that affect the signature
+    const signatureParams: Record<string, any> = {
       timestamp,
       folder: folder || `timeline/${userId}`,
-      tags: tags || ['timeline', 'document'],
-      context: context || {},
-      // Allow large files up to 100MB
-      max_file_size: 100 * 1024 * 1024,
-      // Ensure we get the secure URL back
-      secure: true,
-      // Set resource type based on intended use
-      resource_type: 'auto'
     };
+    
+    // Add optional parameters only if provided
+    if (tags && tags.length > 0) {
+      signatureParams.tags = tags.join(',');
+    }
+    
+    if (context && Object.keys(context).length > 0) {
+      // Context parameters need to be flattened for signature
+      Object.entries(context).forEach(([key, value]) => {
+        signatureParams[`context[${key}]`] = value;
+      });
+    }
 
     // Generate signature
-    const signature = cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET!);
+    const signature = cloudinary.utils.api_sign_request(signatureParams, process.env.CLOUDINARY_API_SECRET!);
 
     logger.debug('Generated Cloudinary upload URL', {
       userId,
@@ -57,9 +61,9 @@ export async function POST(request: NextRequest) {
       timestamp,
       api_key: process.env.CLOUDINARY_API_KEY,
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      folder: params.folder,
-      tags: params.tags,
-      context: params.context
+      folder: signatureParams.folder,
+      tags: tags || ['timeline', 'document'],
+      context: context || {}
     });
 
   } catch (error) {
