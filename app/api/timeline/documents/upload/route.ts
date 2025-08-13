@@ -55,9 +55,6 @@ export async function POST(request: NextRequest) {
       timelineId,
       stepCategory
     });
-    
-    // Determine document type from file extension or default to OTHER
-    const documentType = getDocumentTypeFromFilename(validatedData.fileName);
 
     // Validate required fields
     const validatedData = uploadSchema.parse({
@@ -67,6 +64,9 @@ export async function POST(request: NextRequest) {
       fileName: fileName || file?.name,
       completionSessionId: completionSessionId || undefined
     });
+    
+    // Determine document type from file extension or default to OTHER
+    const documentType = getDocumentTypeFromFilename(validatedData.fileName);
 
     if (!file) {
       return NextResponse.json(
