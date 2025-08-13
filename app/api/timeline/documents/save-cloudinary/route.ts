@@ -46,6 +46,14 @@ export async function POST(request: NextRequest) {
     const mimeType = getMimeType(fileExtension);
 
     // Save document info to database
+    logger.debug('Saving document to database', {
+      userId,
+      timelineId: validatedData.timelineId,
+      stepId: validatedData.stepId,
+      fileName: validatedData.fileName,
+      fileSize: validatedData.fileSize
+    });
+    
     const document = await timelineService.createDocument(userId, {
       timelineId: validatedData.timelineId,
       stepId: validatedData.stepId,
