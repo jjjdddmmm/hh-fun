@@ -44,6 +44,12 @@ export async function POST(request: NextRequest) {
     // Extract file type from URL or filename
     const fileExtension = validatedData.fileName.split('.').pop()?.toLowerCase() || '';
     const mimeType = getMimeType(fileExtension);
+    
+    // Create a safe document type from filename (remove special characters)
+    const safeDocumentType = validatedData.fileName
+      .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
+      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+      .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
 
     // Save document info to database
     logger.debug('Saving document to database', {
@@ -61,7 +67,7 @@ export async function POST(request: NextRequest) {
       originalName: validatedData.fileName,
       mimeType,
       fileSize: validatedData.fileSize,
-      documentType: validatedData.fileName, // Use filename as document type for proper versioning
+      documentType: safeDocumentType, // Use sanitized filename as document type
       storageProvider: 'CLOUDINARY',
       storageKey: validatedData.storageKey,
       downloadUrl: validatedData.downloadUrl,

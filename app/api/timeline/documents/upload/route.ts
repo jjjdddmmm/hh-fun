@@ -55,6 +55,12 @@ export async function POST(request: NextRequest) {
       timelineId,
       stepCategory
     });
+    
+    // Create a safe document type from filename (remove special characters)
+    const safeDocumentType = validatedData.fileName
+      .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
+      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+      .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
 
     // Validate required fields
     const validatedData = uploadSchema.parse({
@@ -151,7 +157,7 @@ export async function POST(request: NextRequest) {
       originalName: file.name,
       mimeType: file.type,
       fileSize: finalBuffer.length, // Use optimized size
-      documentType: validatedData.fileName, // Use filename as document type for proper versioning
+      documentType: safeDocumentType, // Use sanitized filename as document type
       storageProvider: 'CLOUDINARY',
       storageKey: uploadResult.publicId,
       downloadUrl: uploadResult.url,
