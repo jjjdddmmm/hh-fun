@@ -46,7 +46,8 @@ export function useCloudinaryUpload(options: UseCloudinaryUploadOptions = {}) {
         body: JSON.stringify({
           folder: options.folder,
           tags: options.tags,
-          context: options.context
+          context: options.context,
+          fileName: file.name
         })
       });
 
@@ -54,7 +55,7 @@ export function useCloudinaryUpload(options: UseCloudinaryUploadOptions = {}) {
         throw new Error('Failed to get upload URL');
       }
 
-      const { url, signature, timestamp, api_key, folder, tags, context } = await urlResponse.json();
+      const { url, signature, timestamp, api_key, folder, type, access_mode, resource_type, tags, context } = await urlResponse.json();
 
       // Step 2: Upload directly to Cloudinary
       const formData = new FormData();
@@ -63,6 +64,14 @@ export function useCloudinaryUpload(options: UseCloudinaryUploadOptions = {}) {
       formData.append('timestamp', timestamp.toString());
       formData.append('api_key', api_key);
       formData.append('folder', folder);
+      
+      // Explicitly set public access parameters
+      if (type) {
+        formData.append('type', type);
+      }
+      if (access_mode) {
+        formData.append('access_mode', access_mode);
+      }
       
       // Add tags - tags should already be a string from server
       if (tags) {

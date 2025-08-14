@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from "@/lib/utils/logger";
 import { auth } from '@clerk/nextjs/server';
 import { ClaudeAnalysisService } from '@/lib/services/analysis/ClaudeAnalysisService';
+import { CloudinaryService } from '@/lib/services/cloudinary/CloudinaryService';
 
 export async function GET() {
   return NextResponse.json({ 
@@ -38,25 +39,14 @@ export async function POST(request: NextRequest) {
       });
       
       try {
-        const response = await fetch(cloudinaryUrl, {
-          headers: {
-            'User-Agent': 'hh.fun-analysis/1.0'
-          }
-        });
-        
-        logger.debug('Cloudinary response', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch from Cloudinary: ${response.status}`);
-        }
-        
-        const arrayBuffer = await response.arrayBuffer();
-        fileBuffer = Buffer.from(arrayBuffer);
+        // Use CloudinaryService for authenticated download
+        fileBuffer = await CloudinaryService.downloadFile(cloudinaryUrl);
         documentName = fileName || 'document.pdf';
+        
+        logger.debug('Successfully downloaded from Cloudinary', {
+          size: fileBuffer.length,
+          fileName: documentName
+        });
       } catch (error) {
         logger.error('Error downloading from Cloudinary:', {
           error: error instanceof Error ? error.message : String(error),
@@ -65,7 +55,7 @@ export async function POST(request: NextRequest) {
           status: error instanceof Error && 'status' in error ? (error as any).status : 'unknown'
         });
         return NextResponse.json({ 
-          error: `Failed to download document from storage: ${error instanceof Error ? error.message : 'Unknown error'}` 
+          error: `Failed to download document: ${error instanceof Error ? error.message : 'Unknown error'}` 
         }, { status: 400 });
       }
     } else if (file) {
