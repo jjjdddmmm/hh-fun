@@ -116,6 +116,9 @@ export function StepEditModal({
       
       // Remove file from selected files
       setSelectedFiles(prev => prev.filter(f => f !== file));
+    } catch (error) {
+      logger.error('Document upload error:', error);
+      // Keep the file in the list if upload failed
     } finally {
       setUploadingDocuments(prev => {
         const next = new Set(prev);
@@ -312,6 +315,11 @@ export function StepEditModal({
               <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                 <Upload className="h-4 w-4" />
                 {hasDocuments ? 'Add Additional Documents' : 'Upload New Documents'}
+                {uploadingDocuments.size > 0 && (
+                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full animate-pulse">
+                    {uploadingDocuments.size} uploading...
+                  </span>
+                )}
               </h4>
               
               <div
@@ -371,50 +379,67 @@ export function StepEditModal({
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="flex items-center space-x-3 flex-1 min-w-0">
-                          <File className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
-                              <span>{formatFileSize(file.size)}</span>
-                              {hasDocuments && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-blue-700 font-medium">
-                                    Will create new version
-                                  </span>
-                                </>
-                              )}
+                    {selectedFiles.map((file, index) => {
+                      // Create a stable upload ID for this file
+                      const fileUploadId = `${file.name}_${file.size}_${index}`;
+                      const isUploading = Array.from(uploadingDocuments).some(id => 
+                        id.startsWith(`${file.name}_`)
+                      );
+                      
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <File className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                                <span>{formatFileSize(file.size)}</span>
+                                {hasDocuments && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-blue-700 font-medium">
+                                      Will create new version
+                                    </span>
+                                  </>
+                                )}
+                                {isUploading && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-orange-600 font-medium animate-pulse">
+                                      Uploading...
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          <div className="flex space-x-2 flex-shrink-0">
+                            <Button
+                              size="sm"
+                              onClick={() => handleDocumentUpload(file)}
+                              disabled={isUploading}
+                              className="bg-[#5C1B10] hover:bg-[#4A1508] text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isUploading ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <Upload className="h-3 w-3 mr-1" />
+                              )}
+                              {isUploading ? 'Uploading...' : 'Upload'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(index)}
+                              disabled={isUploading}
+                              className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex space-x-2 flex-shrink-0">
-                          <Button
-                            size="sm"
-                            onClick={() => handleDocumentUpload(file)}
-                            disabled={uploadingDocuments.has(`${file.name}_${Date.now()}`)}
-                            className="bg-[#5C1B10] hover:bg-[#4A1508] text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {uploadingDocuments.has(`${file.name}_${Date.now()}`) ? (
-                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            ) : (
-                              <Upload className="h-3 w-3 mr-1" />
-                            )}
-                            Upload
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFile(index)}
-                            className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
