@@ -268,7 +268,9 @@ export class BatchDataPropertyAnalysisService {
     const price = this.extractPrice(property);
     const bedrooms = this.extractBedrooms(property);
     const bathrooms = this.extractBathrooms(property);
-    const livingArea = property.building?.totalBuildingAreaSquareFeet || 
+    const livingArea = property.listing?.livingArea ||
+                      property.listing?.totalBuildingAreaSquareFeet ||
+                      property.building?.totalBuildingAreaSquareFeet || 
                       property.mls?.totalBuildingAreaSquareFeet || 
                       property.squareFootage || 2000;
     
@@ -277,7 +279,12 @@ export class BatchDataPropertyAnalysisService {
       price,
       bedrooms,
       bathrooms,
-      livingArea
+      livingArea,
+      sources: {
+        bedroomsFrom: property.listing?.bedroomCount ? 'listing' : property.mls?.bedroomCount ? 'mls' : property.building?.bedroomCount ? 'building' : 'default',
+        bathroomsFrom: property.listing?.bathroomCount ? 'listing' : property.building?.bathroomCount ? 'building' : property.mls?.bathroomCount ? 'mls' : 'default',
+        sqftFrom: property.listing?.livingArea ? 'listing.livingArea' : property.listing?.totalBuildingAreaSquareFeet ? 'listing.totalBuildingAreaSquareFeet' : property.building?.totalBuildingAreaSquareFeet ? 'building' : property.mls?.totalBuildingAreaSquareFeet ? 'mls' : 'default'
+      }
     });
     
     const propertyData: BatchDataPropertyData = {
@@ -430,7 +437,8 @@ export class BatchDataPropertyAnalysisService {
    * Extract bedroom count
    */
   private extractBedrooms(property: any): number {
-    return property.mls?.bedroomCount || 
+    return property.listing?.bedroomCount ||
+           property.mls?.bedroomCount || 
            property.building?.bedroomCount || 
            property.bedrooms || 3;
   }
@@ -439,7 +447,8 @@ export class BatchDataPropertyAnalysisService {
    * Extract bathroom count  
    */
   private extractBathrooms(property: any): number {
-    return property.building?.bathroomCount ||
+    return property.listing?.bathroomCount ||
+           property.building?.bathroomCount ||
            property.mls?.bathroomCount || 
            property.bathrooms || 2;
   }
