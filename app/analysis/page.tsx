@@ -54,13 +54,6 @@ interface Property {
       tactics: string[];
       leverage: string[];
     };
-    financialProjection: {
-      monthlyMortgage: number;
-      downPayment: number;
-      closingCosts: number;
-      monthlyExpenses: number;
-      cashFlow: number;
-    };
     marketAnalysis: {
       pricePerSqftComparison: string;
       marketTrend: string;
@@ -96,8 +89,7 @@ const calculateScoreBreakdown = (property: Property) => {
     return {
       marketPricing: { score: 10, maxScore: 20, description: 'Insufficient data' },
       propertyCondition: { score: 7, maxScore: 15, description: 'Analysis pending' },
-      locationValue: { score: 10, maxScore: 20, description: 'Data unavailable' },
-      cashFlowPotential: { score: 7, maxScore: 15, description: 'Needs analysis' }
+      locationValue: { score: 10, maxScore: 20, description: 'Data unavailable' }
     };
   }
 
@@ -170,29 +162,6 @@ const calculateScoreBreakdown = (property: Property) => {
     }
   }
   
-  // Cash Flow Potential Score (0-15 points)
-  let cashFlowScore = 7; // Base score
-  let cashFlowDesc = 'Standard rental potential';
-  
-  if (analysis.financialProjection && analysis.financialProjection.cashFlow !== undefined) {
-    const cashFlow = analysis.financialProjection.cashFlow;
-    if (cashFlow > 500) {
-      cashFlowScore = 15;
-      cashFlowDesc = 'Excellent cash flow potential';
-    } else if (cashFlow > 200) {
-      cashFlowScore = 12;
-      cashFlowDesc = 'Good rental yield expected';
-    } else if (cashFlow > 0) {
-      cashFlowScore = 9;
-      cashFlowDesc = 'Positive cash flow potential';
-    } else if (cashFlow > -200) {
-      cashFlowScore = 6;
-      cashFlowDesc = 'Break-even to slight loss';
-    } else {
-      cashFlowScore = 3;
-      cashFlowDesc = 'Negative cash flow expected';
-    }
-  }
   
   return {
     marketPricing: { 
@@ -209,11 +178,6 @@ const calculateScoreBreakdown = (property: Property) => {
       score: locationValueScore, 
       maxScore: 20, 
       description: locationValueDesc 
-    },
-    cashFlowPotential: { 
-      score: cashFlowScore, 
-      maxScore: 15, 
-      description: cashFlowDesc 
     }
   };
 };
@@ -1078,24 +1042,6 @@ export default function PropertyAnalysisPage() {
                       </p>
                     </div>
 
-                    {/* Cash Flow Potential */}
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="font-ds-body font-medium text-[#020B0A]">Cash Flow Potential</span>
-                        <span className="font-ds-body font-bold text-[#5C1B10]">
-                          {legacyScoreBreakdown.cashFlowPotential.score}/{legacyScoreBreakdown.cashFlowPotential.maxScore}
-                        </span>
-                      </div>
-                      <div className="w-full bg-[#D9DADA] rounded-full h-3">
-                        <div 
-                          className="bg-[#5C1B10] h-3 rounded-full" 
-                          style={{width: `${(legacyScoreBreakdown.cashFlowPotential.score / legacyScoreBreakdown.cashFlowPotential.maxScore) * 100}%`}}
-                        ></div>
-                      </div>
-                      <p className="text-sm font-ds-body text-[#020B0A] opacity-70">
-                        {legacyScoreBreakdown.cashFlowPotential.description}
-                      </p>
-                    </div>
                   </div>
                 );
               })()}

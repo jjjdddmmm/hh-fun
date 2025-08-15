@@ -381,15 +381,36 @@ function TimelinePageContent() {
               </div>
             </div>
 
-            {/* Progress Cards Skeleton */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-lg p-6">
-                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mb-3"></div>
-                  <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mb-2"></div>
-                  <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
+            {/* Overall Progress Section Skeleton */}
+            <div className="bg-white border-2 border-gray-200 rounded-lg p-6 mb-8">
+              {/* Header Skeleton */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-6 w-28 bg-gray-200 rounded-full animate-pulse"></div>
+              </div>
+
+              {/* Subtitle Skeleton */}
+              <div className="h-4 w-80 bg-gray-200 rounded animate-pulse mb-6"></div>
+
+              {/* Progress Bar Skeleton */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
                 </div>
-              ))}
+                <div className="h-3 w-full bg-gray-200 rounded animate-pulse"></div>
+              </div>
+
+              {/* Four Cards Skeleton */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-red-50 border-2 border-gray-200 rounded-lg p-4">
+                    <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mb-2"></div>
+                    <div className="h-3 w-24 bg-gray-200 rounded animate-pulse mb-2"></div>
+                    <div className="h-3 w-20 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Content Loading */}
