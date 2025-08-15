@@ -74,9 +74,9 @@ export function NegotiationAnalysis({
     return messageMap[message] || message;
   };
 
-  // Check if we're in debug mode - temporarily always enabled for testing
-  const isDebugMode = true; // process.env.NODE_ENV === 'development' || 
-    // (typeof window !== 'undefined' && window.location.search.includes('debug=true'));
+  // Check if we're in debug mode
+  const isDebugMode = process.env.NODE_ENV === 'development' || 
+    (typeof window !== 'undefined' && window.location.search.includes('debug=true'));
 
   const handleViewAnalysis = (report: UploadedReport) => {
     if (report.detailedAnalysis) {
@@ -138,6 +138,7 @@ export function NegotiationAnalysis({
 
   const allComplete = reports.length > 0 && reports.every(r => r.analysisStatus === 'complete');
   const hasStarted = reports.some(r => r.analysisStatus !== 'pending');
+  const hasCompletedReports = reports.some(r => r.analysisStatus === 'complete');
 
   return (
     <div className="space-y-8">
@@ -237,6 +238,8 @@ export function NegotiationAnalysis({
                   )}
                 </Button>
               )}
+              
+              {/* Show forward navigation only when all analysis is complete */}
               {allComplete && (
                 <button
                   onClick={onProceedToStrategy}

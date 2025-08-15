@@ -4,6 +4,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from 'next/navigation';
 import { logger } from "@/lib/utils/logger";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ interface InspectionIssue {
 }
 
 export default function NegotiationPage() {
+  const searchParams = useSearchParams();
   const [reports, setReports] = useState<UploadedReport[]>([]);
   const [currentStep, setCurrentStep] = useState<'upload' | 'analysis' | 'strategy'>('upload');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -75,7 +77,13 @@ export default function NegotiationPage() {
   // Load existing inspection reports from database
   useEffect(() => {
     loadInspectionReports();
-  }, []);
+    
+    // Check if we should start on a specific step
+    const step = searchParams.get('step');
+    if (step === 'analysis' && reports.length > 0) {
+      setCurrentStep('analysis');
+    }
+  }, [searchParams, reports.length]);
 
   const loadInspectionReports = async () => {
     try {
@@ -121,130 +129,141 @@ export default function NegotiationPage() {
     setIsAnalyzing(true);
     setCurrentStep('analysis');
     
-    // Process each report with real AI analysis
-    for (let i = 0; i < reports.length; i++) {
-      const report = reports[i];
-      if (report.analysisStatus === 'pending') {
-        try {
-          // Update to analyzing
-          setReports(prev => prev.map(r => 
-            r.id === report.id ? { ...r, analysisStatus: 'analyzing' } : r
-          ));
-          
-          let analysisResult;
-          
-          // Start with progressive issue discovery simulation
-          const simulateProgressiveAnalysis = async (reportType: string, actualIssuesCount: number) => {
-            // Get type-specific analysis messages
-            const getAnalysisSteps = (reportType: string) => {
-              if (reportType.includes('home') || reportType === 'home_general') {
-                return [
-                  { delay: 600, message: "Scanning electrical systems..." },
-                  { delay: 1000, message: "Checking plumbing components..." },
-                  { delay: 1400, message: "Analyzing HVAC system..." },
-                  { delay: 1800, message: "Reviewing interior conditions..." }
-                ];
-              } else if (reportType.includes('chimney')) {
-                return [
-                  { delay: 700, message: "Inspecting chimney structure..." },
-                  { delay: 1200, message: "Analyzing flue condition..." },
-                  { delay: 1600, message: "Checking fireplace safety..." }
-                ];
-              } else if (reportType.includes('sewer')) {
-                return [
-                  { delay: 800, message: "Scanning sewer line..." },
-                  { delay: 1300, message: "Checking for blockages..." },
-                  { delay: 1700, message: "Analyzing pipe integrity..." }
-                ];
-              } else if (reportType.includes('pool')) {
-                return [
-                  { delay: 600, message: "Checking pool equipment..." },
-                  { delay: 1100, message: "Analyzing water systems..." },
-                  { delay: 1500, message: "Reviewing safety features..." }
-                ];
-              } else {
-                return [
-                  { delay: 700, message: "Analyzing report content..." },
-                  { delay: 1200, message: "Identifying issues..." },
-                  { delay: 1600, message: "Calculating costs..." }
-                ];
-              }
-            };
-
-            const steps = getAnalysisSteps(reportType);
-            
-            // Build progressive issue count that matches actual result
-            const issueProgression: number[] = [];
-            if (actualIssuesCount > 0) {
-              // Create a realistic progression that ends at the actual count
-              const stepCount = Math.min(steps.length, actualIssuesCount);
-              for (let i = 1; i <= stepCount; i++) {
-                const issueCount = Math.ceil((i / stepCount) * actualIssuesCount);
-                issueProgression.push(issueCount);
-              }
-            }
-            
-            for (let i = 0; i < steps.length; i++) {
-              await new Promise(resolve => setTimeout(resolve, steps[i].delay));
-              
-              // Update with progressive issue count and type-specific message
-              setReports(prev => prev.map(r => 
-                r.id === report.id 
-                  ? { 
-                      ...r, 
-                      analysisStatus: 'analyzing',
-                      tempIssueCount: issueProgression[i] || 0,
-                      tempMessage: steps[i].message
-                    }
-                  : r
-              ));
+    // Process all reports in parallel with real AI analysis
+    const reportsToAnalyze = reports.filter(report => report.analysisStatus === 'pending');
+    
+    // Start all analyses in parallel
+    const analysisPromises = reportsToAnalyze.map(async (report) => {
+      try {
+        // Update to analyzing
+        setReports(prev => prev.map(r => 
+          r.id === report.id ? { ...r, analysisStatus: 'analyzing' } : r
+        ));
+        
+        let analysisResult;
+        
+        // Start with progressive issue discovery simulation
+        const simulateProgressiveAnalysis = async (reportType: string, actualIssuesCount: number) => {
+          // Get type-specific analysis messages
+          const getAnalysisSteps = (reportType: string) => {
+            if (reportType.includes('home') || reportType === 'home_general') {
+              return [
+                { delay: 600, message: "Scanning electrical systems..." },
+                { delay: 1000, message: "Checking plumbing components..." },
+                { delay: 1400, message: "Analyzing HVAC system..." },
+                { delay: 1800, message: "Reviewing interior conditions..." }
+              ];
+            } else if (reportType.includes('chimney')) {
+              return [
+                { delay: 700, message: "Inspecting chimney structure..." },
+                { delay: 1200, message: "Analyzing flue condition..." },
+                { delay: 1600, message: "Checking fireplace safety..." }
+              ];
+            } else if (reportType.includes('sewer')) {
+              return [
+                { delay: 800, message: "Scanning sewer line..." },
+                { delay: 1300, message: "Checking for blockages..." },
+                { delay: 1700, message: "Analyzing pipe integrity..." }
+              ];
+            } else if (reportType.includes('pool')) {
+              return [
+                { delay: 600, message: "Checking pool equipment..." },
+                { delay: 1100, message: "Analyzing water systems..." },
+                { delay: 1500, message: "Reviewing safety features..." }
+              ];
+            } else {
+              return [
+                { delay: 700, message: "Analyzing report content..." },
+                { delay: 1200, message: "Identifying issues..." },
+                { delay: 1600, message: "Calculating costs..." }
+              ];
             }
           };
+
+          const steps = getAnalysisSteps(reportType);
           
-          // Get analysis result first to know the actual issue count
-          if (report.file) {
-            // Analyze uploaded file
-            analysisResult = await analyzeUploadedFile(report.file, report.type);
-          } else if (report.documentData) {
-            // Analyze database document
-            analysisResult = await analyzeDatabaseDocument(report.documentData, report.type);
-          } else {
-            throw new Error('No file or document data available for analysis');
+          // Build progressive issue count that matches actual result
+          const issueProgression: number[] = [];
+          if (actualIssuesCount > 0) {
+            // Create a realistic progression that ends at the actual count
+            const stepCount = Math.min(steps.length, actualIssuesCount);
+            for (let i = 1; i <= stepCount; i++) {
+              const issueCount = Math.ceil((i / stepCount) * actualIssuesCount);
+              issueProgression.push(issueCount);
+            }
           }
           
-          // Start progressive simulation with actual issue count
-          await simulateProgressiveAnalysis(report.type, analysisResult.issues?.length || 0);
-          
-          // Complete analysis with real AI results
-          setReports(prev => prev.map(r => 
-            r.id === report.id 
-              ? { 
-                  ...r, 
-                  analysisStatus: 'complete', 
-                  issues: analysisResult.issues || [],
-                  detailedAnalysis: analysisResult.detailedAnalysis || null,
-                  tempIssueCount: undefined,
-                  tempMessage: undefined
-                }
-              : r
-          ));
-          
-        } catch (error) {
-          logger.error('Analysis failed for report:', error, { reportName: report.name });
-          
-          // Mark as error
-          setReports(prev => prev.map(r => 
-            r.id === report.id ? { ...r, analysisStatus: 'error' } : r
-          ));
+          for (let i = 0; i < steps.length; i++) {
+            await new Promise(resolve => setTimeout(resolve, steps[i].delay));
+            
+            // Update with progressive issue count and type-specific message
+            setReports(prev => prev.map(r => 
+              r.id === report.id 
+                ? { 
+                    ...r, 
+                    analysisStatus: 'analyzing',
+                    tempIssueCount: issueProgression[i] || 0,
+                    tempMessage: steps[i].message
+                  }
+                : r
+            ));
+          }
+        };
+        
+        // Get analysis result first to know the actual issue count
+        if (report.file) {
+          // Analyze uploaded file
+          analysisResult = await analyzeUploadedFile(report.file, report.type);
+        } else if (report.documentData) {
+          // Analyze database document
+          analysisResult = await analyzeDatabaseDocument(report.documentData, report.type);
+        } else {
+          throw new Error('No file or document data available for analysis');
         }
+        
+        // Start progressive simulation with actual issue count
+        await simulateProgressiveAnalysis(report.type, analysisResult.issues?.length || 0);
+        
+        // Complete analysis with real AI results
+        setReports(prev => prev.map(r => 
+          r.id === report.id 
+            ? { 
+                ...r, 
+                analysisStatus: 'complete', 
+                issues: analysisResult.issues || [],
+                detailedAnalysis: analysisResult.detailedAnalysis || null,
+                tempIssueCount: undefined,
+                tempMessage: undefined
+              }
+            : r
+        ));
+        
+        return { success: true, reportId: report.id };
+        
+      } catch (error) {
+        logger.error('Analysis failed for report:', error, { reportName: report.name });
+        
+        // Mark as error
+        setReports(prev => prev.map(r => 
+          r.id === report.id ? { ...r, analysisStatus: 'error' } : r
+        ));
+        
+        return { success: false, reportId: report.id, error };
       }
-    }
+    });
+    
+    // Wait for all analyses to complete (or fail)
+    const results = await Promise.allSettled(analysisPromises);
     
     setIsAnalyzing(false);
     
+    // Count successful completions
+    const successfulResults = results.filter(result => 
+      result.status === 'fulfilled' && result.value.success
+    ).length;
+    
     // Only proceed to strategy if at least one analysis completed
-    const completedCount = reports.filter(r => r.analysisStatus === 'complete').length;
-    if (completedCount > 0) {
+    if (successfulResults > 0) {
       setCurrentStep('strategy');
     }
   };
@@ -426,8 +445,8 @@ export default function NegotiationPage() {
         </div>
       )}
 
-      {/* Loading State */}
-      {isLoadingReports ? (
+      {/* Loading State - only show on initial load, not when we already have reports */}
+      {isLoadingReports && availableReports.length === 0 ? (
         <Card className="border-0 shadow-2xl bg-gradient-to-br from-white to-gray-50">
           <CardContent className="p-16">
             <div className="flex flex-col items-center justify-center space-y-6">

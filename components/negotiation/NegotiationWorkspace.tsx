@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,14 +14,12 @@ import {
   Download,
   Menu,
   X,
-  Calculator,
   FileText,
   BarChart3,
   CheckCircle,
   Shield,
   Clock,
   Flame,
-  ArrowLeft,
   ChevronRight,
   FileSearch,
   Home,
@@ -35,7 +32,6 @@ import {
 import { ExecutiveDashboard, ExecutiveSummary } from "./ExecutiveDashboard";
 import { PrioritizedIssue } from "./IssuePrioritization";
 import { NegotiationScripts } from "./NegotiationScripts";
-import { ScenarioPlanner } from "./ScenarioPlanner";
 import { NegotiationAnalysisService } from "@/lib/services/negotiation/NegotiationAnalysisService";
 
 interface UploadedReport {
@@ -88,14 +84,11 @@ export function NegotiationWorkspace({
   reports,
   totalEstimatedCredits
 }: NegotiationWorkspaceProps) {
-  const router = useRouter();
   const [selectedView, setSelectedView] = useState<'consolidated' | string>('consolidated');
   const [prioritizedIssues, setPrioritizedIssues] = useState<PrioritizedIssue[]>([]);
   const [reportIssuesMap, setReportIssuesMap] = useState<Map<string, PrioritizedIssue[]>>(new Map());
   const [enabledIssues, setEnabledIssues] = useState<Set<string>>(new Set());
   const [executiveSummary, setExecutiveSummary] = useState<ExecutiveSummary | null>(null);
-  const [currentTotalAsk, setCurrentTotalAsk] = useState(totalEstimatedCredits);
-  const [currentSuccessRate, setCurrentSuccessRate] = useState(70);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
@@ -132,43 +125,9 @@ export function NegotiationWorkspace({
         marketConditions
       );
       setExecutiveSummary(summary);
-      setCurrentTotalAsk(summary.recommendedAsk);
-      setCurrentSuccessRate(summary.successRate);
     }
   }, [reports]);
 
-  const handleIssueToggle = (issueId: string) => {
-    const newEnabledIssues = new Set(enabledIssues);
-    if (newEnabledIssues.has(issueId)) {
-      newEnabledIssues.delete(issueId);
-    } else {
-      newEnabledIssues.add(issueId);
-    }
-    setEnabledIssues(newEnabledIssues);
-    
-    // Recalculate totals
-    const newTotal = prioritizedIssues
-      .filter(issue => newEnabledIssues.has(issue.id))
-      .reduce((sum, issue) => sum + issue.negotiationValue, 0);
-    setCurrentTotalAsk(newTotal);
-    
-    // Recalculate success rate
-    const enabledIssuesList = prioritizedIssues.filter(issue => newEnabledIssues.has(issue.id));
-    if (enabledIssuesList.length > 0) {
-      const avgLeverageScore = enabledIssuesList.reduce((sum, issue) => sum + issue.leverageScore, 0) / enabledIssuesList.length;
-      let newSuccessRate = 70;
-      if (avgLeverageScore >= 8) newSuccessRate = 85;
-      else if (avgLeverageScore >= 6) newSuccessRate = 75;
-      else if (avgLeverageScore >= 4) newSuccessRate = 65;
-      else newSuccessRate = 50;
-      setCurrentSuccessRate(newSuccessRate);
-    }
-  };
-
-  const handleStrategyChange = (newAsk: number, newEnabledIssues: Set<string>) => {
-    setCurrentTotalAsk(newAsk);
-    setEnabledIssues(newEnabledIssues);
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -177,11 +136,6 @@ export function NegotiationWorkspace({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
-  };
-
-  const handleBackToAnalysis = () => {
-    // Navigate back to analysis view
-    router.push('/negotiation');
   };
 
   // Get current view's issues and data
@@ -237,8 +191,6 @@ export function NegotiationWorkspace({
       </Card>
     );
   }
-
-  const marketConditions = NegotiationAnalysisService.getDefaultMarketConditions();
 
   // Sidebar content component (shared between desktop and mobile)
   const SidebarContent = () => (
@@ -342,21 +294,6 @@ export function NegotiationWorkspace({
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleBackToAnalysis}
-          className="hover:bg-gray-100 -ml-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Analysis
-        </Button>
-        <span className="text-gray-400">/</span>
-        <span className="font-medium text-gray-900">Negotiation Strategy</span>
-      </div>
-
       {/* Main Card */}
       <Card className="overflow-hidden">
         {/* Header */}
@@ -381,7 +318,7 @@ export function NegotiationWorkspace({
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <p className="text-xs text-white/70">Recommended Ask</p>
-                <p className="text-2xl font-bold">{formatCurrency(currentTotalAsk)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(executiveSummary?.recommendedAsk || totalEstimatedCredits)}</p>
               </div>
               <Button variant="secondary" size="sm">
                 <Download className="h-4 w-4 mr-2" />
@@ -392,7 +329,7 @@ export function NegotiationWorkspace({
         </CardHeader>
 
         {/* Main Layout Container */}
-        <div className="flex h-[calc(100vh-300px)] bg-gray-50 overflow-hidden">
+        <div className="flex min-h-[600px] bg-gray-50">
           {/* Desktop Sidebar */}
           <div className={`${
             sidebarOpen ? 'w-80' : 'w-0'
@@ -401,25 +338,29 @@ export function NegotiationWorkspace({
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <TabsList className="w-full justify-start rounded-none border-b bg-white px-4">
-                <TabsTrigger value="overview" className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Strategy Overview
-                </TabsTrigger>
-                <TabsTrigger value="calculator" className="flex items-center gap-2">
-                  <Calculator className="h-4 w-4" />
-                  Scenario Calculator
-                </TabsTrigger>
-                <TabsTrigger value="scripts" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Scripts & Talking Points
-                </TabsTrigger>
-              </TabsList>
+          <div className="flex-1">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+              <div className="bg-white border-b border-gray-200">
+                <TabsList className="w-full h-auto p-0 bg-transparent rounded-none">
+                  <TabsTrigger 
+                    value="overview" 
+                    className="flex-1 flex items-center justify-center gap-2 py-4 text-base font-medium data-[state=active]:bg-gray-50 data-[state=active]:border-b-2 data-[state=active]:border-[#5C1B10] rounded-none"
+                  >
+                    <BarChart3 className="h-5 w-5" />
+                    Strategy Overview
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="scripts" 
+                    className="flex-1 flex items-center justify-center gap-2 py-4 text-base font-medium data-[state=active]:bg-gray-50 data-[state=active]:border-b-2 data-[state=active]:border-[#5C1B10] rounded-none"
+                  >
+                    <FileText className="h-5 w-5" />
+                    Scripts & Talking Points
+                  </TabsTrigger>
+                </TabsList>
+              </div>
               
-              <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-                <TabsContent value="overview" className="mt-0 h-full">
+              <div className="flex-1 p-8 bg-gray-50 overflow-auto">
+                <TabsContent value="overview" className="mt-0">
                   <ExecutiveDashboard 
                     summary={currentViewData.summary || executiveSummary!} 
                     reportType={currentViewData.reportType}
@@ -428,21 +369,11 @@ export function NegotiationWorkspace({
                   />
                 </TabsContent>
                 
-                <TabsContent value="calculator" className="mt-0 h-full">
-                  <ScenarioPlanner 
+                <TabsContent value="scripts" className="mt-0">
+                  <NegotiationScripts 
                     issues={currentViewData.issues}
                     enabledIssues={enabledIssues}
-                    totalAsk={selectedView === 'consolidated' ? currentTotalAsk : currentViewData.issues.reduce((sum, issue) => sum + (enabledIssues.has(issue.id) ? issue.negotiationValue : 0), 0)}
-                    marketConditions={marketConditions}
-                    onStrategyChange={handleStrategyChange}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="scripts" className="mt-0 h-full">
-                  <NegotiationScripts 
-                    issues={currentViewData.issues.filter(issue => enabledIssues.has(issue.id))}
-                    enabledIssues={enabledIssues}
-                    totalAsk={selectedView === 'consolidated' ? currentTotalAsk : currentViewData.issues.reduce((sum, issue) => sum + (enabledIssues.has(issue.id) ? issue.negotiationValue : 0), 0)}
+                    totalAsk={executiveSummary?.recommendedAsk || totalEstimatedCredits}
                   />
                 </TabsContent>
               </div>

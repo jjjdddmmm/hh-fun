@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   MessageCircle, 
   Copy, 
@@ -15,7 +17,17 @@ import {
   FileText,
   CheckCircle,
   User,
-  Building
+  Building,
+  RefreshCw,
+  ArrowRight,
+  Users,
+  UserCheck,
+  Lightbulb,
+  Shield,
+  TrendingUp,
+  Clock,
+  BarChart3,
+  Target
 } from "lucide-react";
 import { PrioritizedIssue } from "./IssuePrioritization";
 
@@ -29,6 +41,9 @@ interface NegotiationScript {
   tone: 'professional' | 'friendly' | 'firm' | 'collaborative';
 }
 
+type ConversationContext = 'seller_agent' | 'buyer_agent' | 'seller_direct';
+type ConversationStage = 'initial' | 'response_analysis' | 'follow_up';
+
 interface ScriptVariables {
   agentName: string;
   sellerName: string;
@@ -37,31 +52,55 @@ interface ScriptVariables {
   topIssues: PrioritizedIssue[];
   inspectionDate: string;
   closingDate: string;
+  conversationContext: ConversationContext;
+}
+
+interface ConversationFlow {
+  stage: ConversationStage;
+  initialMessage?: string;
+  theirResponse?: string;
+  responseAnalysis?: {
+    tone: 'receptive' | 'resistant' | 'neutral';
+    objections: string[];
+    counterOffer?: number;
+    concerns: string[];
+  };
 }
 
 interface NegotiationScriptsProps {
   issues: PrioritizedIssue[];
   enabledIssues: Set<string>;
   totalAsk: number;
+  propertyAddress?: string;
+  inspectionDate?: string;
+  reportTypes?: string[];
 }
 
 export function NegotiationScripts({ 
   issues, 
   enabledIssues,
-  totalAsk 
+  totalAsk,
+  propertyAddress = '[Property Address]',
+  inspectionDate = '[Inspection Date]',
+  reportTypes = []
 }: NegotiationScriptsProps) {
   const [selectedScript, setSelectedScript] = useState<string>('opening_email');
   const [customizedScript, setCustomizedScript] = useState<string>('');
   const [variables, setVariables] = useState<ScriptVariables>({
     agentName: '',
     sellerName: '',
-    propertyAddress: '',
+    propertyAddress: '[Property Address]',
     totalAsk,
     topIssues: issues.filter(issue => enabledIssues.has(issue.id)).slice(0, 3),
-    inspectionDate: new Date().toLocaleDateString(),
-    closingDate: ''
+    inspectionDate: '[Inspection Date]',
+    closingDate: '',
+    conversationContext: 'buyer_agent'
   });
   const [copiedScript, setCopiedScript] = useState<string | null>(null);
+  const [conversationFlow, setConversationFlow] = useState<ConversationFlow>({
+    stage: 'initial'
+  });
+  const [activeTab, setActiveTab] = useState<string>('templates');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -72,166 +111,222 @@ export function NegotiationScripts({
     }).format(amount);
   };
 
-  const scripts: NegotiationScript[] = [
-    {
+  // Get context-aware opening email templates only
+  const getOpeningEmailTemplate = (): NegotiationScript => {
+    const template = {
       id: 'opening_email',
-      type: 'email',
-      scenario: 'opening_position',
-      title: 'Opening Position Email',
-      description: 'Professional email to present your initial credit request',
-      tone: 'professional',
-      template: `Subject: Inspection Credit Request - {{propertyAddress}}
+      type: 'email' as const,
+      scenario: 'opening_position' as const,
+      title: variables.conversationContext === 'seller_agent' 
+        ? 'Opening Email to Seller\'s Agent' 
+        : variables.conversationContext === 'buyer_agent'
+        ? 'Strategy Email to Your Agent'
+        : 'Direct Email to Seller',
+      description: variables.conversationContext === 'seller_agent' 
+        ? 'Professional request with clear documentation'
+        : variables.conversationContext === 'buyer_agent'
+        ? 'Strategic planning with your representative'
+        : 'Respectful direct communication',
+      tone: variables.conversationContext === 'seller_agent' ? 'professional' as const : 'collaborative' as const,
+        template: variables.conversationContext === 'seller_agent' 
+          ? `Subject: Inspection Credit Request - {{propertyAddress}}
 
-Hi {{agentName}},
+Dear {{agentName}},
 
-I hope this email finds you well. Following our inspection on {{inspectionDate}}, we've completed a thorough review of the findings and would like to discuss credit adjustments.
+Following our recent inspection on {{inspectionDate}}, I'm writing to formally request credits for necessary repairs identified in the inspection report.
 
-Our inspector identified several items that require attention, and we've obtained current market pricing for the necessary repairs. Based on this analysis, we're requesting a credit of {{totalAsk}} to address the most significant issues.
+═══════════════════════════════════════════════════
+TOTAL CREDIT REQUEST: {{totalAsk}}
+═══════════════════════════════════════════════════
 
-**Key Issues Requiring Immediate Attention:**
-
+INSPECTION FINDINGS SUMMARY:
+──────────────────────────────────────────────────
 {{#topIssues}}
-• **{{category}}** ({{location}}): {{description}}
-  - Estimated Cost: {{negotiationValue}}
-  - {{whatToSay}}
+▸ {{category}} - {{location}}
+  - Issue: {{description}}
+  - Cost: {{negotiationValue}}
+  - Why: {{whatToSay}}
 
 {{/topIssues}}
 
-These estimates reflect current contractor rates in our local market. We've prioritized items that affect safety, structural integrity, and major building systems.
+SUPPORTING INFORMATION:
+──────────────────────────────────────────────────
+▸ All estimates based on current local contractor rates
+▸ Focus on safety, structural, and major system issues only
+▸ Cosmetic items excluded from this request
+▸ Full inspection report available for review
 
-We believe this credit request is fair and reasonable given the scope of work required. We're open to discussing the details and look forward to working together toward a mutually acceptable resolution.
+NEXT STEPS:
+──────────────────────────────────────────────────
+I'm available to discuss this request at your convenience. Please let me know if you need any additional documentation or contractor quotes to support these estimates.
 
-Please let me know when you're available to discuss this further.
+Thank you for your attention to this matter.
 
 Best regards,
 [Your Name]
-
----
-*This request is based on professional inspection findings dated {{inspectionDate}}*`
-    },
-    {
-      id: 'counter_offer',
-      type: 'email',
-      scenario: 'counter_offer',
-      title: 'Counter-Offer Response',
-      description: 'Response when sellers counter with a lower amount',
-      tone: 'collaborative',
-      template: `Subject: Re: Inspection Credit Request - {{propertyAddress}}
+[Phone Number]`
+          : variables.conversationContext === 'buyer_agent'
+          ? `Subject: Negotiation Strategy - {{propertyAddress}}
 
 Hi {{agentName}},
 
-Thank you for getting back to me regarding our credit request. I appreciate {{sellerName}}'s willingness to address these items.
+I've reviewed the inspection findings and need your expertise on positioning our credit request.
 
-While I understand their position on the {{totalAsk}} request, I'd like to share some additional context on why these items warrant the full credit amount:
+═══════════════════════════════════════════════════
+TARGET CREDIT REQUEST: {{totalAsk}}
+═══════════════════════════════════════════════════
 
-**Critical Safety & Code Issues (Cannot be deferred):**
+PRIORITY ISSUES FOR NEGOTIATION:
+──────────────────────────────────────────────────
+NON-NEGOTIABLE (Safety/Structural):
 {{#topIssues}}
 {{#if (eq severity 'safety')}}
-• {{category}}: {{negotiationValue}} - This creates liability concerns and must be addressed before closing per local building codes.
+▸ {{category}}: {{negotiationValue}}
+  - Description: {{description}}
+  - Leverage: {{whatToSay}}
+
 {{/if}}
 {{/topIssues}}
 
-**Major System Repairs (Time-sensitive):**
+NEGOTIABLE (System/Maintenance):
 {{#topIssues}}
-{{#if (eq severity 'major')}}
-• {{category}}: {{negotiationValue}} - Current market rates reflect post-pandemic pricing increases.
+{{#if (ne severity 'safety')}}
+▸ {{category}}: {{negotiationValue}}
+  - Description: {{description}}
+  - Position: {{whatToSay}}
+
 {{/if}}
 {{/topIssues}}
 
-I'm willing to work toward a solution that addresses both parties' concerns. Could we meet in the middle at {{reducedAsk}}? This would cover the most critical items while showing good faith on our part.
+Let me know when we can connect to finalize our approach.
 
-Alternatively, if {{sellerName}} prefers to handle some repairs directly, we could discuss having the safety items professionally completed before closing, with credits for the remaining items.
-
-I'm confident we can find a path forward that works for everyone. When would be a good time to discuss?
-
-Best regards,
+Best,
 [Your Name]`
-    },
-    {
-      id: 'final_position',
-      type: 'email',
-      scenario: 'final_position',
-      title: 'Final Position Statement',
-      description: 'Clear communication of your walk-away position',
-      tone: 'firm',
-      template: `Subject: Final Position - Inspection Credits for {{propertyAddress}}
+          : `Subject: Property Inspection Findings - {{propertyAddress}}
 
-Hi {{agentName}},
+Dear {{sellerName}},
 
-After careful consideration of our previous discussions, I need to provide clarity on our final position regarding the inspection credit request.
+I hope this message finds you well. Following our recent inspection of your property, I wanted to discuss some findings that require attention.
 
-**Our minimum acceptable credit amount is {{minimumAcceptable}}.**
+═══════════════════════════════════════════════════
+REQUESTED CREDIT AMOUNT: {{totalAsk}}
+═══════════════════════════════════════════════════
 
-This covers only the most critical items that cannot be deferred:
-
+KEY FINDINGS:
+──────────────────────────────────────────────────
 {{#topIssues}}
-{{#if (eq dropPriority 'never')}}
-• {{category}} ({{negotiationValue}}): {{description}}
-  Required for: {{evidence[0]}}
-{{/if}}
+▸ {{category}} - {{location}}
+  - Concern: {{description}}
+  - Estimated Repair: {{negotiationValue}}
+
 {{/topIssues}}
 
-We've already removed several items from our original request as a show of good faith. However, these remaining items represent genuine safety and structural concerns that will cost significantly more to address after closing.
+These items were identified by a licensed inspector and estimates are from local contractors. I believe addressing these through a credit at closing would be the most efficient solution for both of us.
 
-**Why this position is firm:**
-- These are not cosmetic issues but functional problems
-- Current contractor availability and pricing support these estimates  
-- Deferring these repairs creates liability and increased costs
-- Our financing requires these items to be resolved
+I'm committed to moving forward with this purchase and hope we can work together on a fair resolution.
 
-We remain committed to this transaction and hope {{sellerName}} will see the reasonableness of this final request. If we can reach agreement on {{minimumAcceptable}}, we're ready to move forward to closing.
+Please feel free to contact me directly to discuss.
 
-Please let me know {{sellerName}}'s decision by [DATE] so we can finalize our agreement.
+Warm regards,
+[Your Name]
+[Phone Number]`
+    };
+    return template;
+  };
 
-Thank you for your continued assistance in this matter.
+  const scripts = [getOpeningEmailTemplate()];
 
-Best regards,
-[Your Name]`
-    },
-    {
-      id: 'verbal_talking_points',
-      type: 'verbal',
-      scenario: 'opening_position',
-      title: 'Phone Conversation Script',
-      description: 'Key talking points for phone discussions',
-      tone: 'friendly',
-      template: `**Opening the Conversation:**
-"Hi {{agentName}}, thanks for taking my call. I wanted to discuss the inspection findings for {{propertyAddress}} and talk through our credit request."
-
-**Present the Big Picture:**
-"We've identified {{totalIssues}} items totaling {{totalAsk}} in necessary repairs. I want to walk you through our thinking on the most significant ones."
-
-**Key Talking Points:**
-
-**Safety Issues (Lead with these):**
-{{#topIssues}}
-{{#if (eq severity 'safety')}}
-• "The {{category}} issue is a safety concern that affects habitability. {{whatToSay}} Current market rate for this repair is {{negotiationValue}}."
-{{/if}}
-{{/topIssues}}
-
-**Major Systems:**
-{{#topIssues}}
-{{#if (eq severity 'major')}}
-• "For the {{category}}, {{whatToSay}} We're seeing {{negotiationValue}} as the going rate with local contractors."
-{{/if}}
-{{/topIssues}}
-
-**Address Common Objections:**
-
-*If they say "That seems high":*
-"I understand it may seem substantial. These are current market rates, and we've actually been conservative in our estimates. Would it help if I share the contractor quotes we've received?"
-
-*If they want to negotiate down:*
-"We're reasonable people and want this transaction to work. The safety items are non-negotiable, but we could discuss some flexibility on the other repairs if needed."
-
-**Closing the Conversation:**
-"What's the best way to present this to {{sellerName}}? I'm happy to provide additional documentation or contractor references if that would be helpful."
-
-**Follow-up:**
-"When do you think we might hear back? We're committed to this property and want to work together on a solution."`
+  // Response analysis function
+  const analyzeResponse = (response: string) => {
+    const lowerResponse = response.toLowerCase();
+    
+    // Simple sentiment analysis
+    const resistantWords = ['no', 'cannot', 'refuse', 'decline', 'impossible', 'unreasonable', 'excessive'];
+    const receptiveWords = ['yes', 'consider', 'discuss', 'reasonable', 'fair', 'willing', 'acceptable'];
+    
+    const resistantCount = resistantWords.filter(word => lowerResponse.includes(word)).length;
+    const receptiveCount = receptiveWords.filter(word => lowerResponse.includes(word)).length;
+    
+    let tone: 'receptive' | 'resistant' | 'neutral';
+    if (receptiveCount > resistantCount) tone = 'receptive';
+    else if (resistantCount > receptiveCount) tone = 'resistant';
+    else tone = 'neutral';
+    
+    // Extract potential objections
+    const objections: string[] = [];
+    if (lowerResponse.includes('too high') || lowerResponse.includes('excessive')) {
+      objections.push('Price concern - thinks amount is too high');
     }
-  ];
+    if (lowerResponse.includes('market rate') || lowerResponse.includes('contractor')) {
+      objections.push('Questioning cost estimates');
+    }
+    if (lowerResponse.includes('minor') || lowerResponse.includes('cosmetic')) {
+      objections.push('Dismissing issues as minor');
+    }
+    
+    // Look for counter offers (simple regex)
+    const counterMatch = response.match(/\$([0-9,]+)/);
+    const counterOffer = counterMatch ? parseInt(counterMatch[1].replace(/,/g, '')) : undefined;
+    
+    return {
+      tone,
+      objections,
+      counterOffer,
+      concerns: objections // simplified for now
+    };
+  };
+
+  // Generate response based on analysis
+  const generateResponseScript = (analysis: NonNullable<ConversationFlow['responseAnalysis']>) => {
+    const baseTemplate = variables.conversationContext === 'seller_agent'
+      ? `Subject: Re: Inspection Credit Request - {{propertyAddress}}
+
+Hi {{agentName}},
+
+Thank you for the response. I've reviewed {{sellerName}}'s feedback on our credit request.
+
+**Addressing Your Concerns:**
+
+{{#objections}}
+• {{objection}} - {{response}}
+{{/objections}}
+
+**Our Position:**
+Based on the {{tone}} nature of your response, I believe we can find common ground. ${analysis.counterOffer ? `While I appreciate the {{counterOffer}} counter-offer, ` : ''}Let me provide additional context on our most critical items:
+
+{{#topIssues}}
+• **{{category}}**: {{negotiationValue}} - {{whatToSay}}
+{{/topIssues}}
+
+**Next Steps:**
+${analysis.tone === 'receptive' ? 'Since you seem open to discussion, shall we schedule a call to work through the details?' : analysis.tone === 'resistant' ? 'I understand your position. Could we focus on just the safety-critical items as a compromise?' : 'I\'d like to better understand your concerns. Could we discuss this further?'}
+
+Best regards,
+[Your Name]`
+      : `Hi {{agentName}},
+
+Just got their response. Here's what I'm seeing:
+
+**Their Tone:** ${analysis.tone.charAt(0).toUpperCase() + analysis.tone.slice(1)}
+
+**Their Objections:**
+${analysis.objections.map(obj => `• ${obj}`).join('\n')}
+
+${analysis.counterOffer ? `**Their Counter:** $${analysis.counterOffer.toLocaleString()}\n\n` : ''}**My Read:**
+${analysis.tone === 'receptive' ? 'They seem open to negotiation. I think we can work with this.' : analysis.tone === 'resistant' ? 'They\'re pushing back hard. We may need to focus on just our must-haves.' : 'Mixed signals. Let\'s see if we can clarify their position.'}
+
+**Suggested Response Strategy:**
+1. ${analysis.tone === 'receptive' ? 'Acknowledge their willingness to work with us' : 'Address their main concerns head-on'}
+2. Re-emphasize our strongest points (safety issues)
+3. ${analysis.counterOffer ? 'Counter their counter with our compromise number' : 'Offer a middle ground'}
+
+What do you think? Should I proceed with this approach?
+
+Thanks,
+[Your Name]`;
+    
+    return baseTemplate;
+  };
 
   const generateScript = (template: string, vars: ScriptVariables): string => {
     let result = template;
@@ -302,16 +397,32 @@ Best regards,
     }
   };
 
-  const handleVariableChange = (key: keyof ScriptVariables, value: string | number) => {
+  const handleVariableChange = (key: keyof ScriptVariables, value: string | number | ConversationContext) => {
     const newVariables = { ...variables, [key]: value };
     setVariables(newVariables);
     
     // Regenerate script with new variables
-    const script = scripts.find(s => s.id === selectedScript);
+    const script = getOpeningEmailTemplate();
     if (script) {
       const generated = generateScript(script.template, newVariables);
       setCustomizedScript(generated);
     }
+  };
+
+  const handleResponseAnalysis = () => {
+    if (!conversationFlow.theirResponse) return;
+    
+    const analysis = analyzeResponse(conversationFlow.theirResponse);
+    const responseScript = generateResponseScript(analysis);
+    
+    setConversationFlow({
+      ...conversationFlow,
+      stage: 'response_analysis',
+      responseAnalysis: analysis
+    });
+    
+    setCustomizedScript(generateScript(responseScript, variables));
+    setActiveTab('response');
   };
 
   const copyToClipboard = async (text: string, scriptId: string) => {
@@ -332,25 +443,53 @@ Best regards,
   const currentScript = scripts.find(s => s.id === selectedScript);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-[#5C1B10]" />
-          Negotiation Script Generator
-        </CardTitle>
-        <p className="text-gray-600">
-          Professional templates customized with your specific issues and details
-        </p>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-6">
+            {/* Conversation Context Selector */}
+            <Card className="bg-gray-50 border-2 border-gray-200">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Users className="h-5 w-5 text-gray-600" />
+                    <label className="text-sm font-medium text-gray-900">Who are you communicating with?</label>
+                  </div>
+                  <Select
+                    value={variables.conversationContext}
+                    onValueChange={(value: ConversationContext) => handleVariableChange('conversationContext', value)}
+                  >
+                    <SelectTrigger className="flex-1 min-w-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="buyer_agent">
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-4 w-4" />
+                          Your Agent
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="seller_agent">
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4" />
+                          Seller's Agent
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="seller_direct">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          Seller Directly
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Script Selection */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Choose Template</h3>
             {scripts.map(script => (
               <div
                 key={script.id}
-                className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                className={`border-2 rounded-lg p-3 cursor-pointer transition-colors ${
                   selectedScript === script.id 
                     ? 'border-[#5C1B10] bg-[#5C1B10]/5' 
                     : 'border-gray-200 hover:border-gray-300'
@@ -379,57 +518,44 @@ Best regards,
               </div>
             ))}
 
-            {/* Variables Input */}
-            <div className="border-t pt-4 space-y-3">
-              <h3 className="font-semibold text-gray-900">Customize Details</h3>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700">Agent Name</label>
-                <Input
-                  value={variables.agentName}
-                  onChange={(e) => handleVariableChange('agentName', e.target.value)}
-                  placeholder="Enter agent's name"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700">Seller Name</label>
-                <Input
-                  value={variables.sellerName}
-                  onChange={(e) => handleVariableChange('sellerName', e.target.value)}
-                  placeholder="Enter seller's name"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700">Property Address</label>
-                <Input
-                  value={variables.propertyAddress}
-                  onChange={(e) => handleVariableChange('propertyAddress', e.target.value)}
-                  placeholder="Enter property address"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700">Closing Date</label>
-                <Input
-                  type="date"
-                  value={variables.closingDate}
-                  onChange={(e) => handleVariableChange('closingDate', e.target.value)}
-                  className="mt-1"
-                />
+            {/* Pro Tips */}
+            <div className="border-t pt-4">
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4" />
+                  Pro Tips
+                </h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li className="flex items-start gap-2">
+                    <Shield className="h-3 w-3 mt-1 flex-shrink-0" />
+                    Always lead with safety issues - they carry the most weight
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <FileText className="h-3 w-3 mt-1 flex-shrink-0" />
+                    Include specific cost estimates and evidence for credibility
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <TrendingUp className="h-3 w-3 mt-1 flex-shrink-0" />
+                    Leave room for negotiation by starting 15-20% above your target
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-3 w-3 mt-1 flex-shrink-0" />
+                    Be prepared to drop minor issues to show good faith
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Clock className="h-3 w-3 mt-1 flex-shrink-0" />
+                    Follow up within 24-48 hours of sending your request
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
 
           {/* Generated Script */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Generated Script</h3>
-              <div className="flex gap-2">
+          <div className="lg:col-span-2">
+            <div className="border-2 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                <h3 className="font-semibold text-gray-900">Generated Script</h3>
                 <Button
                   variant="outline"
                   size="sm"
@@ -444,44 +570,141 @@ Best regards,
                   {copiedScript === selectedScript ? 'Copied!' : 'Copy'}
                 </Button>
               </div>
-            </div>
-
-            <div className="border rounded-lg">
-              <div className="bg-gray-50 px-4 py-2 border-b flex items-center gap-2">
-                {currentScript?.type === 'email' && <Mail className="h-4 w-4 text-gray-500" />}
-                {currentScript?.type === 'verbal' && <Phone className="h-4 w-4 text-gray-500" />}
-                {currentScript?.type === 'formal_letter' && <FileText className="h-4 w-4 text-gray-500" />}
-                <span className="text-sm font-medium text-gray-700">
-                  {currentScript?.title}
-                </span>
-                <Badge variant="outline" className="text-xs">
-                  {currentScript?.tone}
-                </Badge>
-              </div>
               
-              <div className="p-4">
+              <div className="p-4 bg-white">
                 <Textarea
                   value={customizedScript}
                   onChange={(e) => setCustomizedScript(e.target.value)}
-                  className="min-h-[400px] font-mono text-sm"
+                  className="min-h-[400px] font-mono text-sm border-0 focus:ring-0 resize-none"
                   placeholder="Select a template to generate your script..."
                 />
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">💡 Pro Tips</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Always lead with safety issues - they carry the most weight</li>
-                <li>• Include specific cost estimates and evidence for credibility</li>
-                <li>• Leave room for negotiation by starting 15-20% above your target</li>
-                <li>• Be prepared to drop minor issues to show good faith</li>
-                <li>• Follow up within 24-48 hours of sending your request</li>
-              </ul>
-            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      
+      {/* Response Analyzer Section */}
+      <Card className="border-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 text-green-600" />
+            Response Analyzer
+          </CardTitle>
+          <p className="text-gray-600">
+            Paste their response and get AI-powered analysis with tailored reply suggestions
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">
+              Their Response (Email/Text/Notes)
+            </label>
+            <Textarea
+              value={conversationFlow.theirResponse || ''}
+              onChange={(e) => setConversationFlow({
+                ...conversationFlow,
+                theirResponse: e.target.value
+              })}
+              placeholder="Paste their response here... (email content, phone call notes, text messages, etc.)"
+              className="min-h-[120px]"
+            />
+          </div>
+
+          <Button
+            onClick={handleResponseAnalysis}
+            disabled={!conversationFlow.theirResponse}
+            className="bg-[#5C1B10] hover:bg-[#4A1508] text-white"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Analyze & Generate Response
+          </Button>
+
+          {conversationFlow.responseAnalysis && (
+            <div className="space-y-4">
+              <Card className="bg-gray-50 border-gray-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Analysis Results
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Tone</label>
+                      <Badge 
+                        className={`mt-1 ${
+                          conversationFlow.responseAnalysis.tone === 'receptive' ? 'bg-green-100 text-green-800' :
+                          conversationFlow.responseAnalysis.tone === 'resistant' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {conversationFlow.responseAnalysis.tone.charAt(0).toUpperCase() + conversationFlow.responseAnalysis.tone.slice(1)}
+                      </Badge>
+                    </div>
+                    {conversationFlow.responseAnalysis.counterOffer && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Counter Offer</label>
+                        <p className="text-lg font-bold text-gray-900 mt-1">
+                          {formatCurrency(conversationFlow.responseAnalysis.counterOffer)}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Objections Found</label>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {conversationFlow.responseAnalysis.objections.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  {conversationFlow.responseAnalysis.objections.length > 0 && (
+                    <div className="mt-4">
+                      <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Key Concerns</label>
+                      <ul className="mt-2 space-y-1">
+                        {conversationFlow.responseAnalysis.objections.map((objection, index) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span className="text-red-500 mt-1">•</span>
+                            <span className="text-sm text-gray-700">{objection}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    Suggested Response
+                  </h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(customizedScript, 'response')}
+                    className="flex items-center gap-2"
+                  >
+                    {copiedScript === 'response' ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    {copiedScript === 'response' ? 'Copied!' : 'Copy'}
+                  </Button>
+                </div>
+                
+                <Textarea
+                  value={customizedScript}
+                  onChange={(e) => setCustomizedScript(e.target.value)}
+                  className="min-h-[300px] font-mono text-sm"
+                  placeholder="Generated response will appear here..."
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

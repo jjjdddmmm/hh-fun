@@ -197,24 +197,21 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             {/* Left Column - Key Numbers */}
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-white/70 mb-1">Recommended Ask</p>
-                <p className="text-4xl font-bold text-white">
+            <div className="flex flex-col">
+              <div className="h-28 flex flex-col justify-center mb-6">
+                <p className="text-sm text-white/70 mb-2">Recommended Ask</p>
+                <p className="text-6xl font-bold text-white">
                   {formatCurrency(summary.recommendedAsk)}
-                </p>
-                <p className="text-sm text-white/80 mt-1">
-                  {summary.successRate}% success rate
                 </p>
               </div>
               
-              <div className="bg-white/10 rounded-lg p-4">
+              <div className="bg-white/10 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold mb-3 text-white">Cost Breakdown</h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-white/80">Critical Issues</span>
                     <div className="text-right">
-                      <span className="font-semibibold text-white">
+                      <span className="font-semibold text-white">
                         {formatCurrency(summary.breakdown.critical.amount)}
                       </span>
                       <span className="text-xs text-white/70 ml-2">
@@ -246,35 +243,36 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
                   </div>
                 </div>
               </div>
+              
+              <div className="bg-white/10 rounded-lg p-4">
+                <h3 className="font-semibold mb-3 text-white flex items-center gap-2">
+                  {getStrengthIcon(summary.negotiationStrength.level)}
+                  Negotiation Strength
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-white/80">Position Level</span>
+                    <span className="font-semibold text-white">
+                      {summary.negotiationStrength.level.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-white/80">Success Rate</span>
+                    <span className="font-semibold text-white">
+                      {summary.successRate}%
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Right Column - Position Assessment */}
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  {getStrengthIcon(summary.negotiationStrength.level)}
-                  <p className="text-sm text-white/70">Negotiation Strength</p>
-                </div>
-                <Badge 
-                  className={`${getStrengthColor(summary.negotiationStrength.level)} text-lg px-3 py-1 font-bold`}
-                  variant="outline"
-                >
-                  {summary.negotiationStrength.level.replace('_', ' ')}
-                </Badge>
-                <div className="mt-2">
-                  <div className="w-full bg-white/20 rounded-full h-2">
-                    <div 
-                      className="bg-white rounded-full h-2 transition-all duration-500"
-                      style={{ width: `${summary.negotiationStrength.score}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-white/70 mt-1">
-                    Strength Score: {summary.negotiationStrength.score}/100
-                  </p>
-                </div>
+            <div className="flex flex-col">
+              <div className="h-28 flex flex-col justify-center mb-6">
+                {/* Empty space to maintain alignment */}
               </div>
 
-              <div className="bg-white/10 rounded-lg p-4">
+              <div className="bg-white/10 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold mb-3 text-white flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
                   Your Advantages
@@ -290,7 +288,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
               </div>
 
               <div className="bg-white/10 rounded-lg p-4">
-                <h3 className="font-semibold mb-2 text-white">Market Context</h3>
+                <h3 className="font-semibold mb-3 text-white">Market Context</h3>
                 <p className="text-sm text-white/80 capitalize mb-1">
                   {summary.marketContext.marketType}&apos;s market • {summary.marketContext.localTrends}
                 </p>

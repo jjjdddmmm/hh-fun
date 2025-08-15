@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,12 @@ export function ReportUploadSection({
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploadSectionExpanded, setIsUploadSectionExpanded] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+
+  // Sync selectedReportIds with actual reports
+  React.useEffect(() => {
+    const reportIds = new Set(reports.filter(r => r.documentData).map(r => r.documentData!.id));
+    setSelectedReportIds(reportIds);
+  }, [reports]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
