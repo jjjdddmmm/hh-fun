@@ -20,7 +20,7 @@ import { PropertyStatusBadge } from "./ui/PropertyStatusBadge";
 import { PriceDisplay } from "./ui/PriceDisplay";
 import { PropertySpecs } from "./ui/PropertySpecs";
 import { getRecommendationColor } from "./utils";
-import type { Property } from "./types";
+import type { Property } from "@/lib/types/property";
 
 interface PropertyCardProps {
   property: Property;
