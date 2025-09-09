@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     const property = properties[0];
 
     // Log the full structure for debugging
-    logger.info('🏠 FULL PROPERTY STRUCTURE:', JSON.stringify(property, null, 2));
+    logger.info('🏠 FULL PROPERTY STRUCTURE:', { propertyJson: JSON.stringify(property, null, 2) });
 
     // Check all sections for property details
     const allSections = {
