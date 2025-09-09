@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const address = searchParams.get('address') || '2431 Greenvalley Rd';
 
-    logger.info('🔍 Debug: Raw BatchData API test for:', address);
+    logger.info('🔍 Debug: Raw BatchData API test for:', { address });
 
     // Initialize BatchData service
     const batchDataService = new BatchDataService(true); // Use production API
