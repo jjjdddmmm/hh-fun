@@ -13,6 +13,8 @@ import { Upload, X, File, CheckCircle, Loader2, AlertCircle, Cloud } from "lucid
 import { TimelineStepWithRelations } from "@/lib/types/timeline";
 import { documentVersionService } from "@/lib/services/DocumentVersionService";
 import { useCloudinaryUpload } from "@/lib/hooks/useCloudinaryUpload";
+import { useSupabaseUpload } from "@/lib/hooks/useSupabaseUpload";
+import { useUser } from "@clerk/nextjs";
 
 interface StepCompletionModalProps {
   step: TimelineStepWithRelations | null;
@@ -22,6 +24,7 @@ interface StepCompletionModalProps {
     actualCost?: number;
     documents: File[];
     cloudinaryDocuments?: Array<{ url: string; publicId: string; fileName: string; fileSize: number }>;
+    supabaseDocuments?: Array<{ path: string; fileName: string; fileSize: number }>;
     completionSessionId: string;
   }) => Promise<void>;
   isLoading?: boolean;
@@ -45,7 +48,10 @@ export function StepCompletionModalEnhanced({
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [uploadErrors, setUploadErrors] = useState<Map<string, string>>(new Map());
 
-  // Cloudinary upload hook
+  // User for Supabase uploads
+  const { user } = useUser();
+
+  // Cloudinary upload hook (for small files)
   const cloudinaryUpload = useCloudinaryUpload({
     folder: step ? `timeline/${step.timelineId}/${step.id}` : undefined,
     tags: step ? ['timeline', 'step-document', step.category.toLowerCase(), step.id] : undefined,
@@ -54,6 +60,11 @@ export function StepCompletionModalEnhanced({
       timeline_id: step.timelineId,
       category: step.category
     } : undefined
+  });
+
+  // Supabase upload hook (for large files)
+  const supabaseUpload = useSupabaseUpload({
+    folder: step ? `timeline/${step.timelineId}/${step.id}` : undefined
   });
 
   // Reset form when step changes or modal opens
@@ -127,10 +138,11 @@ export function StepCompletionModalEnhanced({
   const handleComplete = async () => {
     const costValue = actualCost.trim() ? parseFloat(actualCost.replace(/[,$]/g, '')) : undefined;
     
-    // Separate files into small (server upload) and large (direct upload)
+    // Separate files into small (server upload) and large (Supabase upload)
     const smallFiles: File[] = [];
     const largeFiles: File[] = [];
     const cloudinaryDocuments: Array<{ url: string; publicId: string; fileName: string; fileSize: number }> = [];
+    const supabaseDocuments: Array<{ path: string; fileName: string; fileSize: number }> = [];
     
     selectedFiles.forEach(file => {
       if (file.size > DIRECT_UPLOAD_THRESHOLD) {
@@ -140,8 +152,8 @@ export function StepCompletionModalEnhanced({
       }
     });
 
-    // Upload large files directly to Cloudinary
-    if (largeFiles.length > 0) {
+    // Upload large files directly to Supabase
+    if (largeFiles.length > 0 && user) {
       try {
         // Update UI to show uploading state
         const uploadingSet = new Set<string>();
@@ -150,17 +162,15 @@ export function StepCompletionModalEnhanced({
         });
         setUploadingFiles(uploadingSet);
 
-        // Upload each large file
+        // Upload each large file to Supabase
         for (const file of largeFiles) {
           try {
             // File is uploading - state already set
-
-            const result = await cloudinaryUpload.uploadFile(file);
+            const result = await supabaseUpload.uploadFile(file, user.id);
             
             if (result) {
-              cloudinaryDocuments.push({
-                url: result.secure_url,
-                publicId: result.public_id,
+              supabaseDocuments.push({
+                path: result.path,
                 fileName: file.name,
                 fileSize: file.size
               });
@@ -173,7 +183,7 @@ export function StepCompletionModalEnhanced({
               });
             }
           } catch (error) {
-            logger.error('Failed to upload large file', { fileName: file.name, error });
+            logger.error('Failed to upload large file to Supabase', { fileName: file.name, error });
             
             // Mark as error
             setUploadingFiles(prev => {
@@ -189,16 +199,17 @@ export function StepCompletionModalEnhanced({
           }
         }
       } catch (error) {
-        logger.error('Error uploading large files:', error);
+        logger.error('Error uploading large files to Supabase:', error);
         return; // Don't proceed if uploads failed
       }
     }
     
-    // Complete with both small files (server upload) and cloudinary URLs
+    // Complete with small files (server upload), cloudinary URLs, and supabase documents
     await onComplete({
       actualCost: costValue,
       documents: smallFiles,
       cloudinaryDocuments: cloudinaryDocuments.length > 0 ? cloudinaryDocuments : undefined,
+      supabaseDocuments: supabaseDocuments.length > 0 ? supabaseDocuments : undefined,
       completionSessionId: completionSessionId
     });
   };
@@ -213,7 +224,7 @@ export function StepCompletionModalEnhanced({
 
   if (!step) return null;
 
-  const isUploading = cloudinaryUpload.isUploading || isLoading;
+  const isUploading = cloudinaryUpload.isUploading || supabaseUpload.isUploading || isLoading;
   const hasLargeFiles = selectedFiles.some(file => file.size > DIRECT_UPLOAD_THRESHOLD);
 
   return (

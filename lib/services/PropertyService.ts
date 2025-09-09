@@ -175,8 +175,11 @@ export class PropertyService {
     }
 
     // Market & Timing Intelligence
-    if (data.daysOnMarket) {
+    if (data.daysOnMarket !== undefined) {
       updateData.daysOnMarket = data.daysOnMarket;
+    } else if (data.daysOnZillow !== undefined) {
+      // Map Zillow's daysOnZillow to daysOnMarket
+      updateData.daysOnMarket = data.daysOnZillow;
     }
     if (data.marketTrend) {
       updateData.marketTrend = data.marketTrend;

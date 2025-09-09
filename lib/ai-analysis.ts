@@ -144,6 +144,41 @@ export class PropertyAIAnalyzer {
     });
   }
   
+  /**
+   * Detect if property has rental income potential (ADU, multi-unit, etc.)
+   */
+  private detectRentalFeatures(propertyData: ZillowPropertyData): boolean {
+    // Multi-family properties
+    if (propertyData.propertyType?.toLowerCase().includes('multi') || 
+        propertyData.propertyType?.toLowerCase().includes('duplex') ||
+        propertyData.propertyType?.toLowerCase().includes('triplex') ||
+        propertyData.propertyType?.toLowerCase().includes('fourplex')) {
+      return true;
+    }
+    
+    // ADU and rental unit indicators in description
+    const description = propertyData.description?.toLowerCase() || '';
+    const aduKeywords = [
+      'adu', 'accessory dwelling', 'guest house', 'mother-in-law', 'mother in law',
+      'separate unit', 'separate entrance', 'basement apartment', 'in-law suite',
+      'casita', 'granny flat', 'detached unit', 'rental unit', 'income property',
+      'duplex', 'triplex', 'fourplex', 'two family', 'multi-family'
+    ];
+    
+    if (aduKeywords.some(keyword => description.includes(keyword))) {
+      return true;
+    }
+    
+    // Unusually high bedroom/bathroom count for single family (potential conversion)
+    if (propertyData.propertyType?.toLowerCase().includes('single') && 
+        propertyData.bedrooms && propertyData.bedrooms >= 5 && 
+        propertyData.bathrooms && propertyData.bathrooms >= 3) {
+      return true;
+    }
+    
+    return false;
+  }
+  
   async generateInsights(propertyData: ZillowPropertyData): Promise<{keyInsights: string[], redFlags: string[], investmentScore: number}> {
     // Generate AI analysis for property
     
@@ -152,50 +187,83 @@ export class PropertyAIAnalyzer {
       const currentYear = new Date().getFullYear();
       const propertyAge = currentYear - propertyData.yearBuilt;
       
-      // Extract zipcode for local expertise
-      const zipcode = propertyData.address?.match(/\b\d{5}\b/)?.[0] || propertyData.zipcode || 'Unknown';
+      // Extract zipcode for local expertise - check multiple field names and improved regex
+      logger.debug('🔍 Zipcode extraction debug:', {
+        address: propertyData.address,
+        zipcode: propertyData.zipcode,
+        zipCode: propertyData.zipCode,
+        zip: propertyData.zip,
+        regexMatch: propertyData.address?.match(/\b\d{5}(?:-\d{4})?\b/)?.[0]
+      });
       
-      const prompt = `You are Sarah Chen, a seasoned real estate investor with 15 years of experience specializing in the ${zipcode} area. You've personally bought, renovated, and sold over 200 properties specifically in ${zipcode} and surrounding neighborhoods. You know this market inside and out - the street-by-street trends, local school districts, development patterns, and exactly what buyers want in this specific area.
+      const zipcode = propertyData.zipcode || 
+                     propertyData.zipCode || 
+                     propertyData.zip ||
+                     propertyData.address?.match(/\b\d{5}(?:-\d{4})?\b/)?.[0]?.slice(0, 5) || 
+                     '90210';
+      
+      const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const season = ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 'Summer', 'Summer', 'Summer', 'Fall', 'Fall', 'Fall', 'Winter'][new Date().getMonth()];
+      
+      // Market context indicators
+      const marketIndicators = [];
+      if (propertyData.daysOnZillow > 60) marketIndicators.push('Extended DOM suggests negotiation opportunity');
+      if (pricePerSqft > 400) marketIndicators.push('Premium price point market');
+      if (propertyAge < 10) marketIndicators.push('Modern construction era');
+      if (propertyAge > 50) marketIndicators.push('Established neighborhood character');
+      
+      // Detect rental income potential
+      const hasRentalFeatures = this.detectRentalFeatures(propertyData);
+      
+      const prompt = `You are Sarah Chen, a seasoned real estate agent and homebuyer specialist with 15 years of experience in ${zipcode}. You've helped 247 families find their perfect homes in this area, including 12 closings just this quarter. You know every neighborhood, school district, and what makes properties great for ${hasRentalFeatures ? 'investors and' : ''} homeowners.
 
-PROPERTY TO EVALUATE:
-Address: ${propertyData.address || 'Property details'}
-Price: $${propertyData.price?.toLocaleString() || 'Unknown'}
-Size: ${propertyData.livingArea} sq ft
-Built: ${propertyData.yearBuilt} (${propertyAge} years old)
-Days on Market: ${propertyData.daysOnZillow || 'New listing'}
-Price per sq ft: $${pricePerSqft}
-${propertyData.zestimate?.amount ? `Zestimate: $${propertyData.zestimate.amount.toLocaleString()} (Range: $${propertyData.zestimate.valuationRange.low.toLocaleString()} - $${propertyData.zestimate.valuationRange.high.toLocaleString()})` : ''}
-${propertyData.rentZestimate ? `Rent Estimate: $${propertyData.rentZestimate.toLocaleString()}/month` : ''}
+LIVE MARKET INTEL (${currentMonth}):
+🏠 Address: ${propertyData.address || 'Property details'}
+💰 List Price: $${propertyData.price?.toLocaleString() || 'Unknown'} ($${pricePerSqft}/sqft)
+📐 Size: ${propertyData.livingArea} sqft | Built: ${propertyData.yearBuilt} (${propertyAge}yr old)
+📅 Market Time: ${propertyData.daysOnZillow || 'Fresh'} days
+${propertyData.zestimate?.amount ? `🎯 Zestimate: $${propertyData.zestimate.amount.toLocaleString()} (±$${Math.round((propertyData.zestimate.valuationRange.high - propertyData.zestimate.valuationRange.low)/2).toLocaleString()})` : ''}
+${hasRentalFeatures && propertyData.rentZestimate ? `🏡 Rent Est: $${propertyData.rentZestimate.toLocaleString()}/mo (${((propertyData.rentZestimate * 12 / propertyData.price) * 100).toFixed(1)}% gross yield)` : ''}
 
-As a local expert in the ${zipcode} area, evaluate this property like you would for your own investment portfolio. Consider:
+BUYER PROFILE: ${hasRentalFeatures ? 'Investment/Income Property Buyer' : 'Primary Residence Homebuyer'}
 
-• Your deep knowledge of ${zipcode} market trends and pricing
-• What you know about this specific neighborhood's growth potential
-• Property condition and renovation needs based on the build year
-• How this property compares to others you've seen in the area
-• Current market timing and buyer demand
-• Rental potential if this were an investment property
-• Exit strategy and resale potential
+LOCAL CONTEXT:
+- ${season} ${new Date().getFullYear()} market conditions in ${zipcode}
+- Current mortgage rates affecting buyer pool
+- ${marketIndicators.join(' | ')}
 
-Based on your expertise, what investment score (1-100) would you give this property? Consider:
-- 85-100: "I'd buy this immediately - excellent opportunity"
-- 70-84: "Strong investment with good fundamentals"
-- 55-69: "Decent opportunity, worth considering"
-- 40-54: "Below average, would need significant upside"
-- 25-39: "Poor investment, major concerns"
-- 1-24: "Avoid - serious red flags"
+Drawing from your ${zipcode} experience helping ${hasRentalFeatures ? 'investors and' : ''} homebuyers, analyze this property:
+
+SARAH'S EVALUATION CATEGORIES:
+📈 MARKET POSITIONING: How does this price/location compare to recent ${zipcode} ${hasRentalFeatures ? 'investment deals' : 'home sales'}?
+🏠 LIVABILITY ASSESSMENT: What makes this ${hasRentalFeatures ? 'property appealing to tenants and owners' : 'home perfect for daily living'}?
+${hasRentalFeatures ? '💸 INCOME POTENTIAL: Based on local rental comps, what rental income is realistic?' : '💰 VALUE FACTORS: What features enhance long-term home value?'}
+⚠️ LOCAL GOTCHAS: Any ${zipcode}-specific issues ${hasRentalFeatures ? 'investors' : 'homebuyers'} should know about?
+🎯 NEGOTIATION INTEL: What leverage points do you see based on DOM/pricing?
+
+${hasRentalFeatures ? 'Investment' : 'Home Value'} Score (1-100):
+95-100: ${hasRentalFeatures ? '"Calling my investor clients tonight"' : '"Perfect home, buy immediately"'}
+85-94: ${hasRentalFeatures ? '"Solid investment opportunity"' : '"Excellent home for the family"'}
+70-84: ${hasRentalFeatures ? '"Good investment with right strategy"' : '"Great home with minor considerations"'}
+55-69: ${hasRentalFeatures ? '"Marginal investment potential"' : '"Decent home, worth considering"'}
+40-54: ${hasRentalFeatures ? '"Poor investment, avoid"' : '"Significant concerns for homebuyers"'}
+1-39: ${hasRentalFeatures ? '"Investment disaster - hard pass"' : '"Major red flags - keep looking"'}
 
 Respond with JSON only:
 {
-  "investmentScore": [Your expert score 1-100 based on local market knowledge],
-  "keyInsights": ["insight1 based on local expertise", "insight2", "insight3"],
-  "redFlags": ["flag1 if any", "flag2 if any"]
+  "investmentScore": [Your expert 1-100 score],
+  "keyInsights": [
+    "${hasRentalFeatures ? 'Investment positioning' : 'Home value'} insight with specific ${zipcode} context",
+    "${hasRentalFeatures ? 'Rental income potential' : 'Livability feature'} based on local market",
+    "${hasRentalFeatures ? 'Investment strategy' : 'Long-term value'} insight for this property"
+  ],
+  "redFlags": ["Any deal-breakers or concerns", "Local area issues if applicable"]
 }`;
 
       const response = await this.anthropic.messages.create({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 600,
-        temperature: 0.7,
+        max_tokens: 800,
+        temperature: 0.8,
         messages: [{ role: 'user', content: prompt }]
       });
       
@@ -230,8 +298,8 @@ Respond with JSON only:
     try {
       const response = await this.anthropic.messages.create({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 2000,
-        temperature: 0.3,
+        max_tokens: 2500,
+        temperature: 0.6,
         messages: [
           {
             role: 'user',
@@ -335,16 +403,52 @@ Property Analysis Request:
 - Features: ${data.features ? Object.entries(data.features).filter(([_, v]) => v).map(([k, _]) => k).join(', ') : 'None listed'}
 `;
 
-    // Extract zipcode for Sarah Chen's local expertise
-    const zipcode = data.address.match(/\b\d{5}\b/)?.[0] || 'Unknown';
+    // Extract zipcode for Sarah Chen's local expertise - check multiple field names and improved regex
+    const zipcode = data.zipcode || 
+                   data.zipCode || 
+                   data.zip ||
+                   data.address?.match(/\b\d{5}(?:-\d{4})?\b/)?.[0]?.slice(0, 5) || 
+                   'San Jose';
     
-    return `You are Sarah Chen, a seasoned real estate investor with 15 years of experience specializing in the ${zipcode} area. You've personally bought, renovated, and sold over 200 properties specifically in ${zipcode} and surrounding neighborhoods. You know this market inside and out - the street-by-street trends, local school districts, development patterns, and exactly what buyers want in this specific area.
+    const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const propertyAge = new Date().getFullYear() - data.yearBuilt;
+    const pricePerSqft = data.pricePerSqft || (data.price && data.livingArea ? Math.round(data.price / data.livingArea) : 0);
+    
+    // Dynamic market context
+    const marketContext = [];
+    if (data.daysOnZillow > 90) marketContext.push('Stale listing indicates motivated seller');
+    if (data.daysOnZillow < 14) marketContext.push('Fresh listing in competitive market');
+    if (pricePerSqft > 500) marketContext.push('Premium market segment');
+    if (propertyAge < 5) marketContext.push('New construction advantages');
+    if (propertyAge > 60) marketContext.push('Historic character with potential updates needed');
+    
+    // Detect rental income potential for this property
+    const hasRentalFeatures = this.detectRentalFeatures(data);
 
+    return `You are Sarah Chen, a sharp-tongued real estate agent who's helped 247 ${hasRentalFeatures ? 'investors and' : ''} families in ${zipcode} over 15 years. You know every street, school district, and what makes properties perfect for ${hasRentalFeatures ? 'investment income and' : ''} homeownership. Your analysis style is direct, data-driven, and peppered with hard-earned market wisdom.
+
+PROPERTY BREAKDOWN (${currentMonth}):
 ${propertyDetails}
 
-As a local expert in the ${zipcode} area, analyze this property comprehensively and provide actionable insights, with special focus on educating buyers about offer strategy components based on your deep local market knowledge.
+BUYER PROFILE: ${hasRentalFeatures ? 'Investment/Income Property Buyer' : 'Primary Residence Homebuyer'}
 
-Please provide a detailed analysis in the following JSON format:
+CURRENT MARKET INTEL:
+- ${marketContext.join(' | ') || 'Standard market conditions'}
+- ${new Date().toLocaleDateString('en-US', { month: 'long' })} market dynamics in ${zipcode}
+- Interest rate environment affecting ${hasRentalFeatures ? 'investor' : 'homebuyer'} pool
+
+Your signature comprehensive analysis should include:
+
+SARAH'S SEVEN-POINT BREAKDOWN:
+1. 💰 PRICING REALITY CHECK: Compare this list price to your recent ${zipcode} ${hasRentalFeatures ? 'investment deals' : 'home sales'}
+2. 🏠 PROPERTY ASSESSMENT: What does a ${propertyAge}-year-old property offer for ${hasRentalFeatures ? 'tenants and cash flow' : 'daily family living'}?
+3. 📍 LOCATION ADVANTAGE/DISADVANTAGE: Specific ${zipcode} neighborhood insights for ${hasRentalFeatures ? 'rental demand' : 'homeowner lifestyle'}
+4. ${hasRentalFeatures ? '🔨 RENTAL OPTIMIZATION: Renovation opportunities to maximize rental income' : '🏡 HOME VALUE FACTORS: Features that enhance livability and long-term value'}
+5. ${hasRentalFeatures ? '💸 INVESTMENT MATH: Rental income potential and ROI analysis' : '💰 OWNERSHIP COSTS: Total cost of homeownership and value retention'}
+6. ⚡ MARKET TIMING: How days on market affects negotiation power
+7. 🎯 DEAL STRUCTURE STRATEGY: Specific offer tactics that work in ${zipcode}
+
+Provide your analysis in this JSON format:
 {
   "marketValue": {
     "low": number,
@@ -353,13 +457,27 @@ Please provide a detailed analysis in the following JSON format:
     "confidence": number (0-100)
   },
   "recommendation": "excellent" | "good" | "fair" | "overpriced" | "investigate",
-  "keyInsights": ["insight1", "insight2", "insight3"],
-  "redFlags": ["flag1", "flag2"],
+  "keyInsights": [
+    "Specific ${zipcode} ${hasRentalFeatures ? 'investment positioning' : 'home value'} insight with local context",
+    "Property ${hasRentalFeatures ? 'rental potential' : 'livability'} insight based on ${propertyAge}-year age and local standards", 
+    "${hasRentalFeatures ? 'Investment strategy' : 'Long-term homeowner value'} insight for this property"
+  ],
+  "redFlags": ["Deal-breaker concerns", "Local area red flags if any"],
   "investmentScore": number (0-100),
   "negotiationStrategy": {
     "suggestedOffer": number,
-    "tactics": ["Comprehensive offer strategy tactic 1", "Market positioning tactic 2", "Timeline leverage tactic 3", "Inspection strategy tactic 4"],
-    "leverage": ["Days on market analysis", "Comparable sales data", "Property condition factors", "Market conditions insight"]
+    "tactics": [
+      "Market timing tactic based on ${data.daysOnZillow || 0} days on market",
+      "Property-specific leverage point for ${hasRentalFeatures ? 'investors' : 'homebuyers'}",
+      "Local market positioning strategy",
+      "${zipcode}-specific negotiation approach"
+    ],
+    "leverage": [
+      "Specific data point from ${zipcode} market experience",
+      "Property condition factor affecting ${hasRentalFeatures ? 'rental income' : 'home value'}",
+      "Market timing advantage/disadvantage",
+      "Comparable ${hasRentalFeatures ? 'investment' : 'home'} sales insight from local experience"
+    ]
   },
   "financialProjection": {
     "monthlyMortgage": number,
@@ -375,28 +493,28 @@ Please provide a detailed analysis in the following JSON format:
     "appreciation": "strong/moderate/weak/declining"
   },
   "aiConfidence": number (0-100),
-  "analysis": "detailed written analysis paragraph"
+  "analysis": "Your signature direct analysis paragraph with specific ${zipcode} insights and actionable recommendations for ${hasRentalFeatures ? 'this investment opportunity' : 'this potential home'}"
 }
 
-Key considerations:
+Key considerations for ${hasRentalFeatures ? 'investment analysis' : 'homebuyer evaluation'}:
 1. Compare asking price to Zestimate and market data
 2. Evaluate property condition based on age and features
 3. Consider market timing and days on market
-4. Factor in location, schools, and neighborhood trends
-5. Calculate realistic investment returns
+4. Factor in location, schools, and neighborhood trends for ${hasRentalFeatures ? 'rental demand' : 'family lifestyle'}
+5. ${hasRentalFeatures ? 'Calculate realistic investment returns and cash flow' : 'Assess long-term value retention and ownership costs'}
 6. Identify negotiation opportunities
-7. Assess long-term appreciation potential
+7. Assess long-term ${hasRentalFeatures ? 'rental income growth' : 'appreciation'} potential
 8. Consider maintenance and renovation needs
-9. Evaluate rental potential if applicable
+9. ${hasRentalFeatures ? 'Evaluate rental income optimization strategies' : 'Assess livability and comfort factors'}
 10. Factor in local market conditions
 
 SPECIAL FOCUS ON OFFER STRATEGY EDUCATION (Use your local ${zipcode} expertise):
-For negotiationStrategy, provide educational insights based on your deep knowledge of the ${zipcode} market:
-- Tactics: Focus on explaining WHY certain tactics work IN THIS SPECIFIC MARKET (e.g., "In ${zipcode}, sellers typically respond well to inspection contingencies because..." or "Based on my ${zipcode} experience, properties with X days on market usually...")
-- Leverage: Explain specific data points buyers should understand FOR THIS AREA (e.g., "In ${zipcode}, I've seen sellers accept 3-5% below asking when..." or "Properties in this neighborhood typically have X advantage...")
-- Provide actionable education about offer components like contingencies, timelines, financing terms, and market positioning SPECIFIC TO ${zipcode}
+For negotiationStrategy, provide educational insights based on your deep knowledge of the ${zipcode} market for ${hasRentalFeatures ? 'investors' : 'homebuyers'}:
+- Tactics: Focus on explaining WHY certain tactics work IN THIS SPECIFIC MARKET for ${hasRentalFeatures ? 'investment properties' : 'primary residences'} (e.g., "In ${zipcode}, sellers typically respond well to ${hasRentalFeatures ? 'cash offers' : 'inspection contingencies'} because..." or "Based on my ${zipcode} experience, ${hasRentalFeatures ? 'investment' : 'family'} properties with X days on market usually...")
+- Leverage: Explain specific data points ${hasRentalFeatures ? 'investors' : 'homebuyers'} should understand FOR THIS AREA (e.g., "In ${zipcode}, I've seen sellers accept 3-5% below asking when..." or "${hasRentalFeatures ? 'Investment' : 'Family'} properties in this neighborhood typically have X advantage...")
+- Provide actionable education about offer components like contingencies, timelines, financing terms, and market positioning SPECIFIC TO ${zipcode} ${hasRentalFeatures ? 'investment' : 'homebuyer'} market
 
-As Sarah Chen, provide realistic, conservative estimates based on your actual ${zipcode} market experience. Be thorough but educational in your analysis.`;
+As Sarah Chen, provide realistic, conservative estimates based on your actual ${zipcode} market experience helping ${hasRentalFeatures ? 'investors' : 'families'}. Be thorough but educational in your analysis.`;
   }
 
   private buildInvestmentPrompt(property: any, params: InvestmentParameters): string {

@@ -128,39 +128,54 @@ export function StreamlinedOfferStrategy({ property }: StreamlinedOfferStrategyP
                     <div className="flex items-start">
                       <span className="text-[#5C1B10] mr-2 mt-0.5">•</span>
                       <span>
-                        {(property.data?.daysOnMarket || 0) > 120 ? `${property.data?.daysOnMarket} days on market = high seller motivation` :
-                         (property.data?.daysOnMarket || 0) > 90 ? `${property.data?.daysOnMarket} days on market = sellers getting anxious` :
-                         (property.data?.daysOnMarket || 0) > 60 ? `${property.data?.daysOnMarket} days on market = negotiation opportunity` :
-                         (property.data?.daysOnMarket || 0) < 14 ? `Only ${property.data?.daysOnMarket} days = limited discount room` :
-                         `${property.data?.daysOnMarket} days on market = standard negotiation`}
+                        {(() => {
+                          // Debug: log the actual days on market value
+                          console.log('🔍 Days on market debug:', {
+                            daysOnMarket: property.data?.daysOnMarket,
+                            daysOnZillow: property.data?.daysOnZillow,
+                            dom: property.data?.dom,
+                            marketTime: property.data?.marketTime
+                          });
+                          
+                          const days = property.data?.daysOnMarket || property.data?.daysOnZillow || property.data?.dom || property.data?.marketTime || 0;
+                          
+                          return days > 120 ? `After ${days} days, sellers are highly motivated - strong negotiation position for buyers` :
+                                 days > 90 ? `${days} days suggests seller urgency - opportunity for 8-12% discount` :
+                                 days > 60 ? `${days} days indicates growing seller flexibility - 5-8% discount possible` :
+                                 days < 14 && days > 0 ? `Fresh listing at ${days} days means competitive market - limited negotiation leverage` :
+                                 days === 0 ? `Days on market data unavailable - using market average negotiation approach` :
+                                 `${days} days is typical market time - standard 3-5% negotiation range applies`;
+                        })()}
                       </span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#5C1B10] mr-2 mt-0.5">•</span>
                       <span>
                         {((property.data?.price || 0) > (property.analysis?.marketValue?.estimated || property.data?.price || 0) * 1.1) ? 
-                         `Priced ${Math.round(((property.data?.price || 0) / (property.analysis?.marketValue?.estimated || 1) - 1) * 100)}% above market value` :
+                         `Overpriced by ${Math.round(((property.data?.price || 0) / (property.analysis?.marketValue?.estimated || 1) - 1) * 100)}% - strong justification for significant discount` :
                          ((property.data?.price || 0) > (property.analysis?.marketValue?.estimated || property.data?.price || 0) * 1.05) ? 
-                         `Priced ${Math.round(((property.data?.price || 0) / (property.analysis?.marketValue?.estimated || 1) - 1) * 100)}% above market` :
+                         `Listed ${Math.round(((property.data?.price || 0) / (property.analysis?.marketValue?.estimated || 1) - 1) * 100)}% above market - room for negotiation to fair value` :
                          ((property.data?.price || 0) < (property.analysis?.marketValue?.estimated || property.data?.price || 0) * 0.95) ? 
-                         'Already below market value' :
-                         'Fairly priced to market'}
+                         'Already priced below market value - limited room for further discounts' :
+                         'Market-appropriate pricing - standard negotiation tactics apply'}
                       </span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#5C1B10] mr-2 mt-0.5">•</span>
                       <span>
-                        Investment score: {property.analysis.investmentScore}/100
-                        {property.analysis.investmentScore > 80 ? ' (excellent property)' :
-                         property.analysis.investmentScore < 40 ? ' (significant concerns)' :
-                         ' (moderate opportunity)'}
+                        {property.analysis.investmentScore > 85 ? `Outstanding property score (${property.analysis.investmentScore}/100) - worth paying closer to asking price` :
+                         property.analysis.investmentScore > 70 ? `Strong property fundamentals (${property.analysis.investmentScore}/100) - good negotiation balance` :
+                         property.analysis.investmentScore > 50 ? `Moderate property appeal (${property.analysis.investmentScore}/100) - more aggressive negotiation justified` :
+                         `Property concerns identified (${property.analysis.investmentScore}/100) - significant discount warranted`}
                       </span>
                     </div>
                     {(property.analysis?.redFlags?.length || 0) > 0 && (
                       <div className="flex items-start">
                         <span className="text-[#5C1B10] mr-2 mt-0.5">•</span>
                         <span className="text-red-600 font-medium">
-                          {property.analysis?.redFlags?.length} red flag{(property.analysis?.redFlags?.length || 0) > 1 ? 's' : ''} identified
+                          {property.analysis?.redFlags?.length > 1 ? 
+                            `Multiple concerns identified (${property.analysis?.redFlags?.length} issues) - use as leverage for lower offer` :
+                            `One concern identified - factor into negotiation strategy`}
                         </span>
                       </div>
                     )}
@@ -247,22 +262,17 @@ export function StreamlinedOfferStrategy({ property }: StreamlinedOfferStrategyP
                   <h4 className="text-sm font-medium text-[#5C1B10] mb-2">Key Leverage Points:</h4>
                   <div className="space-y-1">
                     {(() => {
-                      const leveragePoints = property.analysis.negotiationStrategy?.leverage?.slice(0, 3) || [];
-                      const fallbackPoints = [
-                        (property.data?.daysOnMarket || 0) > 60 ? 'Extended market time shows seller motivation' : 'Cash equivalent offer strength',
-                        'Quick closing timeline advantage',
-                        'Pre-approval strength in competitive market'
-                      ];
+                      const leveragePoints = property.analysis.negotiationStrategy?.leverage || [];
                       
-                      // Ensure we always have exactly 3 points
-                      const allPoints = [...leveragePoints];
-                      fallbackPoints.forEach(point => {
-                        if (allPoints.length < 3 && !allPoints.includes(point)) {
-                          allPoints.push(point);
-                        }
-                      });
+                      if (leveragePoints.length === 0) {
+                        return (
+                          <div className="flex items-center text-sm text-gray-500 italic">
+                            <span className="animate-pulse">Generating negotiation insights...</span>
+                          </div>
+                        );
+                      }
                       
-                      return allPoints.slice(0, 3).map((point: string, idx: number) => (
+                      return leveragePoints.slice(0, 4).map((point: string, idx: number) => (
                         <div key={idx} className="flex items-start text-sm text-[#020B0A]">
                           <span className="text-[#5C1B10] mr-2">•</span>
                           {point}
@@ -274,11 +284,10 @@ export function StreamlinedOfferStrategy({ property }: StreamlinedOfferStrategyP
                 <div className="border-t pt-3">
                   <h4 className="text-sm font-medium text-[#5C1B10] mb-2">Recommended Approach:</h4>
                   <div className="text-sm text-[#020B0A]">
-                    {(property.data?.daysOnMarket || 0) > 90 ? 
-                      'Lead with strong offer and quick close. Reference market time diplomatically.' :
-                      (property.data?.daysOnMarket || 0) > 60 ?
-                      'Balance competitive offer with strategic contingencies. Show serious intent.' :
-                      'Present yourself as qualified buyer with flexible terms. Act decisively.'}
+                    {property.analysis.negotiationStrategy?.tactics?.length > 0 ? 
+                      property.analysis.negotiationStrategy.tactics.slice(0, 2).join('. ') + '.' :
+                      <span className="text-gray-500 italic animate-pulse">Generating negotiation strategy...</span>
+                    }
                   </div>
                 </div>
               </div>

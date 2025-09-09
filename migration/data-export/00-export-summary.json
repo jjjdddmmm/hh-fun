@@ -1,0 +1,16 @@
+{
+  "exportDate": "2025-09-09T19:35:18.259Z",
+  "totalRecords": 91,
+  "tables": {
+    "users": 5,
+    "properties": 12,
+    "propertyAnalyses": 12,
+    "comparableSales": 2,
+    "timelines": 5,
+    "timelineSteps": 50,
+    "timelineDocuments": 5,
+    "timelineTeamMembers": 0,
+    "timelineNotes": 0,
+    "timelineStepComments": 0
+  }
+}

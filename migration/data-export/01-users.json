@@ -1,0 +1,47 @@
+[
+  {
+    "id": "cmd8b7c3u00008c73gk5pmhr7",
+    "clerkId": "user_2zwrrEUPTQotDvPf2SfoHvknweC",
+    "email": "",
+    "name": null,
+    "preferences": null,
+    "createdAt": "2025-07-18T04:18:47.946Z",
+    "updatedAt": "2025-07-18T04:18:47.946Z"
+  },
+  {
+    "id": "cme9aat260000lh0485v304wz",
+    "clerkId": "user_31DA1tCkTgq2e0k7z8eJKIgMWoh",
+    "email": "jen@mamossstudios.com",
+    "name": null,
+    "preferences": null,
+    "createdAt": "2025-08-13T01:20:58.779Z",
+    "updatedAt": "2025-08-13T01:20:58.779Z"
+  },
+  {
+    "id": "cme9gg2kp0000jp04xyzla0uy",
+    "clerkId": "user_31DUxM6NOTHfKnmV6FBMv4oKWAS",
+    "email": "teresa.tsou@gmail.com",
+    "name": "Teresa Tsou",
+    "preferences": null,
+    "createdAt": "2025-08-13T04:13:02.071Z",
+    "updatedAt": "2025-08-13T04:13:02.071Z"
+  },
+  {
+    "id": "cmed4qcmu0000l205n002oxc9",
+    "clerkId": "user_31KlIxIJ2ZAMBxafNyF7W7QTZde",
+    "email": "jeff.martin@hey.com",
+    "name": null,
+    "preferences": null,
+    "createdAt": "2025-08-15T17:56:10.995Z",
+    "updatedAt": "2025-08-15T17:56:10.995Z"
+  },
+  {
+    "id": "cmed5bra30000l404jjx5z09q",
+    "clerkId": "user_31KnKL9B5eWrQygKbfV4bW5yhXL",
+    "email": "info@canyoninteriors.co",
+    "name": null,
+    "preferences": null,
+    "createdAt": "2025-08-15T18:12:49.752Z",
+    "updatedAt": "2025-08-15T18:12:49.752Z"
+  }
+]

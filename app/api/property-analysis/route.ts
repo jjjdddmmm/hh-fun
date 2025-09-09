@@ -293,6 +293,13 @@ export async function POST(request: NextRequest) {
                 } else {
                   logger.debug(`⚠️ No Zestimate available from Zillow API`);
                 }
+                
+                // Extract days on Zillow if available
+                if (zillowData.daysOnZillow !== undefined) {
+                  logger.debug(`📅 Found days on Zillow: ${zillowData.daysOnZillow} days`);
+                  batchData.daysOnMarket = zillowData.daysOnZillow;
+                  propertyData.daysOnMarket = zillowData.daysOnZillow;
+                }
               }
             } catch (error) {
               logger.error('Failed to fetch photos from Zillow:', error);

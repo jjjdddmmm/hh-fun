@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -15,6 +15,19 @@ export async function POST(
     }
 
     const propertyId = params.id;
+    
+    // Check if this is a force refresh (clears BatchData fields too)
+    let forceRefresh = false;
+    try {
+      const contentType = request.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const body = await request.json();
+        forceRefresh = body.forceRefresh === true;
+      }
+    } catch (e) {
+      // If JSON parsing fails, default to false
+      logger.debug('JSON parsing failed, defaulting to smart refresh');
+    }
 
     // Get the property to verify ownership
     const property = await prisma.property.findUnique({
@@ -26,22 +39,67 @@ export async function POST(
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
     }
 
-    logger.debug(`🔄 Smart refresh initiated for property: ${propertyId}`);
+    logger.debug(`🔄 ${forceRefresh ? 'Force' : 'Smart'} refresh initiated for property: ${propertyId}`);
     
-    // Only clear the analysis data - preserve expensive BatchData property fields
+    // Clear the analysis data
     await prisma.propertyAnalysis.deleteMany({
       where: { propertyId: propertyId }
     });
     
-    logger.debug(`✅ Deleted old analysis data, BatchData property fields preserved`);
-    
-    // Check if property has BatchData (to avoid unnecessary API calls)
-    const hasBatchData = !!(property.estimatedValue || property.daysOnMarket || property.quickLists);
-    
-    if (hasBatchData) {
-      logger.debug(`💰 Property already has BatchData intelligence - will reuse existing data (saving ~$0.46)`);
+    if (forceRefresh) {
+      // Force refresh: Clear BatchData fields to trigger fresh API calls
+      await prisma.property.update({
+        where: { id: propertyId },
+        data: {
+          // Clear core BatchData fields to force re-fetch
+          estimatedValue: null,
+          daysOnMarket: null,
+          quickLists: null,
+          estimatedRent: null,
+          lastSalePrice: null,
+          lastSaleDate: null,
+          equityAmount: null,
+          equityPercent: null,
+          mortgageBalance: null,
+          marketTrend: null,
+          demandLevel: null,
+          pricePerSqft: null,
+          ownerName: null,
+          ownerOccupied: null,
+          absenteeOwner: null,
+          ownershipLength: null,
+          highEquity: null,
+          cashBuyer: null,
+          distressedProperty: null,
+          foreclosureStatus: null,
+          fixAndFlipPotential: null,
+          rentToValueRatio: null,
+          capRate: null,
+          buildingFeatures: null,
+          neighborhoodData: null,
+          priceHistory: null,
+          marketAnalytics: null,
+          batchDataLastUpdated: null,
+          // Also clear property details that might have wrong data
+          yearBuilt: null,
+          squareFootage: null,
+          bedrooms: null,
+          bathrooms: null
+        }
+      });
+      logger.debug(`🔥 Force refresh: Cleared BatchData fields - will fetch fresh data from API`);
     } else {
-      logger.debug(`⚠️ Property missing BatchData - fresh analysis will fetch data`);
+      // Smart refresh: preserve expensive BatchData property fields
+      logger.debug(`✅ Smart refresh: Deleted old analysis data, BatchData property fields preserved`);
+      
+      // Check if property has BatchData (to avoid unnecessary API calls)
+      const hasBatchData = !!(property.estimatedValue || property.daysOnMarket || property.quickLists);
+      
+      if (hasBatchData) {
+        logger.debug(`💰 Property already has BatchData intelligence - will reuse existing data (saving ~$0.46)`);
+      } else {
+        logger.debug(`⚠️ Property missing BatchData - fresh analysis will fetch data`);
+      }
     }
 
 

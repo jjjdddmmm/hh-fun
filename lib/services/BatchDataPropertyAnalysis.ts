@@ -274,16 +274,51 @@ export class BatchDataPropertyAnalysisService {
                       property.mls?.totalBuildingAreaSquareFeet || 
                       property.squareFootage || 2000;
     
+    // Debug all possible yearBuilt fields
+    const yearBuiltDebug = {
+      'listing.yearBuilt': property.listing?.yearBuilt,
+      'listing.year_built': property.listing?.year_built,
+      'listing.constructionYear': property.listing?.constructionYear,
+      'building.yearBuilt': property.building?.yearBuilt,
+      'building.year_built': property.building?.year_built,
+      'building.constructionYear': property.building?.constructionYear,
+      'mls.yearBuilt': property.mls?.yearBuilt,
+      'mls.year_built': property.mls?.year_built,
+      'mls.constructionYear': property.mls?.constructionYear,
+      'property.yearBuilt': property.yearBuilt,
+      'property.year_built': property.year_built,
+      'assessment.yearBuilt': property.assessment?.yearBuilt,
+      'assessment.year_built': property.assessment?.year_built,
+      'intel.yearBuilt': property.intel?.yearBuilt,
+      'intel.year_built': property.intel?.year_built
+    };
+    
     logger.debug('🏠 Extracted core data:', {
       address,
       price,
       bedrooms,
       bathrooms,
       livingArea,
+      yearBuiltDebug,
       sources: {
         bedroomsFrom: property.listing?.bedroomCount ? 'listing' : property.mls?.bedroomCount ? 'mls' : property.building?.bedroomCount ? 'building' : 'default',
         bathroomsFrom: property.listing?.bathroomCount ? 'listing' : property.building?.bathroomCount ? 'building' : property.mls?.bathroomCount ? 'mls' : 'default',
-        sqftFrom: property.listing?.livingArea ? 'listing.livingArea' : property.listing?.totalBuildingAreaSquareFeet ? 'listing.totalBuildingAreaSquareFeet' : property.building?.totalBuildingAreaSquareFeet ? 'building' : property.mls?.totalBuildingAreaSquareFeet ? 'mls' : 'default'
+        sqftFrom: property.listing?.livingArea ? 'listing.livingArea' : property.listing?.totalBuildingAreaSquareFeet ? 'listing.totalBuildingAreaSquareFeet' : property.building?.totalBuildingAreaSquareFeet ? 'building' : property.mls?.totalBuildingAreaSquareFeet ? 'mls' : 'default',
+        yearBuiltFrom: property.listing?.yearBuilt ? 'listing.yearBuilt' : 
+                      property.listing?.year_built ? 'listing.year_built' :
+                      property.listing?.constructionYear ? 'listing.constructionYear' :
+                      property.building?.yearBuilt ? 'building.yearBuilt' : 
+                      property.building?.year_built ? 'building.year_built' :
+                      property.building?.constructionYear ? 'building.constructionYear' :
+                      property.mls?.yearBuilt ? 'mls.yearBuilt' : 
+                      property.mls?.year_built ? 'mls.year_built' :
+                      property.mls?.constructionYear ? 'mls.constructionYear' :
+                      property.assessment?.yearBuilt ? 'assessment.yearBuilt' :
+                      property.assessment?.year_built ? 'assessment.year_built' :
+                      property.intel?.yearBuilt ? 'intel.yearBuilt' :
+                      property.intel?.year_built ? 'intel.year_built' :
+                      property.yearBuilt ? 'property.yearBuilt' :
+                      property.year_built ? 'property.year_built' : 'default'
       }
     });
     
@@ -297,9 +332,54 @@ export class BatchDataPropertyAnalysisService {
       bedrooms: bedrooms,
       bathrooms: bathrooms,
       livingArea: livingArea,
-      yearBuilt: property.building?.yearBuilt || property.mls?.yearBuilt || property.yearBuilt || 2000,
+      yearBuilt: property.listing?.yearBuilt || property.listing?.year_built || property.listing?.constructionYear ||
+                property.building?.yearBuilt || property.building?.year_built || property.building?.constructionYear ||
+                property.mls?.yearBuilt || property.mls?.year_built || property.mls?.constructionYear ||
+                property.assessment?.yearBuilt || property.assessment?.year_built ||
+                property.intel?.yearBuilt || property.intel?.year_built ||
+                property.yearBuilt || property.year_built || 2000,
       propertyType: property.building?.propertyType || property.mls?.propertyType || property.propertyType || 'Single Family',
-      daysOnMarket: property.mls?.daysOnMarket || property.daysOnMarket || 0,
+      daysOnMarket: (() => {
+        // Debug all possible daysOnMarket fields
+        const daysOnMarketDebug = {
+          'mls.daysOnMarket': property.mls?.daysOnMarket,
+          'mls.daysOnZillow': property.mls?.daysOnZillow,
+          'mls.dom': property.mls?.dom,
+          'mls.marketTime': property.mls?.marketTime,
+          'listing.daysOnMarket': property.listing?.daysOnMarket,
+          'listing.daysOnZillow': property.listing?.daysOnZillow,
+          'listing.dom': property.listing?.dom,
+          'listing.marketTime': property.listing?.marketTime,
+          'property.daysOnMarket': property.daysOnMarket,
+          'property.daysOnZillow': property.daysOnZillow,
+          'property.dom': property.dom,
+          'property.marketTime': property.marketTime,
+          'intel.daysOnMarket': property.intel?.daysOnMarket,
+          'intel.dom': property.intel?.dom
+        };
+        
+        logger.debug('📅 Days on Market extraction debug:', daysOnMarketDebug);
+        
+        // Try all possible field names
+        const days = property.mls?.daysOnMarket || 
+                    property.mls?.daysOnZillow || 
+                    property.mls?.dom || 
+                    property.mls?.marketTime ||
+                    property.listing?.daysOnMarket || 
+                    property.listing?.daysOnZillow || 
+                    property.listing?.dom || 
+                    property.listing?.marketTime ||
+                    property.daysOnMarket || 
+                    property.daysOnZillow ||
+                    property.dom ||
+                    property.marketTime ||
+                    property.intel?.daysOnMarket ||
+                    property.intel?.dom ||
+                    0;
+                    
+        logger.debug(`✅ Selected days on market: ${days}`);
+        return days;
+      })(),
       pricePerSqft: this.calculatePricePerSqft(price, livingArea),
       soldDate: property.intel?.lastSoldDate || property.mls?.soldDate || property.sale?.lastSale?.saleDate,
       description: this.generateDescription(property),
@@ -410,7 +490,8 @@ export class BatchDataPropertyAnalysisService {
    * Extract price from BatchData with priority order and debugging
    */
   private extractPrice(property: any): number {
-    // Priority: intel > MLS sold > MLS listing > valuation > sale history
+    // Priority: listing price > intel > MLS sold > MLS listing > valuation > sale history
+    const listingPrice = property.listing?.price || property.listing?.listPrice;
     const intelPrice = property.intel?.lastSoldPrice;
     const mlsSoldPrice = property.mls?.soldPrice;
     const mlsPrice = property.mls?.price;
@@ -419,6 +500,8 @@ export class BatchDataPropertyAnalysisService {
     const assessedValue = property.assessment?.assessedValue;
     
     logger.debug('💰 Price extraction debug:', {
+      listingPrice: listingPrice,
+      listingPriceSource: property.listing?.price ? 'listing.price' : property.listing?.listPrice ? 'listing.listPrice' : 'none',
       intel: intelPrice,
       mlsSold: mlsSoldPrice,
       mlsListing: mlsPrice,
@@ -427,8 +510,8 @@ export class BatchDataPropertyAnalysisService {
       assessed: assessedValue
     });
     
-    const price = intelPrice || mlsSoldPrice || mlsPrice || valuationPrice || salePrice || assessedValue || 500000;
-    logger.debug(`✅ Selected price: $${price.toLocaleString()}`);
+    const price = listingPrice || intelPrice || mlsSoldPrice || mlsPrice || valuationPrice || salePrice || assessedValue || 500000;
+    logger.debug(`✅ Selected price: $${price.toLocaleString()} from ${listingPrice ? 'listing' : intelPrice ? 'intel' : mlsSoldPrice ? 'mls.sold' : mlsPrice ? 'mls.listing' : valuationPrice ? 'valuation' : salePrice ? 'sale' : 'assessed'}`);
     
     return price;
   }

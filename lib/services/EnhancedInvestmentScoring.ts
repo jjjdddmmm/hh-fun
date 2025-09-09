@@ -499,35 +499,114 @@ export class EnhancedInvestmentScoringService {
   }
 
   /**
-   * Financial Opportunity Score (0-20 points)
-   * Analyzes rental potential, appreciation, and ROI
+   * Detect if property has rental income potential (ADU, multi-unit, etc.)
    */
-  private calculateFinancialOpportunity(_property: Property, intelligence: BatchDataIntelligence): InvestmentScoreBreakdown['financialOpportunity'] {
-    let score = 8; // Base score
-    const factors: string[] = [];
-    let description = 'Standard investment returns';
+  private hasRentalIncomeFeatures(property: Property, intelligence: BatchDataIntelligence): boolean {
+    const propertyData = property.data || property;
+    
+    // Multi-family properties
+    if (propertyData.propertyType?.toLowerCase().includes('multi') || 
+        propertyData.propertyType?.toLowerCase().includes('duplex') ||
+        propertyData.propertyType?.toLowerCase().includes('triplex') ||
+        propertyData.propertyType?.toLowerCase().includes('fourplex')) {
+      return true;
+    }
+    
+    // ADU and rental unit indicators in description
+    const description = propertyData.description?.toLowerCase() || '';
+    const aduKeywords = [
+      'adu', 'accessory dwelling', 'guest house', 'mother-in-law', 'mother in law',
+      'separate unit', 'separate entrance', 'basement apartment', 'in-law suite',
+      'casita', 'granny flat', 'detached unit', 'rental unit', 'income property',
+      'duplex', 'triplex', 'fourplex', 'two family', 'multi-family'
+    ];
+    
+    if (aduKeywords.some(keyword => description.includes(keyword))) {
+      return true;
+    }
+    
+    // Unusually high bedroom/bathroom count for single family (potential conversion)
+    if (propertyData.propertyType?.toLowerCase().includes('single') && 
+        propertyData.bedrooms && propertyData.bedrooms >= 5 && 
+        propertyData.bathrooms && propertyData.bathrooms >= 3) {
+      return true;
+    }
+    
+    return false;
+  }
 
-    // Rental Yield Analysis
-    if (intelligence.rentToValueRatio) {
-      if (intelligence.rentToValueRatio >= 0.012) { // 1.2%+ monthly
-        score += 8;
-        factors.push('Excellent rent-to-price ratio (1.2%+ rule)');
-        description = 'Outstanding cash flow potential';
-      } else if (intelligence.rentToValueRatio >= 0.01) { // 1%+ monthly
-        score += 6;
-        factors.push('Good rent-to-price ratio (1%+ rule)');
-        description = 'Strong cash flow potential';
-      } else if (intelligence.rentToValueRatio >= 0.008) { // 0.8%+ monthly
+  /**
+   * Financial Opportunity Score (0-20 points)
+   * Primary residence focus unless rental income features detected
+   */
+  private calculateFinancialOpportunity(property: Property, intelligence: BatchDataIntelligence): InvestmentScoreBreakdown['financialOpportunity'] {
+    let score = 10; // Base score for primary residence value
+    const factors: string[] = [];
+    let description = 'Strong primary residence value';
+    
+    const hasRentalFeatures = this.hasRentalIncomeFeatures(property, intelligence);
+    
+    if (hasRentalFeatures) {
+      // Property has rental income potential - use investment analysis
+      score = 8; // Reset to investment base
+      description = 'Standard investment returns';
+      
+      // Rental Yield Analysis
+      if (intelligence.rentToValueRatio) {
+        if (intelligence.rentToValueRatio >= 0.012) { // 1.2%+ monthly
+          score += 8;
+          factors.push('Excellent rent-to-price ratio (1.2%+ rule)');
+          description = 'Outstanding cash flow potential';
+        } else if (intelligence.rentToValueRatio >= 0.01) { // 1%+ monthly
+          score += 6;
+          factors.push('Good rent-to-price ratio (1%+ rule)');
+          description = 'Strong cash flow potential';
+        } else if (intelligence.rentToValueRatio >= 0.008) { // 0.8%+ monthly
+          score += 3;
+          factors.push('Moderate rental yield');
+        } else {
+          score -= 1;
+          factors.push('Below average rental yield');
+        }
+      }
+    } else {
+      // Primary residence focus - emphasize livability and value retention
+      const propertyData = property.data || property;
+      
+      // Appreciate factors that matter for primary residence
+      if (propertyData.yearBuilt && propertyData.yearBuilt >= 2010) {
         score += 3;
-        factors.push('Moderate rental yield');
-      } else {
-        score -= 1;
-        factors.push('Below average rental yield');
+        factors.push('Modern construction reduces maintenance needs');
+      } else if (propertyData.yearBuilt && propertyData.yearBuilt >= 1990) {
+        score += 1;
+        factors.push('Updated systems likely');
+      }
+      
+      // Good size for primary residence
+      if (propertyData.livingArea && propertyData.livingArea >= 1800) {
+        score += 2;
+        factors.push('Spacious living area');
+      } else if (propertyData.livingArea && propertyData.livingArea >= 1200) {
+        score += 1;
+        factors.push('Adequate living space');
+      }
+      
+      // Value retention factors
+      if (intelligence.estimatedValue && propertyData.price) {
+        const valueGap = (intelligence.estimatedValue - propertyData.price) / propertyData.price;
+        if (valueGap > 0.05) {
+          score += 4;
+          factors.push('Priced below estimated market value');
+          description = 'Excellent value for primary residence';
+        } else if (valueGap > 0) {
+          score += 2;
+          factors.push('Fair pricing vs market value');
+        }
       }
     }
 
-    // Cap Rate Analysis
-    if (intelligence.capRate) {
+    // Cap Rate Analysis (only for rental properties)
+    if (hasRentalFeatures && intelligence.capRate) {
       if (intelligence.capRate >= 8) {
         score += 6;
         factors.push(`High cap rate: ${intelligence.capRate.toFixed(1)}%`);
@@ -540,14 +619,23 @@ export class EnhancedInvestmentScoringService {
       }
     }
 
-    // Property Features (add rental value)
+    // Property Features 
     if (intelligence.pool) {
-      score += 2;
-      factors.push('Pool adds rental premium');
+      if (hasRentalFeatures) {
+        score += 2;
+        factors.push('Pool adds rental premium');
+      } else {
+        score += 1;
+        factors.push('Pool enhances lifestyle value');
+      }
     }
     if (intelligence.garageParkingSpaces && intelligence.garageParkingSpaces >= 2) {
       score += 1;
-      factors.push('Multiple parking spaces');
+      if (hasRentalFeatures) {
+        factors.push('Multiple parking spaces add rental value');
+      } else {
+        factors.push('Ample parking for homeowner');
+      }
     }
 
     return {
@@ -688,7 +776,7 @@ export class EnhancedInvestmentScoringService {
       });
 
       // Generate opportunities from keyInsights if not directly available
-      const opportunities = this.extractOpportunitiesFromInsights(aiAnalysis.keyInsights, intelligence);
+      const opportunities = this.extractOpportunitiesFromInsights(aiAnalysis.keyInsights, intelligence, property);
 
       return {
         confidence: 85, // Default confidence since PropertyInsights doesn't have confidence field
@@ -702,7 +790,7 @@ export class EnhancedInvestmentScoringService {
       
       // Generate fallback insights from BatchData intelligence
       const fallbackInsights = this.generateFallbackInsights(intelligence, scorePercentage);
-      const fallbackOpportunities = this.extractOpportunitiesFromInsights([], intelligence);
+      const fallbackOpportunities = this.extractOpportunitiesFromInsights([], intelligence, property);
       const fallbackRedFlags = this.generateFallbackRedFlags(property, intelligence);
       
       return {
@@ -938,21 +1026,36 @@ export class EnhancedInvestmentScoringService {
   /**
    * Extract opportunities from AI insights and BatchData intelligence
    */
-  private extractOpportunitiesFromInsights(insights: string[], intelligence: BatchDataIntelligence): string[] {
+  private extractOpportunitiesFromInsights(insights: string[], intelligence: BatchDataIntelligence, property?: Property): string[] {
     const opportunities: string[] = [];
+    
+    // Detect if property has rental features to determine messaging focus
+    const hasRentalFeatures = property ? this.hasRentalIncomeFeatures(property, intelligence) : false;
 
-    // Add BatchData-based opportunities
+    // Add BatchData-based opportunities with primary residence focus unless rental features detected
     if (intelligence.highEquity) {
-      opportunities.push('High equity position indicates seller flexibility for negotiation');
+      if (hasRentalFeatures) {
+        opportunities.push('High equity position indicates seller flexibility for negotiation');
+      } else {
+        opportunities.push('High equity position indicates seller flexibility for negotiating a great primary residence purchase');
+      }
     }
     if (intelligence.distressedProperty) {
       opportunities.push('Distressed property status may allow for below-market purchase');
     }
     if (intelligence.absenteeOwner) {
-      opportunities.push('Absentee owner may be motivated to sell quickly');
+      if (hasRentalFeatures) {
+        opportunities.push('Absentee owner may be motivated to sell quickly');
+      } else {
+        opportunities.push('Absentee owner may be motivated to sell quickly to a homeowner who will care for the property');
+      }
     }
     if (intelligence.cashBuyer) {
-      opportunities.push('Previous cash purchase suggests potential for creative financing');
+      if (hasRentalFeatures) {
+        opportunities.push('Previous cash purchase suggests potential for creative financing');
+      } else {
+        opportunities.push('Previous cash purchase indicates property quality and may suggest seller willingness to assist with financing');
+      }
     }
     if (intelligence.demandLevel === 'high' && intelligence.marketTrend === 'rising') {
       opportunities.push('Strong market demand with rising prices supports investment');
