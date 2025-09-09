@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Extract properties from response
-    const properties = searchResult.data?.results?.properties || 
-                      searchResult.data?.properties || 
-                      searchResult.data?.data?.properties || 
+    const properties = (searchResult.data as any)?.results?.properties || 
+                      (searchResult.data as any)?.properties || 
+                      (searchResult.data as any)?.data?.properties || 
                       [];
 
     if (properties.length === 0) {
