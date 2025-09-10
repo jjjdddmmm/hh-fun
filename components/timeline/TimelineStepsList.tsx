@@ -367,6 +367,7 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
     actualCost?: number;
     documents: File[];
     cloudinaryDocuments?: Array<{ url: string; publicId: string; fileName: string; fileSize: number }>;
+    supabaseDocuments?: Array<{ path: string; fileName: string; fileSize: number }>;
     completionSessionId: string;
   }) => {
     if (!completionModal.step) return;
@@ -404,6 +405,39 @@ export function TimelineStepsList({ timeline, onStepUpdate, onRefreshTimeline }:
             uploadedDocuments.push(savedDoc.document);
           } catch (error) {
             logger.error('Error saving Cloudinary document:', error);
+            throw error;
+          }
+        }
+      }
+      
+      // Handle Supabase documents (large files already uploaded)
+      if (data.supabaseDocuments && data.supabaseDocuments.length > 0) {
+        // Save the Supabase documents to database
+        for (const supabaseDoc of data.supabaseDocuments) {
+          try {
+            const saveResponse = await fetch('/api/timeline/documents/save-cloudinary', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                timelineId: timeline.id,
+                stepId: completionModal.step.id,
+                fileName: supabaseDoc.fileName,
+                downloadUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${supabaseDoc.path}`,
+                storageKey: supabaseDoc.path,
+                fileSize: supabaseDoc.fileSize,
+                completionSessionId: data.completionSessionId,
+                storageProvider: 'SUPABASE' // Add this to identify it's from Supabase
+              })
+            });
+            
+            if (!saveResponse.ok) {
+              throw new Error(`Failed to save Supabase document: ${supabaseDoc.fileName}`);
+            }
+            
+            const savedDoc = await saveResponse.json();
+            uploadedDocuments.push(savedDoc.document);
+          } catch (error) {
+            logger.error('Error saving Supabase document:', error);
             throw error;
           }
         }
