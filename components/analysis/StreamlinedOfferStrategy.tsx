@@ -170,8 +170,8 @@ export function StreamlinedOfferStrategy({ property }: StreamlinedOfferStrategyP
                       <div className="flex items-start">
                         <span className="text-[#5C1B10] mr-2 mt-0.5">•</span>
                         <span className="text-red-600 font-medium">
-                          {property.analysis?.redFlags?.length > 1 ? 
-                            `Multiple concerns identified (${property.analysis?.redFlags?.length} issues) - use as leverage for lower offer` :
+                          {(property.analysis?.redFlags?.length || 0) > 1 ? 
+                            `Multiple concerns identified (${property.analysis?.redFlags?.length || 0} issues) - use as leverage for lower offer` :
                             `One concern identified - factor into negotiation strategy`}
                         </span>
                       </div>
