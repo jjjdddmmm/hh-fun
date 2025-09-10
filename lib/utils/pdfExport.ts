@@ -27,20 +27,34 @@ export class PDFExportService {
         throw new Error(`Element with ID "${elementId}" not found`);
       }
 
-      // Create canvas from the element
+      // Scroll to top and ensure full content is visible
+      window.scrollTo(0, 0);
+      element.scrollTo(0, 0);
+      
+      // Wait a moment for any animations to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Create canvas from the element with better settings
       const canvas = await html2canvas(element, {
         scale: 2, // Higher resolution
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: null, // Preserve transparency/gradients
         logging: false,
-        width: element.scrollWidth,
-        height: element.scrollHeight
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+        scrollX: 0,
+        scrollY: 0,
+        ignoreElements: (node) => {
+          // Skip export button itself
+          return node.classList?.contains('export-button') || false;
+        }
       });
 
-      // Calculate dimensions
-      const imgWidth = format === 'a4' ? 210 : 216; // mm
-      const pageHeight = format === 'a4' ? 297 : 279; // mm
+      // Calculate dimensions with margins
+      const margin = 10; // mm margins
+      const imgWidth = (format === 'a4' ? 210 : 216) - (margin * 2); // mm
+      const pageHeight = (format === 'a4' ? 297 : 279) - (margin * 2); // mm
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
       // Create PDF
@@ -55,19 +69,20 @@ export class PDFExportService {
       
       if (imgHeight <= pageHeight) {
         // Single page
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
       } else {
         // Multiple pages
         let heightLeft = imgHeight;
-        let position = 0;
+        let position = margin;
         
         while (heightLeft >= 0) {
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
           heightLeft -= pageHeight;
           position -= pageHeight;
           
           if (heightLeft > 0) {
             pdf.addPage();
+            position = margin;
           }
         }
       }

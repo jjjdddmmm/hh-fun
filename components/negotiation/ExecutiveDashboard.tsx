@@ -144,6 +144,11 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         (issue.riskLevel === 'high' && issue.urgency === 'immediate')
       );
       
+      // Debug logging
+      console.log('All Issues:', allIssues.length);
+      console.log('Critical Issues:', criticalIssues.length);
+      console.log('Sample issue:', allIssues[0]);
+      
       const majorIssues = allIssues.filter((issue: any) => 
         issue.severity === 'major' && 
         issue.urgency !== 'immediate' && // Don't double count critical issues
@@ -361,7 +366,11 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
   return (
     <Card className="border-2 border-[#5C1B10] bg-gradient-to-br from-[#5C1B10] to-[#4A1508] text-white">
       <CardContent className="p-6">
-        <div id="executive-dashboard-export">
+        <div 
+          id="executive-dashboard-export" 
+          className="bg-gradient-to-br from-[#5C1B10] to-[#4A1508] text-white p-6 rounded-lg"
+          style={{ minHeight: 'fit-content' }}
+        >
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
@@ -375,7 +384,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
                 disabled={isExporting}
                 variant="secondary"
                 size="sm"
-                className="bg-white/10 text-white hover:bg-white/20 border-white/20"
+                className="export-button bg-white/10 text-white hover:bg-white/20 border-white/20"
               >
                 {isExporting ? (
                   <>
