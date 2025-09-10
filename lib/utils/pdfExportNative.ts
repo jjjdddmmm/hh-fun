@@ -225,7 +225,11 @@ export class NativePDFExportService {
           const itemHeight = 28;
           
           // Issue item background with subtle alternating colors
-          pdf.setFillColor(index % 2 === 0 ? 255, 255, 255 : 249, 250, 251);
+          if (index % 2 === 0) {
+            pdf.setFillColor(255, 255, 255);
+          } else {
+            pdf.setFillColor(249, 250, 251);
+          }
           pdf.setDrawColor(229, 231, 235);
           pdf.setLineWidth(0.3);
           pdf.rect(margin, currentY, contentWidth, itemHeight, 'DF');
@@ -282,7 +286,7 @@ export class NativePDFExportService {
         [202, 138, 4] // border-yellow-600
       );
 
-      // Add Claude branding section (like the app)
+      // Add negotiation strategy summary
       if (currentY > pageHeight - 80) {
         pdf.addPage();
         currentY = margin;
@@ -290,24 +294,25 @@ export class NativePDFExportService {
 
       currentY += 20;
       
-      // Claude recommendation box
+      // Strategic summary box
       pdf.setFillColor(248, 250, 252);
       pdf.setDrawColor(203, 213, 225);
       pdf.setLineWidth(0.5);
-      pdf.rect(margin, currentY, contentWidth, 30, 'DF');
+      pdf.rect(margin, currentY, contentWidth, 35, 'DF');
       
       pdf.setFontSize(12);
       pdf.setTextColor(...brandColor);
-      pdf.text('💡 My Recommendation', margin + 8, currentY + 12);
+      pdf.text('📋 Negotiation Strategy Summary', margin + 8, currentY + 12);
       
       pdf.setFontSize(10);
       pdf.setTextColor(...textColor);
       const totalHighPriority = criticalIssues.length + majorIssues.length;
       const totalHighValue = [...criticalIssues, ...majorIssues].reduce((sum, issue) => sum + issue.negotiationValue, 0);
-      pdf.text(`Lead with the ${totalHighPriority} high-priority issues above. These represent ${formatCurrency(totalHighValue)} in`, margin + 8, currentY + 20);
-      pdf.text('well-documented problems that require immediate attention.', margin + 8, currentY + 26);
+      pdf.text(`Focus on ${totalHighPriority} high-priority issues representing ${formatCurrency(totalHighValue)}`, margin + 8, currentY + 20);
+      pdf.text('in documented repair needs. These provide the strongest negotiation position.', margin + 8, currentY + 26);
+      pdf.text(`Your ${summary.negotiationStrength.level.toLowerCase().replace('_', ' ')} position supports a ${formatCurrency(summary.recommendedAsk)} ask.`, margin + 8, currentY + 32);
 
-      // Footer with app-style branding
+      // Clean professional footer
       const pageCount = pdf.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         pdf.setPage(i);
@@ -319,7 +324,7 @@ export class NativePDFExportService {
         pdf.setFontSize(8);
         pdf.setTextColor(...lightTextColor);
         pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 15, pageHeight - 5);
-        pdf.text(`🤖 Generated with Claude Code • ${new Date().toLocaleDateString()}`, margin, pageHeight - 5);
+        pdf.text(`Generated ${new Date().toLocaleDateString()}`, margin, pageHeight - 5);
       }
 
       // Save the PDF
