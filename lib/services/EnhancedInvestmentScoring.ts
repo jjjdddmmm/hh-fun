@@ -514,7 +514,7 @@ export class EnhancedInvestmentScoringService {
     }
     
     // ADU and rental unit indicators in description
-    const description = propertyData.description?.toLowerCase() || '';
+    const description = (propertyData as any).description?.toLowerCase() || '';
     const aduKeywords = [
       'adu', 'accessory dwelling', 'guest house', 'mother-in-law', 'mother in law',
       'separate unit', 'separate entrance', 'basement apartment', 'in-law suite',
