@@ -65,7 +65,8 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         filename,
         quality: 0.95,
         format: 'a4',
-        orientation: 'portrait'
+        orientation: 'portrait',
+        pageMode: 'single' // Use single long page to prevent cutoffs
       });
       
     } catch (error) {
