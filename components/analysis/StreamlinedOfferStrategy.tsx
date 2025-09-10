@@ -282,7 +282,7 @@ export function StreamlinedOfferStrategy({ property }: StreamlinedOfferStrategyP
                   <h4 className="text-sm font-medium text-[#5C1B10] mb-2">Recommended Approach:</h4>
                   <div className="text-sm text-[#020B0A]">
                     {(property.analysis.negotiationStrategy?.tactics?.length || 0) > 0 ? 
-                      property.analysis.negotiationStrategy.tactics.slice(0, 2).join('. ') + '.' :
+                      property.analysis.negotiationStrategy?.tactics?.slice(0, 2).join('. ') + '.' :
                       <span className="text-gray-500 italic animate-pulse">Generating negotiation strategy...</span>
                     }
                   </div>
