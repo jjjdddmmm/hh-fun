@@ -366,6 +366,7 @@ export function NegotiationWorkspace({
                     reportType={currentViewData.reportType}
                     selectedView={selectedView}
                     currentReport={currentViewData.report}
+                    prioritizedIssues={currentViewData.issues}
                   />
                 </TabsContent>
                 
