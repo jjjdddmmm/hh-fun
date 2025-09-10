@@ -83,7 +83,7 @@ export class NativePDFExportService {
       };
 
       // Create gradient-like header (simulate with multiple rectangles)
-      const headerHeight = 60;
+      const headerHeight = 70;
       for (let i = 0; i < headerHeight; i++) {
         const ratio = i / headerHeight;
         const r = brandColor[0] + (brandColorLight[0] - brandColor[0]) * ratio;
@@ -94,26 +94,27 @@ export class NativePDFExportService {
       }
       
       // Header content with app-like styling
-      pdf.setFontSize(20);
+      pdf.setFontSize(22);
       pdf.setTextColor(...white);
-      pdf.text('🎯 Negotiation Strategy', margin, 25);
+      pdf.text('🎯 Negotiation Strategy', margin, 28);
       
       pdf.setFontSize(14);
       pdf.setTextColor(255, 255, 255, 0.9);
-      pdf.text(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Inspection`, margin, 35);
+      pdf.text(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Inspection Analysis`, margin, 42);
       
-      // Recommended ask in header (like the app)
+      // Big recommended ask (more prominent like the app)
       const askText = formatCurrency(summary.recommendedAsk);
-      pdf.setFontSize(28);
+      pdf.setFontSize(36);
       pdf.setTextColor(...white);
       const askWidth = pdf.getTextWidth(askText);
-      pdf.text(askText, pageWidth - margin - askWidth, 35);
+      pdf.text(askText, pageWidth - margin - askWidth, 38);
       
-      pdf.setFontSize(10);
+      pdf.setFontSize(11);
       pdf.setTextColor(255, 255, 255, 0.8);
-      pdf.text('Recommended Ask', pageWidth - margin - askWidth, 45);
+      const labelWidth = pdf.getTextWidth('Recommended Ask');
+      pdf.text('Recommended Ask', pageWidth - margin - labelWidth, 52);
 
-      currentY = headerHeight + 20;
+      currentY = headerHeight + 25;
 
       // Executive Summary - Key Stats Grid (like the app)
       const cardHeight = 25;
@@ -182,47 +183,51 @@ export class NativePDFExportService {
         if (sectionIssues.length === 0) return;
 
         // Check if we need a new page
-        if (currentY > pageHeight - 80) {
+        if (currentY > pageHeight - 100) {
           pdf.addPage();
           currentY = margin;
         }
 
+        // Add spacing before section
+        currentY += 15;
+
         // Section header with colored background (like app cards)
-        const sectionHeaderHeight = 35;
+        const sectionHeaderHeight = 40;
         pdf.setFillColor(...bgColor);
         pdf.setDrawColor(...borderColor);
-        pdf.setLineWidth(0.8);
+        pdf.setLineWidth(1);
         pdf.rect(margin, currentY, contentWidth, sectionHeaderHeight, 'DF');
 
         // Section icon and title
         const icon = title.includes('Critical') ? '⚠️' : title.includes('Major') ? '🛡️' : '🕐';
-        pdf.setFontSize(14);
-        pdf.setTextColor(...textColor);
-        pdf.text(`${icon} ${title} (${sectionIssues.length})`, margin + 10, currentY + 15);
+        pdf.setFontSize(16);
+        pdf.setTextColor(...white);
+        pdf.text(`${icon} ${title} (${sectionIssues.length})`, margin + 12, currentY + 16);
 
-        // Section total (right aligned)
+        // Section total (right aligned) 
         const sectionTotal = sectionIssues.reduce((sum, issue) => sum + issue.negotiationValue, 0);
         const totalText = formatCurrency(sectionTotal);
         const totalWidth = pdf.getTextWidth(totalText);
-        pdf.setFontSize(16);
+        pdf.setFontSize(18);
         pdf.setTextColor(...white);
-        pdf.text(totalText, pageWidth - margin - totalWidth - 10, currentY + 15);
+        pdf.text(totalText, pageWidth - margin - totalWidth - 12, currentY + 16);
         
-        pdf.setFontSize(10);
-        pdf.setTextColor(...textColor);
-        pdf.text('Total Value', pageWidth - margin - totalWidth - 10, currentY + 25);
+        pdf.setFontSize(9);
+        pdf.setTextColor(...white);
+        const labelWidth = pdf.getTextWidth('Total');
+        pdf.text('Total', pageWidth - margin - labelWidth - 12, currentY + 28);
 
-        currentY += sectionHeaderHeight + 8;
+        currentY += sectionHeaderHeight + 5;
 
         // Issues list with better spacing
         sectionIssues.forEach((issue, index) => {
           // Check if we need a new page for this issue
-          if (currentY > pageHeight - 50) {
+          if (currentY > pageHeight - 60) {
             pdf.addPage();
             currentY = margin;
           }
 
-          const itemHeight = 28;
+          const itemHeight = 35;
           
           // Issue item background with subtle alternating colors
           if (index % 2 === 0) {
@@ -231,37 +236,37 @@ export class NativePDFExportService {
             pdf.setFillColor(249, 250, 251);
           }
           pdf.setDrawColor(229, 231, 235);
-          pdf.setLineWidth(0.3);
+          pdf.setLineWidth(0.5);
           pdf.rect(margin, currentY, contentWidth, itemHeight, 'DF');
 
-          // Issue category and location
-          pdf.setFontSize(11);
+          // Issue category and location (bold)
+          pdf.setFontSize(12);
           pdf.setTextColor(...textColor);
           const titleText = `${issue.category} - ${issue.location}`;
-          pdf.text(titleText, margin + 8, currentY + 10);
+          pdf.text(titleText, margin + 10, currentY + 12);
 
           // Issue value (right aligned, prominent)
           const valueText = formatCurrency(issue.negotiationValue);
           const valueWidth = pdf.getTextWidth(valueText);
-          pdf.setFontSize(12);
+          pdf.setFontSize(14);
           pdf.setTextColor(...brandColor);
-          pdf.text(valueText, pageWidth - margin - valueWidth - 8, currentY + 10);
+          pdf.text(valueText, pageWidth - margin - valueWidth - 10, currentY + 12);
 
           // Confidence (right aligned, below value)
           const confText = `${Math.round((issue.confidence || 0.75) * 100)}% conf.`;
           const confWidth = pdf.getTextWidth(confText);
           pdf.setFontSize(9);
           pdf.setTextColor(...lightTextColor);
-          pdf.text(confText, pageWidth - margin - confWidth - 8, currentY + 20);
+          pdf.text(confText, pageWidth - margin - confWidth - 10, currentY + 24);
 
-          // Issue description (wraps properly)
-          pdf.setFontSize(9);
+          // Issue description (wraps properly with more space)
+          pdf.setFontSize(10);
           pdf.setTextColor(...lightTextColor);
-          const descWidth = contentWidth - valueWidth - 30;
+          const descWidth = contentWidth - valueWidth - 40;
           const descLines = pdf.splitTextToSize(issue.description, descWidth);
-          pdf.text(descLines[0] || '', margin + 8, currentY + 20);
+          pdf.text(descLines[0] || '', margin + 10, currentY + 24);
           
-          currentY += itemHeight + 2;
+          currentY += itemHeight + 3;
         });
 
         currentY += 15;
@@ -286,31 +291,36 @@ export class NativePDFExportService {
         [202, 138, 4] // border-yellow-600
       );
 
-      // Add negotiation strategy summary
-      if (currentY > pageHeight - 80) {
+      // Add negotiation strategy summary with better styling
+      if (currentY > pageHeight - 100) {
         pdf.addPage();
         currentY = margin;
       }
 
-      currentY += 20;
+      currentY += 25;
       
-      // Strategic summary box
+      // Strategic summary box with app-like styling
       pdf.setFillColor(248, 250, 252);
       pdf.setDrawColor(203, 213, 225);
-      pdf.setLineWidth(0.5);
-      pdf.rect(margin, currentY, contentWidth, 35, 'DF');
+      pdf.setLineWidth(1);
+      pdf.rect(margin, currentY, contentWidth, 50, 'DF');
       
-      pdf.setFontSize(12);
+      pdf.setFontSize(14);
       pdf.setTextColor(...brandColor);
-      pdf.text('📋 Negotiation Strategy Summary', margin + 8, currentY + 12);
+      pdf.text('💡 Strategic Recommendation', margin + 12, currentY + 16);
       
-      pdf.setFontSize(10);
+      pdf.setFontSize(11);
       pdf.setTextColor(...textColor);
       const totalHighPriority = criticalIssues.length + majorIssues.length;
       const totalHighValue = [...criticalIssues, ...majorIssues].reduce((sum, issue) => sum + issue.negotiationValue, 0);
-      pdf.text(`Focus on ${totalHighPriority} high-priority issues representing ${formatCurrency(totalHighValue)}`, margin + 8, currentY + 20);
-      pdf.text('in documented repair needs. These provide the strongest negotiation position.', margin + 8, currentY + 26);
-      pdf.text(`Your ${summary.negotiationStrength.level.toLowerCase().replace('_', ' ')} position supports a ${formatCurrency(summary.recommendedAsk)} ask.`, margin + 8, currentY + 32);
+      
+      const line1 = `Lead with the ${totalHighPriority} high-priority issues above. These represent ${formatCurrency(totalHighValue)} in`;
+      const line2 = 'well-documented problems that require immediate attention and provide the strongest';
+      const line3 = `negotiation position. Your ${summary.negotiationStrength.level.toLowerCase().replace('_', ' ')} position supports this ${formatCurrency(summary.recommendedAsk)} ask.`;
+      
+      pdf.text(line1, margin + 12, currentY + 26);
+      pdf.text(line2, margin + 12, currentY + 34);
+      pdf.text(line3, margin + 12, currentY + 42);
 
       // Clean professional footer
       const pageCount = pdf.getNumberOfPages();
