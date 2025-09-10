@@ -244,7 +244,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
       const detailedAnalysis = report?.detailedAnalysis;
       
       
-      // Get specific insights from Claude's actual analysis
+      // Get specific insights from Claude&apos;s actual analysis
       const specificIssues = detailedAnalysis?.issues || [];
       const highConfidenceIssues = specificIssues.filter((issue: any) => issue.confidence > 0.8);
       const mostExpensiveIssue = specificIssues.reduce((max: any, issue: any) => 
@@ -511,7 +511,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
           </div>
         </div>
 
-        {/* Claude's Natural Language Insights */}
+        {/* Claude&apos;s Natural Language Insights */}
         <div className="mt-8 bg-white/10 rounded-lg p-6">
           <h3 className="font-semibold mb-4 text-white flex items-center gap-2">
             <Target className="h-5 w-5" />
