@@ -96,6 +96,17 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         allIssues.push(...report.detailedAnalysis.issues);
       }
 
+      // Debug logging
+      console.log('ExecutiveDashboard Debug:', {
+        reportType: typeof report,
+        isArray: Array.isArray(report),
+        reportCount: Array.isArray(report) ? report.length : 1,
+        firstReport: Array.isArray(report) ? report[0] : report,
+        hasDetailedAnalysis: Array.isArray(report) ? report[0]?.detailedAnalysis : report?.detailedAnalysis,
+        issuesCount: allIssues.length,
+        allIssues: allIssues.slice(0, 3) // First 3 for debugging
+      });
+
       // Group issues by severity
       const criticalIssues = allIssues.filter((issue: any) => issue.severity === 'critical');
       const majorIssues = allIssues.filter((issue: any) => issue.severity === 'major');  

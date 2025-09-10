@@ -120,6 +120,8 @@ export function NegotiationStrategy({
       <ExecutiveDashboard 
         summary={executiveSummary} 
         reportType={reportType}
+        selectedView="consolidated"
+        currentReport={reports}
       />
 
       {/* Feature 2: Issue Prioritization Matrix */}
