@@ -103,12 +103,26 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
       }
 
 
-      // Group issues by severity - check for multiple possible critical values
+      // Group issues by severity - use combination of severity and urgency
       const criticalIssues = allIssues.filter((issue: any) => 
-        issue.severity === 'critical' || issue.severity === 'safety' || issue.severity === 'urgent'
+        issue.severity === 'critical' || 
+        issue.severity === 'safety' || 
+        issue.severity === 'urgent' ||
+        (issue.severity === 'major' && issue.urgency === 'immediate') ||
+        (issue.riskLevel === 'high' && issue.urgency === 'immediate')
       );
-      const majorIssues = allIssues.filter((issue: any) => issue.severity === 'major');  
-      const minorIssues = allIssues.filter((issue: any) => issue.severity === 'minor');
+      
+      const majorIssues = allIssues.filter((issue: any) => 
+        issue.severity === 'major' && 
+        issue.urgency !== 'immediate' && // Don't double count critical issues
+        issue.riskLevel !== 'high' // Don't double count high risk issues
+      );
+      
+      const minorIssues = allIssues.filter((issue: any) => 
+        (issue.severity === 'minor' || issue.severity === 'cosmetic') &&
+        !majorIssues.some((major: any) => major.id === issue.id) && // Don't double count
+        !criticalIssues.some((critical: any) => critical.id === issue.id) // Don't double count
+      );
 
       const renderIssueList = (issues: any[], title: string, bgColor: string, textColor: string) => {
         if (issues.length === 0) return null;
@@ -217,10 +231,26 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         );
       }
 
-      // Group issues by severity for single report view
-      const criticalIssues = specificIssues.filter((issue: any) => issue.severity === 'critical');
-      const majorIssues = specificIssues.filter((issue: any) => issue.severity === 'major');  
-      const minorIssues = specificIssues.filter((issue: any) => issue.severity === 'minor');
+      // Group issues by severity for single report view - use combination of severity and urgency
+      const criticalIssues = specificIssues.filter((issue: any) => 
+        issue.severity === 'critical' || 
+        issue.severity === 'safety' || 
+        issue.severity === 'urgent' ||
+        (issue.severity === 'major' && issue.urgency === 'immediate') ||
+        (issue.riskLevel === 'high' && issue.urgency === 'immediate')
+      );
+      
+      const majorIssues = specificIssues.filter((issue: any) => 
+        issue.severity === 'major' && 
+        issue.urgency !== 'immediate' && // Don't double count critical issues
+        issue.riskLevel !== 'high' // Don't double count high risk issues
+      );
+      
+      const minorIssues = specificIssues.filter((issue: any) => 
+        (issue.severity === 'minor' || issue.severity === 'cosmetic') &&
+        !majorIssues.some((major: any) => major.id === issue.id) && // Don't double count
+        !criticalIssues.some((critical: any) => critical.id === issue.id) // Don't double count
+      );
 
       const renderIssueList = (issues: any[], title: string, bgColor: string, textColor: string) => {
         if (issues.length === 0) return null;
