@@ -39,9 +39,10 @@ interface ExecutiveDashboardProps {
   reportType: string | 'multiple';
   selectedView?: string;
   currentReport?: any;
+  prioritizedIssues?: any[]; // Add direct issues prop
 }
 
-export function ExecutiveDashboard({ summary, reportType, selectedView = 'consolidated', currentReport }: ExecutiveDashboardProps) {
+export function ExecutiveDashboard({ summary, reportType, selectedView = 'consolidated', currentReport, prioritizedIssues }: ExecutiveDashboardProps) {
   const getStrengthColor = (strength: NegotiationStrength['level']) => {
     switch (strength) {
       case 'VERY_STRONG':
@@ -82,38 +83,25 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
 
   const getClaudeInsights = (view: string, report: any, summary: ExecutiveSummary, type: string) => {
     if (view === 'consolidated') {
-      // For consolidated view, show all issues from all reports
-      const allIssues: any[] = [];
+      // For consolidated view, use prioritizedIssues if available, otherwise fall back to currentReport
+      let allIssues: any[] = [];
       
-      // If we have multiple reports, collect all issues
-      if (Array.isArray(report)) {
-        report.forEach(r => {
-          if (r?.detailedAnalysis?.issues) {
-            allIssues.push(...r.detailedAnalysis.issues);
-          }
-        });
-      } else if (report?.detailedAnalysis?.issues) {
-        allIssues.push(...report.detailedAnalysis.issues);
+      if (prioritizedIssues && prioritizedIssues.length > 0) {
+        // Use the prioritized issues directly - this is the working data source
+        allIssues = prioritizedIssues;
+      } else {
+        // Fallback to the currentReport approach (legacy)
+        if (Array.isArray(report)) {
+          report.forEach(r => {
+            if (r?.detailedAnalysis?.issues) {
+              allIssues.push(...r.detailedAnalysis.issues);
+            }
+          });
+        } else if (report?.detailedAnalysis?.issues) {
+          allIssues.push(...report.detailedAnalysis.issues);
+        }
       }
 
-      // Debug logging
-      console.log('ExecutiveDashboard Debug:', {
-        reportType: typeof report,
-        isArray: Array.isArray(report),
-        reportCount: Array.isArray(report) ? report.length : 1,
-        firstReport: Array.isArray(report) ? report[0] : report,
-        hasDetailedAnalysis: Array.isArray(report) ? report[0]?.detailedAnalysis : report?.detailedAnalysis,
-        issuesCount: allIssues.length,
-        allIssues: allIssues.slice(0, 3) // First 3 for debugging
-      });
-
-      // Debug severity values
-      const severityCount: Record<string, number> = {};
-      allIssues.forEach(issue => {
-        const severity = issue.severity || 'undefined';
-        severityCount[severity] = (severityCount[severity] || 0) + 1;
-      });
-      console.log('Severity breakdown:', severityCount);
 
       // Group issues by severity - check for multiple possible critical values
       const criticalIssues = allIssues.filter((issue: any) => 

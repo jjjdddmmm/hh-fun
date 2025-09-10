@@ -49,14 +49,6 @@ export function NegotiationStrategy({
 
   // Transform raw issues into prioritized negotiation data
   useEffect(() => {
-    console.log('NegotiationStrategy: reports data', {
-      reportsLength: reports.length,
-      reports: reports,
-      firstReport: reports[0],
-      hasDetailedAnalysis: reports[0]?.detailedAnalysis,
-      hasIssues: reports[0]?.issues
-    });
-
     const allRawIssues = reports.flatMap(r => r.issues || []);
     
     if (allRawIssues.length > 0) {
@@ -104,13 +96,6 @@ export function NegotiationStrategy({
 
   // Show loading state while data is being processed
   if (!executiveSummary || prioritizedIssues.length === 0) {
-    console.log('NegotiationStrategy: Loading state', {
-      hasExecutiveSummary: !!executiveSummary,
-      prioritizedIssuesLength: prioritizedIssues.length,
-      reportsLength: reports.length,
-      reportsWithIssues: reports.filter(r => r.issues && r.issues.length > 0).length
-    });
-    
     return (
       <Card>
         <CardContent className="p-12">
@@ -137,17 +122,10 @@ export function NegotiationStrategy({
         reportType={reportType}
         selectedView="consolidated"
         currentReport={reports.filter(r => r.analysisStatus === 'complete')}
+        prioritizedIssues={prioritizedIssues}
       />
 
       {/* Feature 2: Issue Prioritization Matrix */}
-      {console.log('Passing to IssuePrioritization:', {
-        issuesCount: prioritizedIssues.length,
-        severityBreakdown: prioritizedIssues.reduce((acc: any, issue: any) => {
-          acc[issue.severity || 'undefined'] = (acc[issue.severity || 'undefined'] || 0) + 1;
-          return acc;
-        }, {}),
-        firstFewIssues: prioritizedIssues.slice(0, 3)
-      })}
       <IssuePrioritization 
         issues={prioritizedIssues}
         onIssueToggle={handleIssueToggle}
