@@ -31,7 +31,40 @@ export async function POST(request: NextRequest) {
     let fileBuffer: Buffer;
     let documentName: string;
     
-    if (cloudinaryUrl) {
+    // Check if this is a Supabase URL
+    const isSupabaseUrl = cloudinaryUrl?.includes('supabase.co/storage/v1/object/public/');
+    
+    if (cloudinaryUrl && isSupabaseUrl) {
+      // Handle Supabase URL - direct download from public URL
+      logger.debug('Attempting to download from Supabase', {
+        url: cloudinaryUrl,
+        fileName: fileName
+      });
+      
+      try {
+        const response = await fetch(cloudinaryUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        fileBuffer = Buffer.from(await response.arrayBuffer());
+        documentName = fileName || 'document.pdf';
+        
+        logger.debug('Successfully downloaded from Supabase', {
+          size: fileBuffer.length,
+          fileName: documentName
+        });
+      } catch (error) {
+        logger.error('Error downloading from Supabase:', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          url: cloudinaryUrl
+        });
+        return NextResponse.json({ 
+          error: `Failed to download document from Supabase: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        }, { status: 400 });
+      }
+    } else if (cloudinaryUrl) {
       // Handle Cloudinary URL - download with proper headers
       logger.debug('Attempting to download from Cloudinary', {
         url: cloudinaryUrl,
