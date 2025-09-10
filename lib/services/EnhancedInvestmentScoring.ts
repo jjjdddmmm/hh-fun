@@ -504,11 +504,12 @@ export class EnhancedInvestmentScoringService {
   private hasRentalIncomeFeatures(property: Property, intelligence: BatchDataIntelligence): boolean {
     const propertyData = property.data || property;
     
-    // Multi-family properties
-    if (propertyData.propertyType?.toLowerCase().includes('multi') || 
-        propertyData.propertyType?.toLowerCase().includes('duplex') ||
-        propertyData.propertyType?.toLowerCase().includes('triplex') ||
-        propertyData.propertyType?.toLowerCase().includes('fourplex')) {
+    // Multi-family properties (check if propertyType exists first)
+    const propertyType = (propertyData as any).propertyType?.toLowerCase() || '';
+    if (propertyType.includes('multi') || 
+        propertyType.includes('duplex') ||
+        propertyType.includes('triplex') ||
+        propertyType.includes('fourplex')) {
       return true;
     }
     
