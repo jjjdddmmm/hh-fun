@@ -410,8 +410,8 @@ Property Analysis Request:
     
     // Dynamic market context
     const marketContext = [];
-    if (data.daysOnZillow > 90) marketContext.push('Stale listing indicates motivated seller');
-    if (data.daysOnZillow < 14) marketContext.push('Fresh listing in competitive market');
+    if ((data.daysOnZillow || 0) > 90) marketContext.push('Stale listing indicates motivated seller');
+    if ((data.daysOnZillow || 0) < 14) marketContext.push('Fresh listing in competitive market');
     if (pricePerSqft > 500) marketContext.push('Premium market segment');
     if (propertyAge < 5) marketContext.push('New construction advantages');
     if (propertyAge > 60) marketContext.push('Historic character with potential updates needed');
