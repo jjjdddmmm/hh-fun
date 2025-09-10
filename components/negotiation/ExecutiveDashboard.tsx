@@ -107,8 +107,18 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         allIssues: allIssues.slice(0, 3) // First 3 for debugging
       });
 
-      // Group issues by severity
-      const criticalIssues = allIssues.filter((issue: any) => issue.severity === 'critical');
+      // Debug severity values
+      const severityCount: Record<string, number> = {};
+      allIssues.forEach(issue => {
+        const severity = issue.severity || 'undefined';
+        severityCount[severity] = (severityCount[severity] || 0) + 1;
+      });
+      console.log('Severity breakdown:', severityCount);
+
+      // Group issues by severity - check for multiple possible critical values
+      const criticalIssues = allIssues.filter((issue: any) => 
+        issue.severity === 'critical' || issue.severity === 'safety' || issue.severity === 'urgent'
+      );
       const majorIssues = allIssues.filter((issue: any) => issue.severity === 'major');  
       const minorIssues = allIssues.filter((issue: any) => issue.severity === 'minor');
 
