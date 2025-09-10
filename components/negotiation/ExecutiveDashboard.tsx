@@ -145,11 +145,6 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         (issue.riskLevel === 'high' && issue.urgency === 'immediate')
       );
       
-      // Debug logging
-      console.log('All Issues:', allIssues.length);
-      console.log('Critical Issues:', criticalIssues.length);
-      console.log('Sample issue:', allIssues[0]);
-      
       const majorIssues = allIssues.filter((issue: any) => 
         issue.severity === 'major' && 
         issue.urgency !== 'immediate' && // Don't double count critical issues
@@ -189,7 +184,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
                       {formatCurrency(issue.negotiationValue)}
                     </p>
                     <p className="text-xs text-white/60">
-                      {Math.round(issue.confidence * 100)}% conf.
+                      {Math.round((issue.confidence || 0.75) * 100)}% conf.
                     </p>
                   </div>
                 </div>
@@ -317,7 +312,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
                       {formatCurrency(issue.negotiationValue)}
                     </p>
                     <p className="text-xs text-white/60">
-                      {Math.round(issue.confidence * 100)}% conf.
+                      {Math.round((issue.confidence || 0.75) * 100)}% conf.
                     </p>
                   </div>
                 </div>
