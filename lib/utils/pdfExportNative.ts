@@ -48,7 +48,7 @@ export class NativePDFExportService {
       // Helper function to add text with automatic page breaks
       const addText = (text: string, x: number, y: number, fontSize: number = 12, color: number[] = textColor, maxWidth?: number) => {
         pdf.setFontSize(fontSize);
-        pdf.setTextColor(...color);
+        pdf.setTextColor(color[0], color[1], color[2]);
         
         if (maxWidth && pdf.getTextWidth(text) > maxWidth) {
           const lines = pdf.splitTextToSize(text, maxWidth);
@@ -95,7 +95,7 @@ export class NativePDFExportService {
       
       // Header content with app-like styling
       pdf.setFontSize(22);
-      pdf.setTextColor(...white);
+      pdf.setTextColor(white[0], white[1], white[2]);
       pdf.text('🎯 Negotiation Strategy', margin, 28);
       
       pdf.setFontSize(14);
@@ -105,7 +105,7 @@ export class NativePDFExportService {
       // Big recommended ask (more prominent like the app)
       const askText = formatCurrency(summary.recommendedAsk);
       pdf.setFontSize(36);
-      pdf.setTextColor(...white);
+      pdf.setTextColor(white[0], white[1], white[2]);
       const askWidth = pdf.getTextWidth(askText);
       pdf.text(askText, pageWidth - margin - askWidth, 38);
       
@@ -127,10 +127,10 @@ export class NativePDFExportService {
       pdf.rect(margin, currentY, cardWidth, cardHeight, 'DF');
       
       pdf.setFontSize(12);
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.text('Negotiation Strength', margin + 5, currentY + 8);
       pdf.setFontSize(16);
-      pdf.setTextColor(...brandColor);
+      pdf.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
       pdf.text(summary.negotiationStrength.level.replace('_', ' '), margin + 5, currentY + 18);
       
       // Card 2: Success Rate  
@@ -138,10 +138,10 @@ export class NativePDFExportService {
       pdf.rect(margin + cardWidth + 10, currentY, cardWidth, cardHeight, 'DF');
       
       pdf.setFontSize(12);
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.text('Success Rate', margin + cardWidth + 15, currentY + 8);
       pdf.setFontSize(16);
-      pdf.setTextColor(...brandColor);
+      pdf.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
       pdf.text(`${summary.successRate}%`, margin + cardWidth + 15, currentY + 18);
       
       // Card 3: Total Issues
@@ -149,10 +149,10 @@ export class NativePDFExportService {
       pdf.rect(margin + (cardWidth + 10) * 2, currentY, cardWidth, cardHeight, 'DF');
       
       pdf.setFontSize(12);
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       pdf.text('Total Issues', margin + (cardWidth + 10) * 2 + 5, currentY + 8);
       pdf.setFontSize(16);
-      pdf.setTextColor(...brandColor);
+      pdf.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
       pdf.text(`${issues.length}`, margin + (cardWidth + 10) * 2 + 5, currentY + 18);
 
       currentY += cardHeight + 25;
@@ -193,15 +193,15 @@ export class NativePDFExportService {
 
         // Section header with colored background (like app cards)
         const sectionHeaderHeight = 40;
-        pdf.setFillColor(...bgColor);
-        pdf.setDrawColor(...borderColor);
+        pdf.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        pdf.setDrawColor(borderColor[0], borderColor[1], borderColor[2]);
         pdf.setLineWidth(1);
         pdf.rect(margin, currentY, contentWidth, sectionHeaderHeight, 'DF');
 
         // Section icon and title
         const icon = title.includes('Critical') ? '⚠️' : title.includes('Major') ? '🛡️' : '🕐';
         pdf.setFontSize(16);
-        pdf.setTextColor(...white);
+        pdf.setTextColor(white[0], white[1], white[2]);
         pdf.text(`${icon} ${title} (${sectionIssues.length})`, margin + 12, currentY + 16);
 
         // Section total (right aligned) 
@@ -209,11 +209,11 @@ export class NativePDFExportService {
         const totalText = formatCurrency(sectionTotal);
         const totalWidth = pdf.getTextWidth(totalText);
         pdf.setFontSize(18);
-        pdf.setTextColor(...white);
+        pdf.setTextColor(white[0], white[1], white[2]);
         pdf.text(totalText, pageWidth - margin - totalWidth - 12, currentY + 16);
         
         pdf.setFontSize(9);
-        pdf.setTextColor(...white);
+        pdf.setTextColor(white[0], white[1], white[2]);
         const labelWidth = pdf.getTextWidth('Total');
         pdf.text('Total', pageWidth - margin - labelWidth - 12, currentY + 28);
 
@@ -241,7 +241,7 @@ export class NativePDFExportService {
 
           // Issue category and location (bold)
           pdf.setFontSize(12);
-          pdf.setTextColor(...textColor);
+          pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
           const titleText = `${issue.category} - ${issue.location}`;
           pdf.text(titleText, margin + 10, currentY + 12);
 
@@ -249,19 +249,19 @@ export class NativePDFExportService {
           const valueText = formatCurrency(issue.negotiationValue);
           const valueWidth = pdf.getTextWidth(valueText);
           pdf.setFontSize(14);
-          pdf.setTextColor(...brandColor);
+          pdf.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
           pdf.text(valueText, pageWidth - margin - valueWidth - 10, currentY + 12);
 
           // Confidence (right aligned, below value)
           const confText = `${Math.round((issue.confidence || 0.75) * 100)}% conf.`;
           const confWidth = pdf.getTextWidth(confText);
           pdf.setFontSize(9);
-          pdf.setTextColor(...lightTextColor);
+          pdf.setTextColor(lightTextColor[0], lightTextColor[1], lightTextColor[2]);
           pdf.text(confText, pageWidth - margin - confWidth - 10, currentY + 24);
 
           // Issue description (wraps properly with more space)
           pdf.setFontSize(10);
-          pdf.setTextColor(...lightTextColor);
+          pdf.setTextColor(lightTextColor[0], lightTextColor[1], lightTextColor[2]);
           const descWidth = contentWidth - valueWidth - 40;
           const descLines = pdf.splitTextToSize(issue.description, descWidth);
           pdf.text(descLines[0] || '', margin + 10, currentY + 24);
@@ -306,11 +306,11 @@ export class NativePDFExportService {
       pdf.rect(margin, currentY, contentWidth, 50, 'DF');
       
       pdf.setFontSize(14);
-      pdf.setTextColor(...brandColor);
+      pdf.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
       pdf.text('💡 Strategic Recommendation', margin + 12, currentY + 16);
       
       pdf.setFontSize(11);
-      pdf.setTextColor(...textColor);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
       const totalHighPriority = criticalIssues.length + majorIssues.length;
       const totalHighValue = [...criticalIssues, ...majorIssues].reduce((sum, issue) => sum + issue.negotiationValue, 0);
       
@@ -332,7 +332,7 @@ export class NativePDFExportService {
         pdf.rect(0, pageHeight - 15, pageWidth, 15, 'F');
         
         pdf.setFontSize(8);
-        pdf.setTextColor(...lightTextColor);
+        pdf.setTextColor(lightTextColor[0], lightTextColor[1], lightTextColor[2]);
         pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 15, pageHeight - 5);
         pdf.text(`Generated ${new Date().toLocaleDateString()}`, margin, pageHeight - 5);
       }
