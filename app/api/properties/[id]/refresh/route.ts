@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/utils/logger";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function POST(
   request: NextRequest,
@@ -54,7 +55,7 @@ export async function POST(
           // Clear core BatchData fields to force re-fetch
           estimatedValue: null,
           daysOnMarket: null,
-          quickLists: null,
+          quickLists: Prisma.JsonNull,
           estimatedRent: null,
           lastSalePrice: null,
           lastSaleDate: null,
@@ -75,10 +76,10 @@ export async function POST(
           fixAndFlipPotential: null,
           rentToValueRatio: null,
           capRate: null,
-          buildingFeatures: null,
-          neighborhoodData: null,
-          priceHistory: null,
-          marketAnalytics: null,
+          buildingFeatures: Prisma.JsonNull,
+          neighborhoodData: Prisma.JsonNull,
+          priceHistory: Prisma.JsonNull,
+          marketAnalytics: Prisma.JsonNull,
           batchDataLastUpdated: null,
           // Also clear property details that might have wrong data
           yearBuilt: null,
