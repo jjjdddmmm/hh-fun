@@ -191,14 +191,10 @@ export class PropertyAIAnalyzer {
       logger.debug('🔍 Zipcode extraction debug:', {
         address: propertyData.address,
         zipcode: propertyData.zipcode,
-        zipCode: propertyData.zipCode,
-        zip: propertyData.zip,
         regexMatch: propertyData.address?.match(/\b\d{5}(?:-\d{4})?\b/)?.[0]
       });
       
       const zipcode = propertyData.zipcode || 
-                     propertyData.zipCode || 
-                     propertyData.zip ||
                      propertyData.address?.match(/\b\d{5}(?:-\d{4})?\b/)?.[0]?.slice(0, 5) || 
                      '90210';
       
