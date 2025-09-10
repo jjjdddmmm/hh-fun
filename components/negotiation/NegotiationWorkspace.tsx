@@ -320,10 +320,6 @@ export function NegotiationWorkspace({
                 <p className="text-xs text-white/70">Recommended Ask</p>
                 <p className="text-2xl font-bold">{formatCurrency(executiveSummary?.recommendedAsk || totalEstimatedCredits)}</p>
               </div>
-              <Button variant="secondary" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
             </div>
           </div>
         </CardHeader>

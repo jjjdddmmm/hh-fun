@@ -2,14 +2,19 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   Target, 
   TrendingUp, 
   AlertTriangle,
   CheckCircle,
   Shield,
-  Clock
+  Clock,
+  Download,
+  Loader2
 } from "lucide-react";
+import { PDFExportService } from "@/lib/utils/pdfExport";
+import { useState } from "react";
 
 export interface NegotiationStrength {
   level: 'WEAK' | 'MODERATE' | 'STRONG' | 'VERY_STRONG';
@@ -43,6 +48,33 @@ interface ExecutiveDashboardProps {
 }
 
 export function ExecutiveDashboard({ summary, reportType, selectedView = 'consolidated', currentReport, prioritizedIssues }: ExecutiveDashboardProps) {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handlePDFExport = async () => {
+    try {
+      setIsExporting(true);
+      
+      // Determine filename based on view type
+      const baseFilename = selectedView === 'consolidated' 
+        ? 'consolidated-negotiation-strategy' 
+        : `${reportType}-inspection-strategy`;
+      
+      const filename = `${baseFilename}-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      await PDFExportService.exportElementToPDF('executive-dashboard-export', {
+        filename,
+        quality: 0.95,
+        format: 'a4',
+        orientation: 'portrait'
+      });
+      
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const getStrengthColor = (strength: NegotiationStrength['level']) => {
     switch (strength) {
       case 'VERY_STRONG':
@@ -329,13 +361,35 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
   return (
     <Card className="border-2 border-[#5C1B10] bg-gradient-to-br from-[#5C1B10] to-[#4A1508] text-white">
       <CardContent className="p-6">
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Target className="h-6 w-6" />
-            <h2 className="text-2xl font-bold">
-              Negotiation Strategy: {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Inspection
-            </h2>
-          </div>
+        <div id="executive-dashboard-export">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <Target className="h-6 w-6" />
+                <h2 className="text-2xl font-bold">
+                  Negotiation Strategy: {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Inspection
+                </h2>
+              </div>
+              <Button
+                onClick={handlePDFExport}
+                disabled={isExporting}
+                variant="secondary"
+                size="sm"
+                className="bg-white/10 text-white hover:bg-white/20 border-white/20"
+              >
+                {isExporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export PDF
+                  </>
+                )}
+              </Button>
+            </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             {/* Left Column - Key Numbers */}
@@ -451,6 +505,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
           <div className="prose prose-invert text-white/90 text-sm leading-relaxed space-y-4">
             {getClaudeInsights(selectedView, currentReport, summary, reportType)}
           </div>
+        </div>
         </div>
       </CardContent>
     </Card>
