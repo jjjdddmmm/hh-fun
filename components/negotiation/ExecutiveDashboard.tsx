@@ -14,6 +14,7 @@ import {
   Loader2
 } from "lucide-react";
 import { PDFExportService } from "@/lib/utils/pdfExport";
+import { NativePDFExportService } from "@/lib/utils/pdfExportNative";
 import { useState } from "react";
 
 export interface NegotiationStrength {
@@ -61,13 +62,22 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
       
       const filename = `${baseFilename}-${new Date().toISOString().split('T')[0]}.pdf`;
       
-      await PDFExportService.exportElementToPDF('executive-dashboard-export', {
-        filename,
-        quality: 0.95,
-        format: 'a4',
-        orientation: 'portrait',
-        pageMode: 'single' // Use single long page to prevent cutoffs
-      });
+      // Get the issues for the current view
+      let currentIssues: any[] = [];
+      if (selectedView === 'consolidated') {
+        currentIssues = prioritizedIssues || [];
+      } else {
+        // For single report view, get issues from currentReport
+        currentIssues = currentReport?.detailedAnalysis?.issues || currentReport?.issues || [];
+      }
+      
+      // Use native PDF export for clean formatting
+      await NativePDFExportService.exportNegotiationStrategy(
+        summary,
+        currentIssues,
+        reportType,
+        { filename, format: 'a4', orientation: 'portrait' }
+      );
       
     } catch (error) {
       console.error('Export failed:', error);
