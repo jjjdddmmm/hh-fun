@@ -40,16 +40,20 @@ export class PDFExportService {
         #executive-dashboard-export {
           font-size: 14px !important;
           line-height: 1.5 !important;
-          width: 800px !important;
+          width: 750px !important;
           max-width: none !important;
           margin: 0 !important;
-          padding: 20px !important;
+          padding: 25px !important;
           box-sizing: border-box !important;
+          overflow: visible !important;
         }
         #executive-dashboard-export * {
           word-wrap: break-word !important;
           word-break: break-word !important;
           white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
+          max-width: 100% !important;
         }
         #executive-dashboard-export h1,
         #executive-dashboard-export h2,
@@ -108,6 +112,31 @@ export class PDFExportService {
           display: block !important;
           white-space: normal !important;
         }
+        /* Force issue descriptions to wrap properly */
+        #executive-dashboard-export .flex-1 {
+          min-width: 0 !important;
+          flex: none !important;
+          width: 100% !important;
+        }
+        #executive-dashboard-export .justify-between {
+          display: block !important;
+        }
+        #executive-dashboard-export .items-start {
+          align-items: stretch !important;
+        }
+        /* Ensure all text containers have full width */
+        #executive-dashboard-export .min-w-0 {
+          min-width: 100% !important;
+          width: 100% !important;
+        }
+        /* Force break long words in descriptions */
+        #executive-dashboard-export p,
+        #executive-dashboard-export .text-xs,
+        #executive-dashboard-export .text-sm {
+          hyphens: auto !important;
+          word-break: break-all !important;
+          overflow-wrap: break-word !important;
+        }
       `;
       document.head.appendChild(pdfStyleSheet);
       
@@ -116,16 +145,17 @@ export class PDFExportService {
 
       // Create canvas from the element with optimized settings
       const canvas = await html2canvas(element, {
-        scale: 2, // Reduced for smaller file size while maintaining quality
+        scale: 2.5, // Higher scale for better text rendering
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#5C1B10', // Solid background instead of gradient for smaller file
         logging: false,
-        width: 800,
+        width: 750, // Match our CSS width
         height: element.scrollHeight,
         scrollX: 0,
         scrollY: 0,
-        removeContainer: true, // Clean up temporary containers
+        removeContainer: true,
+        foreignObjectRendering: true, // Better text rendering
         ignoreElements: (node) => {
           // Skip export button itself
           return node.classList?.contains('export-button') || false;
