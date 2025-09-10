@@ -401,8 +401,6 @@ Property Analysis Request:
 
     // Extract zipcode for Sarah Chen's local expertise - check multiple field names and improved regex
     const zipcode = data.zipcode || 
-                   data.zipCode || 
-                   data.zip ||
                    data.address?.match(/\b\d{5}(?:-\d{4})?\b/)?.[0]?.slice(0, 5) || 
                    'San Jose';
     
