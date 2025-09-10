@@ -98,9 +98,14 @@ export async function GET(request: NextRequest) {
 
     // Log error for monitoring (in production, use proper logging service)
     logger.error('Timeline GET error:', error);
+    console.error('Full timeline error details:', error);
     
     return NextResponse.json(
-      { success: false, error: 'Internal server error' }, 
+      { 
+        success: false, 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      }, 
       { status: 500 }
     );
   }
