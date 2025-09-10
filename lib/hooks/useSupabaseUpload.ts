@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/utils/logger';
 
 interface UploadProgress {
@@ -44,25 +45,17 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
         mimeType: file.type
       });
 
-      // Use fetch to upload via API route instead of direct client access
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', folder);
+      // Direct upload to Supabase Storage to bypass Vercel's 4.5MB limit
+      const { data, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
 
-      const response = await fetch('/api/upload/supabase', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
-      }
-
-      const result = await response.json();
-      
-      if (result.error) {
-        throw new Error(`Upload failed: ${result.error}`);
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
       // For now, we'll simulate progress since Supabase doesn't provide native progress tracking
@@ -92,9 +85,9 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
       simulateProgress();
 
       const uploadResult: SupabaseUploadResult = {
-        path: result.path,
-        fullPath: result.fullPath,
-        publicUrl: result.publicUrl
+        path: data.path,
+        fullPath: data.fullPath,
+        publicUrl: getPublicUrl(data.path)
       };
 
       setIsUploading(false);
@@ -102,7 +95,7 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
 
       logger.info('Supabase upload successful', {
         fileName: file.name,
-        path: result.path,
+        path: data.path,
         size: file.size
       });
 
