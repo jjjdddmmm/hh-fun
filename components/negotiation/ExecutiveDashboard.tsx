@@ -82,23 +82,94 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
 
   const getClaudeInsights = (view: string, report: any, summary: ExecutiveSummary, type: string) => {
     if (view === 'consolidated') {
+      // For consolidated view, show all issues from all reports
+      const allIssues: any[] = [];
+      
+      // If we have multiple reports, collect all issues
+      if (Array.isArray(report)) {
+        report.forEach(r => {
+          if (r?.detailedAnalysis?.issues) {
+            allIssues.push(...r.detailedAnalysis.issues);
+          }
+        });
+      } else if (report?.detailedAnalysis?.issues) {
+        allIssues.push(...report.detailedAnalysis.issues);
+      }
+
+      // Group issues by severity
+      const criticalIssues = allIssues.filter((issue: any) => issue.severity === 'critical');
+      const majorIssues = allIssues.filter((issue: any) => issue.severity === 'major');  
+      const minorIssues = allIssues.filter((issue: any) => issue.severity === 'minor');
+
+      const renderIssueList = (issues: any[], title: string, bgColor: string, textColor: string) => {
+        if (issues.length === 0) return null;
+        
+        return (
+          <div className={`${bgColor} rounded-lg p-4 border border-white/20`}>
+            <h4 className={`font-semibold ${textColor} mb-3 flex items-center gap-2`}>
+              {title === 'Critical Issues' && <AlertTriangle className="h-4 w-4" />}
+              {title === 'Major Issues' && <Shield className="h-4 w-4" />}
+              {title === 'Minor Issues' && <Clock className="h-4 w-4" />}
+              {title} ({issues.length})
+            </h4>
+            <div className="space-y-2">
+              {issues.map((issue: any, index: number) => (
+                <div key={index} className="flex justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {issue.category} - {issue.location}
+                    </p>
+                    <p className="text-xs text-white/70 line-clamp-2">
+                      {issue.description}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-white">
+                      {formatCurrency(issue.negotiationValue)}
+                    </p>
+                    <p className="text-xs text-white/60">
+                      {Math.round(issue.confidence * 100)}% conf.
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      };
+
       return (
-        <div className="space-y-4">
-          <p>
-            <strong>Here&apos;s what I think:</strong> After analyzing your inspection reports, I&apos;ve identified several strategic opportunities for negotiation. 
-            Your position is <strong>{summary.negotiationStrength.level.toLowerCase().replace('_', ' ')}</strong> with a {summary.negotiationStrength.score}% strength score.
-          </p>
-          <p>
-            The most compelling issues are your <strong>critical and major repairs</strong>, which account for {summary.breakdown.critical.percentage + summary.breakdown.major.percentage}% 
-            of the total negotiation value. These aren&apos;t cosmetic concerns - they represent legitimate property conditions that justify your ask.
-          </p>
-          <p>
-            <strong>My recommendation:</strong> Lead with your strongest issues first. Your {formatCurrency(summary.recommendedAsk)} ask has a {summary.successRate}% success rate based on 
-            current market conditions and the severity of discovered issues. This is a data-backed, defensible position.
-          </p>
-          <p>
-            The {summary.marketContext.marketType}&apos;s market conditions are working {summary.marketContext.marketType === 'buyer' ? 'in your favor' : summary.marketContext.marketType === 'seller' ? 'against you, so timing and approach will be critical' : 'neutrally, giving you standard negotiation leverage'}.
-          </p>
+        <div className="space-y-6">
+          <div>
+            <p className="mb-4">
+              <strong>Analysis Complete:</strong> I found {allIssues.length} total issues across your inspection reports. 
+              Your negotiation position is <strong>{summary.negotiationStrength.level.toLowerCase().replace('_', ' ')}</strong> 
+              with a {formatCurrency(summary.recommendedAsk)} recommended ask.
+            </p>
+            
+            <p className="mb-4">
+              <strong>Strategic Overview:</strong> Focus on critical and major issues first - they account for 
+              {Math.round(summary.breakdown.critical.percentage + summary.breakdown.major.percentage)}% of your total ask 
+              and represent legitimate concerns any buyer would raise.
+            </p>
+          </div>
+
+          {/* Show all issues organized by severity */}
+          <div className="space-y-4">
+            {renderIssueList(criticalIssues, 'Critical Issues', 'bg-red-900/30', 'text-red-300')}
+            {renderIssueList(majorIssues, 'Major Issues', 'bg-orange-900/30', 'text-orange-300')}
+            {renderIssueList(minorIssues, 'Minor Issues', 'bg-yellow-900/30', 'text-yellow-300')}
+          </div>
+
+          {allIssues.length > 0 && (
+            <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+              <p className="text-sm">
+                <strong>My recommendation:</strong> Lead with the {criticalIssues.length + majorIssues.length} high-priority issues above. 
+                These represent {formatCurrency(criticalIssues.reduce((sum: number, issue: any) => sum + issue.negotiationValue, 0) + majorIssues.reduce((sum: number, issue: any) => sum + issue.negotiationValue, 0))} in 
+                well-documented problems that require immediate attention.
+              </p>
+            </div>
+          )}
         </div>
       );
     } else {
@@ -137,48 +208,80 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
         );
       }
 
+      // Group issues by severity for single report view
+      const criticalIssues = specificIssues.filter((issue: any) => issue.severity === 'critical');
+      const majorIssues = specificIssues.filter((issue: any) => issue.severity === 'major');  
+      const minorIssues = specificIssues.filter((issue: any) => issue.severity === 'minor');
+
+      const renderIssueList = (issues: any[], title: string, bgColor: string, textColor: string) => {
+        if (issues.length === 0) return null;
+        
+        return (
+          <div className={`${bgColor} rounded-lg p-4 border border-white/20`}>
+            <h4 className={`font-semibold ${textColor} mb-3 flex items-center gap-2`}>
+              {title === 'Critical Issues' && <AlertTriangle className="h-4 w-4" />}
+              {title === 'Major Issues' && <Shield className="h-4 w-4" />}
+              {title === 'Minor Issues' && <Clock className="h-4 w-4" />}
+              {title} ({issues.length})
+            </h4>
+            <div className="space-y-2">
+              {issues.map((issue: any, index: number) => (
+                <div key={index} className="flex justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {issue.category} - {issue.location}
+                    </p>
+                    <p className="text-xs text-white/70 line-clamp-2">
+                      {issue.description}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-white">
+                      {formatCurrency(issue.negotiationValue)}
+                    </p>
+                    <p className="text-xs text-white/60">
+                      {Math.round(issue.confidence * 100)}% conf.
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      };
+
       return (
-        <div className="space-y-4">
-          <p>
-            <strong>Focusing on {reportName}:</strong> This {reportTypeLabel.toLowerCase()} inspection reveals specific issues that strengthen your negotiation position. 
-            I&apos;ve isolated the most impactful findings from this report.
-          </p>
-          
-          {mostExpensiveIssue && (
-            <p>
-              <strong>Top concern:</strong> The most significant issue I found is <strong>{mostExpensiveIssue.category}</strong> in the {mostExpensiveIssue.location}. 
-              {mostExpensiveIssue.reasoning && (
-                <span> My analysis: &quot;{mostExpensiveIssue.reasoning}&quot;</span>
-              )}
+        <div className="space-y-6">
+          <div>
+            <p className="mb-4">
+              <strong>Focusing on {reportName}:</strong> This {reportTypeLabel.toLowerCase()} inspection found {specificIssues.length} total issues. 
+              Here's the complete breakdown of problems that strengthen your negotiation position.
             </p>
+
+            {mostExpensiveIssue && (
+              <p className="mb-4">
+                <strong>Top concern:</strong> The most significant issue is <strong>{mostExpensiveIssue.category}</strong> in the {mostExpensiveIssue.location} 
+                ({formatCurrency(mostExpensiveIssue.negotiationValue)} value).
+              </p>
+            )}
+          </div>
+
+          {/* Show all issues organized by severity */}
+          <div className="space-y-4">
+            {renderIssueList(criticalIssues, 'Critical Issues', 'bg-red-900/30', 'text-red-300')}
+            {renderIssueList(majorIssues, 'Major Issues', 'bg-orange-900/30', 'text-orange-300')}
+            {renderIssueList(minorIssues, 'Minor Issues', 'bg-yellow-900/30', 'text-yellow-300')}
+          </div>
+
+          {specificIssues.length > 0 && (
+            <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+              <p className="text-sm">
+                <strong>Strategic recommendation:</strong> Focus on the {criticalIssues.length + majorIssues.length} high-priority issues above. 
+                These represent {formatCurrency(criticalIssues.reduce((sum: number, issue: any) => sum + issue.negotiationValue, 0) + majorIssues.reduce((sum: number, issue: any) => sum + issue.negotiationValue, 0))} in 
+                well-documented problems that any buyer would expect the seller to address.
+              </p>
+            </div>
           )}
-          
-          {highConfidenceIssues.length > 0 && (
-            <p>
-              <strong>High-confidence findings:</strong> I&apos;m particularly confident about {highConfidenceIssues.length} issue{highConfidenceIssues.length > 1 ? 's' : ''} that could be strong negotiation points:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                {highConfidenceIssues.slice(0, 3).map((issue: any, index: number) => (
-                  <li key={index} className="text-sm">
-                    <strong>{issue.category}</strong> - {formatCurrency(issue.negotiationValue)} ({Math.round(issue.confidence * 100)}% confidence)
-                  </li>
-                ))}
-              </ul>
-            </p>
-          )}
-          
-          <p>
-            <strong>Key insight:</strong> {type === 'home' ? 'Home inspections often uncover structural or system issues that sellers are motivated to address quickly.' : 
-            type === 'pool' ? 'Pool issues can be expensive and are often deal-breakers for other buyers, giving you leverage.' :
-            type === 'chimney' ? 'Chimney and fireplace issues represent safety concerns that sellers typically want to resolve.' :
-            type === 'sewer' ? 'Sewer line problems are costly, urgent, and often not visible to other potential buyers.' :
-            'These specialized inspection findings often reveal issues that other buyers might miss.'}
-          </p>
-          
-          <p>
-            <strong>My strategic recommendation:</strong> Focus your negotiation on the high-confidence issues I&apos;ve identified. 
-            These represent {formatCurrency(highConfidenceIssues.reduce((sum: number, issue: any) => sum + issue.negotiationValue, 0))} in 
-            well-documented problems that any competent contractor would need to address.
-          </p>
         </div>
       );
     }
