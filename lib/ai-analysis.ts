@@ -203,7 +203,7 @@ export class PropertyAIAnalyzer {
       
       // Market context indicators
       const marketIndicators = [];
-      if (propertyData.daysOnZillow > 60) marketIndicators.push('Extended DOM suggests negotiation opportunity');
+      if ((propertyData.daysOnMarket || 0) > 60) marketIndicators.push('Extended DOM suggests negotiation opportunity');
       if (pricePerSqft > 400) marketIndicators.push('Premium price point market');
       if (propertyAge < 10) marketIndicators.push('Modern construction era');
       if (propertyAge > 50) marketIndicators.push('Established neighborhood character');
