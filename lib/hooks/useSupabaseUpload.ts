@@ -32,23 +32,35 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
     setProgress({ percent: 0, loaded: 0, total: 0 });
 
     try {
-      logger.info('Starting server-side Supabase upload', {
+      // Create file path: userId/folder/timestamp-filename
+      const timestamp = new Date().getTime();
+      const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); // Sanitize filename
+      const folder = options.folder || 'documents';
+      const filePath = `${userId}/${folder}/${timestamp}-${fileName}`;
+
+      logger.info('Starting direct Supabase upload', {
         fileName: file.name,
         fileSize: file.size,
-        mimeType: file.type,
-        folder: options.folder
+        filePath,
+        mimeType: file.type
       });
 
-      // Create form data for API upload
-      const formData = new FormData();
-      formData.append('file', file);
-      if (options.folder) {
-        formData.append('folder', options.folder);
+      // Direct upload to Supabase Storage (RLS disabled for storage.objects)
+      const { data, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      // Simulate progress during upload
+      // Simulate progress since Supabase doesn't provide native progress tracking
       const simulateProgress = () => {
-        const steps = [20, 40, 60, 80, 95];
+        const steps = [20, 40, 60, 80, 95, 100];
         let currentStep = 0;
         
         const interval = setInterval(() => {
@@ -66,53 +78,23 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
           } else {
             clearInterval(interval);
           }
-        }, 150);
-
-        return interval;
+        }, 100);
       };
 
-      const progressInterval = simulateProgress();
-
-      // Upload via API route (uses service role key, bypasses RLS)
-      const response = await fetch('/api/storage/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      clearInterval(progressInterval);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Upload failed with status ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error || 'Upload failed');
-      }
-
-      // Final progress update
-      const finalProgress = {
-        percent: 100,
-        loaded: file.size,
-        total: file.size
-      };
-      setProgress(finalProgress);
-      options.onProgress?.(finalProgress);
+      simulateProgress();
 
       const uploadResult: SupabaseUploadResult = {
-        path: result.data.path,
-        fullPath: result.data.fullPath,
-        publicUrl: result.data.publicUrl
+        path: data.path,
+        fullPath: data.fullPath,
+        publicUrl: getPublicUrl(data.path)
       };
 
       setIsUploading(false);
       options.onSuccess?.(uploadResult);
 
-      logger.info('Server-side Supabase upload successful', {
+      logger.info('Direct Supabase upload successful', {
         fileName: file.name,
-        path: result.data.path,
+        path: data.path,
         size: file.size
       });
 
