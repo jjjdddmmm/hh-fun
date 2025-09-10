@@ -337,7 +337,7 @@ export function ExecutiveDashboard({ summary, reportType, selectedView = 'consol
           <div>
             <p className="mb-4">
               <strong>Focusing on {reportName}:</strong> This {reportTypeLabel.toLowerCase()} inspection found {specificIssues.length} total issues. 
-              Here's the complete breakdown of problems that strengthen your negotiation position.
+              Here&apos;s the complete breakdown of problems that strengthen your negotiation position.
             </p>
 
             {mostExpensiveIssue && (
