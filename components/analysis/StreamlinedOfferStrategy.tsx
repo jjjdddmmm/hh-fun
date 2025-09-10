@@ -131,13 +131,10 @@ export function StreamlinedOfferStrategy({ property }: StreamlinedOfferStrategyP
                         {(() => {
                           // Debug: log the actual days on market value
                           console.log('🔍 Days on market debug:', {
-                            daysOnMarket: property.data?.daysOnMarket,
-                            daysOnZillow: property.data?.daysOnZillow,
-                            dom: property.data?.dom,
-                            marketTime: property.data?.marketTime
+                            daysOnMarket: property.data?.daysOnMarket
                           });
                           
-                          const days = property.data?.daysOnMarket || property.data?.daysOnZillow || property.data?.dom || property.data?.marketTime || 0;
+                          const days = property.data?.daysOnMarket || 0;
                           
                           return days > 120 ? `After ${days} days, sellers are highly motivated - strong negotiation position for buyers` :
                                  days > 90 ? `${days} days suggests seller urgency - opportunity for 8-12% discount` :
