@@ -119,37 +119,44 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
   };
 
   const getPublicUrl = (path: string): string => {
-    const { data } = supabaseAdmin.storage
-      .from('documents')
-      .getPublicUrl(path);
-    
-    return data.publicUrl;
+    // Return the standard Supabase public URL format
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return `${supabaseUrl}/storage/v1/object/public/documents/${path}`;
   };
 
   const getSignedUrl = async (path: string, expiresIn: number = 3600): Promise<string | null> => {
-    const { data, error } = await supabaseAdmin.storage
-      .from('documents')
-      .createSignedUrl(path, expiresIn);
-    
-    if (error) {
+    // For signed URLs, we'd need to call an API route since this requires server-side access
+    try {
+      const response = await fetch('/api/storage/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, expiresIn })
+      });
+      
+      if (!response.ok) return null;
+      
+      const result = await response.json();
+      return result.signedUrl;
+    } catch (error) {
       logger.error('Error creating signed URL', error);
       return null;
     }
-    
-    return data.signedUrl;
   };
 
   const deleteFile = async (path: string): Promise<boolean> => {
-    const { error } = await supabaseAdmin.storage
-      .from('documents')
-      .remove([path]);
-    
-    if (error) {
+    // For file deletion, we'd need to call an API route since this requires server-side access
+    try {
+      const response = await fetch('/api/storage/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+      });
+      
+      return response.ok;
+    } catch (error) {
       logger.error('Error deleting file', error);
       return false;
     }
-    
-    return true;
   };
 
   const reset = () => {
