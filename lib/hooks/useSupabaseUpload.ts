@@ -32,36 +32,23 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
     setProgress({ percent: 0, loaded: 0, total: 0 });
 
     try {
-      // Create file path: userId/folder/timestamp-filename
-      const timestamp = new Date().getTime();
-      const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); // Sanitize filename
-      const folder = options.folder || 'documents';
-      const filePath = `${userId}/${folder}/${timestamp}-${fileName}`;
-
-      logger.info('Starting Supabase upload', {
+      logger.info('Starting server-side Supabase upload', {
         fileName: file.name,
         fileSize: file.size,
-        filePath,
-        mimeType: file.type
+        mimeType: file.type,
+        folder: options.folder
       });
 
-      // Direct upload to Supabase Storage to bypass Vercel's 4.5MB limit
-      const { data, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
-        });
-
-      if (uploadError) {
-        throw new Error(`Upload failed: ${uploadError.message}`);
+      // Create form data for API upload
+      const formData = new FormData();
+      formData.append('file', file);
+      if (options.folder) {
+        formData.append('folder', options.folder);
       }
 
-      // For now, we'll simulate progress since Supabase doesn't provide native progress tracking
-      // In a real implementation, you might want to use chunked uploads for large files
+      // Simulate progress during upload
       const simulateProgress = () => {
-        const steps = [20, 40, 60, 80, 95, 100];
+        const steps = [20, 40, 60, 80, 95];
         let currentStep = 0;
         
         const interval = setInterval(() => {
@@ -79,23 +66,53 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
           } else {
             clearInterval(interval);
           }
-        }, 100);
+        }, 150);
+
+        return interval;
       };
 
-      simulateProgress();
+      const progressInterval = simulateProgress();
+
+      // Upload via API route (uses service role key, bypasses RLS)
+      const response = await fetch('/api/storage/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      clearInterval(progressInterval);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      // Final progress update
+      const finalProgress = {
+        percent: 100,
+        loaded: file.size,
+        total: file.size
+      };
+      setProgress(finalProgress);
+      options.onProgress?.(finalProgress);
 
       const uploadResult: SupabaseUploadResult = {
-        path: data.path,
-        fullPath: data.fullPath,
-        publicUrl: getPublicUrl(data.path)
+        path: result.data.path,
+        fullPath: result.data.fullPath,
+        publicUrl: result.data.publicUrl
       };
 
       setIsUploading(false);
       options.onSuccess?.(uploadResult);
 
-      logger.info('Supabase upload successful', {
+      logger.info('Server-side Supabase upload successful', {
         fileName: file.name,
-        path: data.path,
+        path: result.data.path,
         size: file.size
       });
 
