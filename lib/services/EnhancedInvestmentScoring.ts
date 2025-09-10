@@ -527,9 +527,9 @@ export class EnhancedInvestmentScoringService {
     }
     
     // Unusually high bedroom/bathroom count for single family (potential conversion)
-    if (propertyData.propertyType?.toLowerCase().includes('single') && 
-        propertyData.bedrooms && propertyData.bedrooms >= 5 && 
-        propertyData.bathrooms && propertyData.bathrooms >= 3) {
+    if (propertyType.includes('single') && 
+        (propertyData as any).bedrooms && (propertyData as any).bedrooms >= 5 && 
+        (propertyData as any).bathrooms && (propertyData as any).bathrooms >= 3) {
       return true;
     }
     
