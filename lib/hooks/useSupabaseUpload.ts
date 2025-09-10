@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabaseAdmin } from '@/lib/supabase';
 import { logger } from '@/lib/utils/logger';
 
 interface UploadProgress {
@@ -45,17 +44,25 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
         mimeType: file.type
       });
 
-      // Upload file to Supabase Storage
-      const { data, error: uploadError } = await supabaseAdmin.storage
-        .from('documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
-        });
+      // Use fetch to upload via API route instead of direct client access
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', folder);
 
-      if (uploadError) {
-        throw new Error(`Upload failed: ${uploadError.message}`);
+      const response = await fetch('/api/upload/supabase', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(`Upload failed: ${result.error}`);
       }
 
       // For now, we'll simulate progress since Supabase doesn't provide native progress tracking
@@ -84,21 +91,22 @@ export function useSupabaseUpload(options: UseSupabaseUploadOptions = {}) {
 
       simulateProgress();
 
-      const result: SupabaseUploadResult = {
-        path: data.path,
-        fullPath: data.fullPath
+      const uploadResult: SupabaseUploadResult = {
+        path: result.path,
+        fullPath: result.fullPath,
+        publicUrl: result.publicUrl
       };
 
       setIsUploading(false);
-      options.onSuccess?.(result);
+      options.onSuccess?.(uploadResult);
 
       logger.info('Supabase upload successful', {
         fileName: file.name,
-        path: data.path,
+        path: result.path,
         size: file.size
       });
 
-      return result;
+      return uploadResult;
 
     } catch (err) {
       const uploadError = err instanceof Error ? err : new Error('Upload failed');
