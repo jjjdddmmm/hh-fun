@@ -49,6 +49,14 @@ export function NegotiationStrategy({
 
   // Transform raw issues into prioritized negotiation data
   useEffect(() => {
+    console.log('NegotiationStrategy: reports data', {
+      reportsLength: reports.length,
+      reports: reports,
+      firstReport: reports[0],
+      hasDetailedAnalysis: reports[0]?.detailedAnalysis,
+      hasIssues: reports[0]?.issues
+    });
+
     const allRawIssues = reports.flatMap(r => r.issues || []);
     
     if (allRawIssues.length > 0) {
@@ -121,7 +129,7 @@ export function NegotiationStrategy({
         summary={executiveSummary} 
         reportType={reportType}
         selectedView="consolidated"
-        currentReport={reports}
+        currentReport={reports.filter(r => r.analysisStatus === 'complete')}
       />
 
       {/* Feature 2: Issue Prioritization Matrix */}
