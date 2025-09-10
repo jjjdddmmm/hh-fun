@@ -471,6 +471,8 @@ export class TimelineService {
       }
 
       return updatedStep;
+    }, {
+      timeout: 15000 // Increase timeout to 15 seconds
     });
 
     // Update timeline progress
